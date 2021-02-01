@@ -1,39 +1,39 @@
 """Module to read, check and write a HDSR meetpuntconfiguratie."""
-__title__ = "histTags2mpt"
-__description__ = "to evaluate a HDSR FEWS-config with a csv with CAW histTags"
-__version__ = "0.1.0"
-__author__ = "Daniel Tollenaar"
-__author_email__ = "daniel@d2hydro.nl"
-__license__ = "MIT License"
-
-from meetpuntconfig.fews_utilities import FewsConfig, xml_to_dict
+from meetpuntconfig.fews_utilities import FewsConfig
+from meetpuntconfig.fews_utilities import xml_to_dict
+from openpyxl import load_workbook
+from openpyxl.styles import Font
+from openpyxl.styles import PatternFill
 from pathlib import Path
+from shapely.geometry import Point
+from typing import List
+from typing import Tuple
+
 import json
+import logging
 import numpy as np
 import pandas as pd
-import logging
-from openpyxl import load_workbook
-from openpyxl.styles import Font, PatternFill
-import os
-import sys
 import re
-from shapely.geometry import Point
+import sys
+
+
+logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
 
+# def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
 def idmap2tags(row, idmap):
     """Add FEWS-locationIds to hist_tags in df.apply() method."""
+    # TODO: fix typing args
+    # TODO: return type is np.NaN or a List[str]?
     exloc, expar = row["serie"].split("_", 1)
     fews_locs = [
         col["internalLocation"]
         for col in idmap
         if col["externalLocation"] == exloc and col["externalParameter"] == expar
     ]
-    if len(fews_locs) == 0:
-        fews_locs = np.NaN
-
-    return fews_locs
+    return np.NaN if fews_locs == 0 else fews_locs
 
 
 def get_validation_attribs(validation_rules, int_pars=None, loc_type=None):
@@ -59,20 +59,16 @@ def get_validation_attribs(validation_rules, int_pars=None, loc_type=None):
     return result
 
 
-def update_hlocs(row, h_locs, mpt_df):
+def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
     loc_id = row.name
     start_date = row["STARTDATE"]
     end_date = row["ENDDATE"]
 
     if loc_id in h_locs:
-        start_date = (
-            mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["STARTDATE"].dropna().min()
-        )
+        start_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["STARTDATE"].dropna().min()
 
-        end_date = (
-            mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["ENDDATE"].dropna().max()
-        )
+        end_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["ENDDATE"].dropna().max()
 
     return start_date, end_date
 
@@ -120,7 +116,7 @@ def _sort_validation_attribs(rule):
 class MeetpuntConfig:
     """Meetpuntconfig class."""
 
-    def __init__(self, config_path, log_level="INFO"):
+    def __init__(self):
         self.paths = dict()
         self.fews_config = None
         self.location_sets = dict()
@@ -133,29 +129,25 @@ class MeetpuntConfig:
         self.consistency = None
         self.parameter_mapping = None
         self.validation_rules = None
-        self.logging = logging
         self.hoofdloc = None
         self.subloc = None
         self.waterstandloc = None
         self.mswloc = None
         self.mpt_hist_tags = None
         self._locs_mapping = dict(
-            hoofdlocaties="hoofdloc",
-            sublocaties="subloc",
-            waterstandlocaties="waterstandloc",
-            mswlocaties="mswloc",
+            hoofdlocaties="hoofdloc", sublocaties="subloc", waterstandlocaties="waterstandloc", mswlocaties="mswloc",
         )
-        self.logging.basicConfig(level=os.environ.get("LOGLEVEL", log_level))
+        # initiate meetpunt_config
+        config_json_path = Path("./config/config_xxx.json")
+        self._read_config(config_json_path)
 
-        self._read_config(Path(config_path))
-
-    def _read_config(self, config_json):
+    def _read_config(self, config_json: Path) -> None:
         if config_json.exists():
             with open(config_json) as src:
                 config = json.load(src)
                 workdir = Path(config_json).parent
         else:
-            self.logging.error(f"{config_json} does not exist")
+            logger.error(f"{config_json} does not exist")
             sys.exit()
 
         # add paths to config
@@ -170,13 +162,7 @@ class MeetpuntConfig:
                     logging.warning(f"{path} does not exist. Folder will be created")
                     path.mkdir()
                 else:
-                    self.logging.error(
-                        (
-                            f"{path} does not exist. "
-                            f"Please define existing file "
-                            f"in {config_json}."
-                        )
-                    )
+                    logger.error(f"{path} does not exist. Please define existing file in {config_json}.")
                     sys.exit()
 
         # add fews_config
@@ -191,14 +177,9 @@ class MeetpuntConfig:
                         "gdf": self.fews_config.get_locations(value),
                     }
                 else:
-                    self.logging.error((f"{key} not a csvFile location-set"))
+                    logger.error(f"{key} not a csvFile location-set")
             else:
-                self.logging.error(
-                    (
-                        f"locationSet {key} specified in {config_json} "
-                        f"not in fews-config"
-                    )
-                )
+                logger.error(f"locationSet {key} specified in {config_json} not in fews-config")
 
         # add rest of config
         self.idmap_files = config["idmap_files"]
@@ -209,90 +190,62 @@ class MeetpuntConfig:
         self.fixed_sheets = config["fixed_sheets"]
 
         # read consistency df from input-excel
-        self.consistency = pd.read_excel(
-            self.paths["consistency_xlsx"], sheet_name=None, engine="openpyxl"
-        )
+        self.consistency = pd.read_excel(self.paths["consistency_xlsx"], sheet_name=None, engine="openpyxl")
 
-        self.consistency = {
-            key: value
-            for key, value in self.consistency.items()
-            if key in self.fixed_sheets
-        }
+        self.consistency = {key: value for key, value in self.consistency.items() if key in self.fixed_sheets}
 
-    def _read_hist_tags(self, force=False):
-        if (not self.hist_tags) or force:
+    def _read_hist_tags(self, force: bool = False):
+        if not self.hist_tags or force:
             if "hist_tags_csv" in self.paths.keys():
-                self.logging.info(f"reading histags: {self.paths['hist_tags_csv']}")
+                logger.info(f"reading histags: {self.paths['hist_tags_csv']}")
                 dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
                 self.hist_tags = pd.read_csv(
-                    self.paths["hist_tags_csv"],
-                    parse_dates=dtype_cols,
-                    sep=None,
-                    engine="python",
+                    self.paths["hist_tags_csv"], parse_dates=dtype_cols, sep=None, engine="python",
                 )
 
             for col in dtype_cols:
                 if not pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
-                    self.logging.error(
+                    logger.error(
                         (
-                            f"col '{col}' in '{self.paths['hist_tags_csv']} "
-                            "can't be converted to np.datetime64 format. "
+                            f"col '{col}' in {self.paths['hist_tags_csv']} "
+                            "can not be converted to np.datetime64 format. "
                             "Check if values are dates."
                         )
                     )
 
                     sys.exit()
 
-    def _read_hist_tags_ignore(self, force=False):
+    def _read_hist_tags_ignore(self, force: bool = False):
         if (not self.hist_tags_ignore) or force:
             if "mpt_ignore_csv" in self.paths.keys():
-                self.logging.info(
-                    f"Reading hist tags to be ingored from "
-                    f"{self.paths['mpt_ignore_csv']}"
-                )
-
-                self.hist_tags_ignore = pd.read_csv(
-                    self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python"
-                )
+                logger.info(f"Reading hist tags to be ignored from {self.paths['mpt_ignore_csv']}")
+                self.hist_tags_ignore = pd.read_csv(self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python")
 
             elif "histTag_ignore" in self.consistency.keys():
                 self.hist_tags_ignore = self.consistency["histTag_ignore"]
-                self.logging.info(
-                    f"Reading hist tags to be ignored from "
-                    f"{self.paths['consistency_xlsx']}"
-                )
+                logger.info(f"Reading hist tags to be ignored from {self.paths['consistency_xlsx']}")
 
             else:
-                self.logging.error(
+                logger.error(
                     (
                         f"specify a histTag_ignore worksheet in "
                         f"{self.paths['consistency_xlsx']} or a csv-file "
                         "in the config-json"
                     )
                 )
-
                 sys.exit()
-            self.hist_tags_ignore["UNKNOWN_SERIE"] = self.hist_tags_ignore[
-                "UNKNOWN_SERIE"
-            ].str.replace("#", "")
+            self.hist_tags_ignore["UNKNOWN_SERIE"] = self.hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
 
     def _get_idmaps(self, idmap_files=None):
         if not idmap_files:
             idmap_files = self.idmap_files
-        idmaps = [
-            xml_to_dict(self.fews_config.IdMapFiles[idmap])["idMap"]["map"]
-            for idmap in idmap_files
-        ]
-
+        idmaps = [xml_to_dict(self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
         return [item for sublist in idmaps for item in sublist]
 
     def _read_locs(self):
         self.hoofdloc = self.fews_config.get_locations("OPVLWATER_HOOFDLOC")
         self.subloc = self.fews_config.get_locations("OPVLWATER_SUBLOC")
-        self.waterstandloc = self.fews_config.get_locations(
-            "OPVLWATER_WATERSTANDEN_AUTO"
-        )
-
+        self.waterstandloc = self.fews_config.get_locations("OPVLWATER_WATERSTANDEN_AUTO")
         self.mswloc = self.fews_config.get_locations("MSW_STATIONS")
 
     def _update_staff_gauge(self, row):
@@ -306,29 +259,24 @@ class MeetpuntConfig:
 
         return result["HBOV"], result["HBEN"]
 
-    def hist_tags_to_mpt(self, sheet_name="mpt"):
+    def hist_tags_to_mpt(self, sheet_name: str = "mpt"):
         """Convert histTag-ids to mpt-ids."""
+
         if self.hist_tags is None:
             self._read_hist_tags()
 
         idmaps = self._get_idmaps()
 
         hist_tags_df = self.hist_tags.copy()
-        hist_tags_df["fews_locid"] = hist_tags_df.apply(
-            idmap2tags, args=[idmaps], axis=1
-        )
+        hist_tags_df["fews_locid"] = hist_tags_df.apply(idmap2tags, args=[idmaps], axis=1)
 
         hist_tags_df = hist_tags_df[hist_tags_df["fews_locid"].notna()]
         mpt_hist_tags_df = hist_tags_df.explode("fews_locid").reset_index(drop=True)
         self.mpt_hist_tags = mpt_hist_tags_df
         mpt_df = pd.concat(
             [
-                mpt_hist_tags_df.groupby(["fews_locid"], sort=False)[
-                    "total_min_start_dt"
-                ].min(),
-                mpt_hist_tags_df.groupby(["fews_locid"], sort=False)[
-                    "total_max_end_dt"
-                ].max(),
+                mpt_hist_tags_df.groupby(["fews_locid"], sort=False)["total_min_start_dt"].min(),
+                mpt_hist_tags_df.groupby(["fews_locid"], sort=False)["total_max_end_dt"].max(),
             ],
             axis=1,
         )
@@ -353,18 +301,13 @@ class MeetpuntConfig:
             update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
         mpt_df = mpt_df.sort_index()
-        self.consistency["mpt"] = mpt_df
+        self.consistency[sheet_name] = mpt_df
 
-    def check_idmap_sections(self, sheet_name="idmap section error"):
+    def check_idmap_sections(self, sheet_name: str = "idmap section error") -> None:
         """Check if all KW/OW locations are in the correct section."""
+        logger.info(f"start {self.check_idmap_sections.__name__}")
         self.consistency[sheet_name] = pd.DataFrame(
-            columns=[
-                "bestand",
-                "externalLocation",
-                "externalParameter",
-                "internalLocation",
-                "internalParameter",
-            ]
+            columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
 
         for idmap, subsecs in self.idmap_sections.items():
@@ -377,27 +320,15 @@ class MeetpuntConfig:
                     if section_type == "MSWLOCATIES":
                         prefix = "(OW|KW)"
                     pattern = fr"{prefix}\d{{6}}$"
-                    idmapping = xml_to_dict(
-                        self.fews_config.IdMapFiles[idmap], **section
-                    )["idMap"]["map"]
+                    idmapping = xml_to_dict(self.fews_config.IdMapFiles[idmap], **section)["idMap"]["map"]
 
                     idmap_wrong_section = [
-                        idmap
-                        for idmap in idmapping
-                        if not bool(re.match(pattern, idmap["internalLocation"]))
+                        idmap for idmap in idmapping if not bool(re.match(pattern, idmap["internalLocation"]))
                     ]
                     if idmap_wrong_section:
-                        section_start = (
-                            section["section_start"]
-                            if "section_start" in section.keys()
-                            else ""
-                        )
-                        section_end = (
-                            section["section_end"]
-                            if "section_end" in section.keys()
-                            else ""
-                        )
-                        self.logging.warning(
+                        section_start = section["section_start"] if "section_start" in section.keys() else ""
+                        section_end = section["section_end"] if "section_end" in section.keys() else ""
+                        logger.warning(
                             (
                                 f"{len(idmap_wrong_section)} "
                                 f"internalLocations not {prefix}XXXXXX "
@@ -409,12 +340,11 @@ class MeetpuntConfig:
                         df = pd.DataFrame(idmap_wrong_section)
                         df["sectie"] = section_start
                         df["bestand"] = idmap
-                        self.consistency[sheet_name] = pd.concat(
-                            [self.consistency[sheet_name], df], axis=0
-                        )
+                        self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
 
-    def check_missing_hist_tags(self, sheet_name="histTags noMatch"):
+    def check_missing_hist_tags(self, sheet_name: str = "histTags noMatch") -> None:
         """Check if hisTags are missing in config."""
+        logger.info(f"start {self.check_missing_hist_tags.__name__}")
         if self.hist_tags_ignore is None:
             self._read_hist_tags_ignore()
 
@@ -425,9 +355,7 @@ class MeetpuntConfig:
 
         idmaps = self._get_idmaps()
 
-        hist_tags_df["fews_locid"] = self.hist_tags.apply(
-            idmap2tags, args=[idmaps], axis=1
-        )
+        hist_tags_df["fews_locid"] = self.hist_tags.apply(idmap2tags, args=[idmaps], axis=1)
 
         hist_tags_no_match_df = hist_tags_df[hist_tags_df["fews_locid"].isna()]
         hist_tags_no_match_df = hist_tags_no_match_df[
@@ -440,123 +368,81 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = hist_tags_no_match_df
 
         if not self.consistency[sheet_name].empty:
-            self.logging.warning(
-                "{} histTags not in idMaps".format(len(self.consistency[sheet_name]))
-            )
+            logger.warning("{} histTags not in idMaps".format(len(self.consistency[sheet_name])))
 
         else:
-            self.logging.info("all histTags in idMaps")
+            logger.info("all histTags in idMaps")
 
     def check_ignored_hist_tags(
-        self, sheet_name="histTags ignore match", idmap_files=["IdOPVLWATER"]
-    ):
+        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"]
+    ) -> None:
         """Check if ignored histTags do match with idmap."""
+        # TODO: 'idmap_files=["IdOPVLWATER"]' is a anti-pattern!
+        #  we should avoid mutable objects (e.g. list) as arguments
+        #  more info: https://stackoverflow.com/questions/1132941/least-astonishment-and-the-mutable-default-argument
+        logger.info(f"start {self.check_ignored_hist_tags.__name__}")
+
         if self.hist_tags_ignore is None:
             self._read_hist_tags_ignore()
         if self.hist_tags is None:
             self._read_hist_tags()
         hist_tags_opvlwater_df = self.hist_tags.copy()
-
         idmaps = self._get_idmaps(idmap_files=idmap_files)
-
-        hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(
-            idmap2tags, args=[idmaps], axis=1
-        )
-
-        hist_tags_opvlwater_df = hist_tags_opvlwater_df[
-            hist_tags_opvlwater_df["fews_locid"].notna()
-        ]
-
+        hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(idmap2tags, args=[idmaps], axis=1)
+        hist_tags_opvlwater_df = hist_tags_opvlwater_df[hist_tags_opvlwater_df["fews_locid"].notna()]
         hist_tag_ignore_match_df = self.hist_tags_ignore[
             self.hist_tags_ignore["UNKNOWN_SERIE"].isin(hist_tags_opvlwater_df["serie"])
         ]
-
         hist_tag_ignore_match_df = hist_tag_ignore_match_df.set_index("UNKNOWN_SERIE")
         self.consistency[sheet_name] = hist_tag_ignore_match_df
 
         if not self.consistency[sheet_name].empty:
-            self.logging.warning(
-                (
-                    f"{len(self.consistency[sheet_name])} "
-                    r"histTags should not be in histTags ignore."
-                )
-            )
-
+            logger.warning(f"{len(self.consistency[sheet_name])} histTags should not be in histTags ignore")
         else:
-            self.logging.info("hisTags ignore list consistent with idmaps")
+            logger.info("hisTags ignore list consistent with idmaps")
 
-    def check_double_idmaps(self, sheet_name="idmaps double"):
+    def check_double_idmaps(self, sheet_name: str = "idmaps double") -> None:
         """Check if identical idmaps are doubled."""
+        logger.info(f"start {self.check_double_idmaps.__name__}")
         self.consistency[sheet_name] = pd.DataFrame(
-            columns=[
-                "bestand",
-                "externalLocation",
-                "externalParameter",
-                "internalLocation",
-                "internalParameter",
-            ]
+            columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
         for idmap_file in self.idmap_files:
             idmaps = self._get_idmaps(idmap_files=[idmap_file])
 
             idmap_doubles = [idmap for idmap in idmaps if idmaps.count(idmap) > 1]
             if len(idmap_doubles) > 0:
-                idmap_doubles = list(
-                    {
-                        idmap["externalLocation"]: idmap for idmap in idmap_doubles
-                    }.values()
-                )
+                idmap_doubles = list({idmap["externalLocation"]: idmap for idmap in idmap_doubles}.values())
                 df = pd.DataFrame(
                     idmap_doubles,
-                    columns=[
-                        "internalLocation",
-                        "externalLocation",
-                        "internalParameter",
-                        "externalParameter",
-                    ],
+                    columns=["internalLocation", "externalLocation", "internalParameter", "externalParameter"],
                 )
 
                 df["bestand"] = idmap_file
-                self.consistency[sheet_name] = pd.concat(
-                    [self.consistency[sheet_name], df], axis=0
-                )
-                self.logging.warning(
-                    "{} double idmap(s) in {}".format(len(idmap_doubles), idmap_file)
-                )
+                self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
+                logger.warning(f"{len(idmap_doubles)} double idmap(s) in {idmap_file}")
             else:
-                self.logging.info("No double idmaps in {}".format(idmap_file))
+                logger.info(f"No double idmaps in {idmap_file}")
 
-    def check_missing_pars(self, sheet_name="pars missing"):
+    def check_missing_pars(self, sheet_name: str = "pars missing") -> None:
         """Check if internal parameters in idmaps are missing in paramters.xml."""
-        config_parameters = list(
-            self.fews_config.get_parameters(dict_keys="parameters").keys()
-        )
+        logger.info(f"start {self.check_missing_pars.__name__}")
+        config_parameters = list(self.fews_config.get_parameters(dict_keys="parameters").keys())
 
         idmaps = self._get_idmaps()
         id_map_parameters = [id_map["internalParameter"] for id_map in idmaps]
-        params_missing = [
-            parameter
-            for parameter in id_map_parameters
-            if parameter not in config_parameters
-        ]
+        params_missing = [parameter for parameter in id_map_parameters if parameter not in config_parameters]
 
         if len(params_missing) == 0:
-            self.logging.info("all internal paramters are in config")
+            logger.info("all internal paramters are in config")
         else:
-            self.logging.warning(
-                "{} parameter(s) in idMaps are missing in config".format(
-                    len(params_missing)
-                )
-            )
+            logger.warning(f"{len(params_missing)} parameter(s) in idMaps are missing in config")
 
             self.consistency[sheet_name] = pd.DataFrame({"parameters": params_missing})
 
-    #            self.consistency[sheet_name] = self.consistency[sheet_name].set_index(
-    #               "parameters"
-    #            )
-
-    def check_hloc_consistency(self, sheet_name="hloc error"):
+    def check_hloc_consistency(self, sheet_name: str = "hloc error") -> None:
         """Check if all sublocs of same hloc have consistent parameters."""
+        logger.info(f"start {self.check_hloc_consistency.__name__}")
         if "xy_ignore" in self.consistency.keys():
             xy_ignore_df = self.consistency["xy_ignore"]
         else:
@@ -591,17 +477,11 @@ class MeetpuntConfig:
 
         for loc_id, gdf in grouper:
             caw_code = loc_id[2:-2]
-            errors = dict.fromkeys(
-                ["LOC_NAME", "GEOMETRY", "SYSTEEM", "RAYON", "KOMPAS"], False
-            )
+            errors = dict.fromkeys(["LOC_NAME", "GEOMETRY", "SYSTEEM", "RAYON", "KOMPAS"], False)
             fields = dict.fromkeys(par_dict.keys(), None)
             fields["LOC_ID"] = loc_id
 
-            loc_names = np.unique(
-                gdf["LOC_NAME"]
-                .str.extract(pat=f"([A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*)")
-                .values
-            )
+            loc_names = np.unique(gdf["LOC_NAME"].str.extract(pat=f"([A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*)").values)
 
             if not len(loc_names) == 1:
                 errors["LOC_NAME"] = ",".join(loc_names)
@@ -618,9 +498,7 @@ class MeetpuntConfig:
             else:
                 geoms = gdf["geometry"].unique()
                 if not len(geoms) == 1:
-                    errors["GEOMETRY"] = ",".join(
-                        [f"({geom.x} {geom.y})" for geom in geoms]
-                    )
+                    errors["GEOMETRY"] = ",".join([f"({geom.x} {geom.y})" for geom in geoms])
 
                 else:
                     fields["X"] = geoms[0].x
@@ -650,39 +528,25 @@ class MeetpuntConfig:
                     hloc_errors[key].append(value)
         self.consistency[sheet_name] = pd.DataFrame(hloc_errors)
         if self.consistency[sheet_name].empty:
-            self.logging.info("no consistency errors. Hlocs rewritten from sublocs")
+            logger.info("no consistency errors. Hlocs rewritten from sublocs")
             par_gdf = pd.DataFrame(par_dict)
             columns = list(self.hoofdloc.columns)
-            drop_cols = [
-                col
-                for col in self.hoofdloc.columns
-                if (col in par_gdf.columns) & (not col == "LOC_ID")
-            ]
+            drop_cols = [col for col in self.hoofdloc.columns if (col in par_gdf.columns) & (not col == "LOC_ID")]
 
             drop_cols = drop_cols + ["geometry"]
             self.hoofdloc = self.hoofdloc.drop(drop_cols, axis=1)
             self.hoofdloc = par_gdf.merge(self.hoofdloc, on="LOC_ID")
-            self.hoofdloc["geometry"] = self.hoofdloc.apply(
-                (lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1
-            )
+            self.hoofdloc["geometry"] = self.hoofdloc.apply((lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1)
             self.hoofdloc = self.hoofdloc[columns]
         else:
-            self.logging.warning(
-                "{} Errors in consistency hlocs".format(
-                    len(self.consistency[sheet_name])
-                )
-            )
-            self.logging.warning(
-                (
-                    "Hoofdlocaties will only be re-written "
-                    "when consistency errors are resolved"
-                )
-            )
+            logger.warning("{} Errors in consistency hlocs".format(len(self.consistency[sheet_name])))
+            logger.warning(("Hoofdlocaties will only be re-written " "when consistency errors are resolved"))
 
     def check_expar_errors_intloc_missing(
-        self, expar_sheet="exPar error", intloc_sheet="intLoc missing"
-    ):
+        self, expar_sheet: str = "exPar error", intloc_sheet: str = "intLoc missing"
+    ) -> None:
         """Check on wrong external parameters and missing internal locations."""
+        logger.info(f"start {self.check_expar_errors_intloc_missing.__name__}")
         expars_allowed = self.external_parameters_allowed
 
         if self.hoofdloc is None:
@@ -724,70 +588,33 @@ class MeetpuntConfig:
             elif loc_type == "waterstandloc":
                 all_types = ["waterstandloc"]
             if loc_type == "subloc":
-                sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[
-                    0
-                ]
+                sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
 
                 regexes += [
-                    j
-                    for i in [
-                        values
-                        for keys, values in expars_allowed.items()
-                        if keys in all_types
-                    ]
-                    for j in i
+                    j for i in [values for keys, values in expars_allowed.items() if keys in all_types] for j in i
                 ]
 
                 regexes += list(dict.fromkeys(regexes))
                 ex_par_error = [
                     ex_par
                     for ex_par in ex_pars
-                    if not any(
-                        [
-                            regex.match(ex_par)
-                            for regex in [re.compile(rex) for rex in regexes]
-                        ]
-                    )
+                    if not any([regex.match(ex_par) for regex in [re.compile(rex) for rex in regexes]])
                 ]
 
                 if sub_type == "schuif":
-                    if not any(
-                        [ex_par for ex_par in ex_pars_gen if ex_par in ["SS.", "SM."]]
-                    ):
+                    if not any([ex_par for ex_par in ex_pars_gen if ex_par in ["SS.", "SM."]]):
                         errors["SS./SM."] = True
 
-                if any(
-                    [
-                        ex_par
-                        for ex_par in ex_pars_gen
-                        if ex_par in ["I.B", "I.H", "I.L"]
-                    ]
-                ):
-                    if not any(
-                        [
-                            ex_par
-                            for ex_par in ex_pars_gen
-                            if ex_par in ["IB.", "IH.", "IL."]
-                        ]
-                    ):
+                if any([ex_par for ex_par in ex_pars_gen if ex_par in ["I.B", "I.H", "I.L"]]):
+                    if not any([ex_par for ex_par in ex_pars_gen if ex_par in ["IB.", "IH.", "IL."]]):
                         errors["IX."] = True
 
-                elif any(
-                    [
-                        ex_par
-                        for ex_par in ex_pars_gen
-                        if ex_par in ["IB.", "IH.", "IL."]
-                    ]
-                ):
+                elif any([ex_par for ex_par in ex_pars_gen if ex_par in ["IB.", "IH.", "IL."]]):
                     errors["I.X"] = True
 
                 if "FQ." in ex_pars_gen:
                     if not any(
-                        [
-                            ex_par
-                            for ex_par in ex_pars_gen
-                            if ex_par in ["IB.", "IH.", "IL.", "I.B", "I.H", "I.L"]
-                        ]
+                        [ex_par for ex_par in ex_pars_gen if ex_par in ["IB.", "IH.", "IL.", "I.B", "I.H", "I.L"]]
                     ):
                         errors["FQ"] = True
 
@@ -796,12 +623,7 @@ class MeetpuntConfig:
                 ex_par_error = [
                     ex_par
                     for ex_par in ex_pars
-                    if not any(
-                        [
-                            regex.match(ex_par)
-                            for regex in [re.compile(rex) for rex in regexes]
-                        ]
-                    )
+                    if not any([regex.match(ex_par) for regex in [re.compile(rex) for rex in regexes]])
                 ]
 
             else:
@@ -816,30 +638,21 @@ class MeetpuntConfig:
                     ex_par_errors[key].append(value)
 
         self.consistency[expar_sheet] = pd.DataFrame(ex_par_errors)
-        self.consistency[intloc_sheet] = pd.DataFrame(
-            {"internalLocation": int_loc_missing}
-        )
+        self.consistency[intloc_sheet] = pd.DataFrame({"internalLocation": int_loc_missing})
 
         if len(self.consistency[expar_sheet]) == 0:
-            self.logging.info("geen ExPar errors")
+            logger.info("no ExPar errors")
         else:
-            self.logging.warning(
-                "{} locaties met ExPar errors".format(
-                    len(self.consistency[expar_sheet])
-                )
-            )
+            logger.warning(f"{len(self.consistency[expar_sheet])} locations met ExPar errors")
 
         if len(self.consistency[intloc_sheet]) == 0:
-            self.logging.info("All internal locations are in locationSets")
+            logger.info("All internal locations are in locationSets")
         else:
-            self.logging.warning(
-                "{} Internal locations are not in locationSets.".format(
-                    len(self.consistency[intloc_sheet])
-                )
-            )
+            logger.warning(f"{len(self.consistency[intloc_sheet])} Internal locations are not in locationSets")
 
-    def check_expar_missing(self, sheet_name="exPar missing"):
+    def check_expar_missing(self, sheet_name: str = "exPar missing") -> None:
         """Check if external paramters are missing on locations."""
+        logger.info(f"start {self.check_expar_missing.__name__}")
         ex_par_missing = {
             "internalLocation": [],
             "exPars": [],
@@ -855,12 +668,7 @@ class MeetpuntConfig:
             int_loc = row["LOC_ID"]
 
             loc_group = next(
-                (
-                    df
-                    for loc, df in idmap_df.groupby("internalLocation")
-                    if loc == int_loc
-                ),
-                pd.DataFrame(),
+                (df for loc, df in idmap_df.groupby("internalLocation") if loc == int_loc), pd.DataFrame(),
             )
 
             if not loc_group.empty:
@@ -884,16 +692,13 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = pd.DataFrame(ex_par_missing)
 
         if len(self.consistency[sheet_name]) == 0:
-            self.logging.info("No ExPar missing")
+            logger.info("No ExPar missing")
         else:
-            self.logging.warning(
-                "{} Locations with ExPar missing".format(
-                    len(self.consistency[sheet_name])
-                )
-            )
+            logger.warning(f"{len(self.consistency[sheet_name])} Locations with ExPar missing")
 
-    def check_exloc_intloc_consistency(self, sheet_name="exLoc error"):
+    def check_exloc_intloc_consistency(self, sheet_name: str = "exLoc error") -> None:
         """Check if external locations are consistent with internal locations."""
+        logger.info(f"start {self.check_exloc_intloc_consistency.__name__}")
         ex_loc_errors = {"internalLocation": [], "externalLocation": []}
 
         idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
@@ -903,58 +708,28 @@ class MeetpuntConfig:
             int_locs = np.unique(loc_group[1]["internalLocation"].values)
             if len(ex_loc) == 3:
                 if not bool(re.match("8..$", ex_loc)):
-                    int_loc_error = [
-                        int_loc
-                        for int_loc in int_locs
-                        if not bool(re.match(f"...{ex_loc}..$", int_loc))
-                    ]
+                    int_loc_error = [int_loc for int_loc in int_locs if not bool(re.match(f"...{ex_loc}..$", int_loc))]
                 else:
                     for loc_type in ["KW", "OW"]:
-                        int_locs_select = [
-                            int_loc
-                            for int_loc in int_locs
-                            if bool(re.match(f"{loc_type}.", int_loc))
-                        ]
-                        if (
-                            len(
-                                np.unique([int_loc[:-1] for int_loc in int_locs_select])
-                            )
-                            > 1
-                        ):
+                        int_locs_select = [int_loc for int_loc in int_locs if bool(re.match(f"{loc_type}.", int_loc))]
+                        if len(np.unique([int_loc[:-1] for int_loc in int_locs_select])) > 1:
                             int_loc_error += list(int_locs_select)
             if len(ex_loc) == 4:
                 if not bool(re.match(".8..$", ex_loc)):
-                    int_loc_error += [
-                        int_loc
-                        for int_loc in int_locs
-                        if not bool(re.match(f"..{ex_loc}..$", int_loc))
-                    ]
+                    int_loc_error += [int_loc for int_loc in int_locs if not bool(re.match(f"..{ex_loc}..$", int_loc))]
                 else:
                     for loc_type in ["KW", "OW"]:
-                        int_locs_select = [
-                            int_loc
-                            for int_loc in int_locs
-                            if bool(re.match(f"{loc_type}.", int_loc))
-                        ]
-                        if (
-                            len(
-                                np.unique([int_loc[:-1] for int_loc in int_locs_select])
-                            )
-                            > 1
-                        ):
+                        int_locs_select = [int_loc for int_loc in int_locs if bool(re.match(f"{loc_type}.", int_loc))]
+                        if len(np.unique([int_loc[:-1] for int_loc in int_locs_select])) > 1:
                             int_loc_error += list(int_locs_select)
             if "exLoc_ignore" in self.consistency.keys():
-                if (
-                    int(ex_loc)
-                    in self.consistency["exLoc_ignore"]["externalLocation"].values
-                ):
+                if int(ex_loc) in self.consistency["exLoc_ignore"]["externalLocation"].values:
                     int_loc_error = [
                         int_loc
                         for int_loc in int_loc_error
                         if int_loc
                         not in self.consistency["exLoc_ignore"][
-                            self.consistency["exLoc_ignore"]["externalLocation"]
-                            == int(ex_loc)
+                            self.consistency["exLoc_ignore"]["externalLocation"] == int(ex_loc)
                         ]["internalLocation"].values
                     ]
 
@@ -965,38 +740,31 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = pd.DataFrame(ex_loc_errors)
 
         if len(self.consistency[sheet_name]) == 0:
-            self.logging.info("all external and internal locations consistent")
+            logger.info("all external and internal locations consistent")
         else:
-            self.logging.warning(
-                "{} external locations inconsistent with internal locations".format(
-                    len(self.consistency[sheet_name])
-                )
+            logger.warning(
+                f"{len(self.consistency[sheet_name])} external locations inconsistent with internal locations"
             )
 
-    def check_timeseries_logic(self, sheet_name="timeSeries error"):
+    def check_timeseries_logic(self, sheet_name: str = "timeSeries error") -> None:
         """Check if timeseries are consistent with internal locations and parameters."""
+        logger.info(f"start {self.check_timeseries_logic.__name__}")
         if "TS800_ignore" in self.consistency.keys():
             ts_ignore_df = self.consistency["TS800_ignore"]
         else:
-            ts_ignore_df = pd.DataFrame(
-                {"internalLocation": [], "externalLocation": []}
-            )
+            ts_ignore_df = pd.DataFrame({"internalLocation": [], "externalLocation": []})
 
         idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
 
         if self.subloc is None:
             self._read_locs()
-        idmap_subloc_df = idmap_df[
-            idmap_df["internalLocation"].isin(self.subloc["LOC_ID"].values)
-        ]
+        idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(self.subloc["LOC_ID"].values)]
 
         idmap_subloc_df.loc[:, "type"] = idmap_subloc_df["internalLocation"].apply(
             (lambda x: self.subloc[self.subloc["LOC_ID"] == x]["TYPE"].values[0])
         )
 
-        idmap_subloc_df.loc[:, "loc_groep"] = idmap_subloc_df["internalLocation"].apply(
-            (lambda x: x[0:-1])
-        )
+        idmap_subloc_df.loc[:, "loc_groep"] = idmap_subloc_df["internalLocation"].apply((lambda x: x[0:-1]))
 
         ts_errors = {
             "internalLocation": [],
@@ -1014,54 +782,36 @@ class MeetpuntConfig:
             split_ts = [
                 key
                 for key in ex_locs_dict.keys()
-                if any(
-                    [
-                        regex.match(key)
-                        for regex in [re.compile(rex) for rex in ["8..", ".8.."]]
-                    ]
-                )
+                if any([regex.match(key) for regex in [re.compile(rex) for rex in ["8..", ".8.."]]])
             ]
 
-            ex_locs_skip = ts_ignore_df[
-                ts_ignore_df["internalLocation"].isin(group_df["internalLocation"])
-            ]["externalLocation"]
-
-            split_ts = [
-                key
-                for key in split_ts
-                if not str(key) in ex_locs_skip.values.astype(np.str)
+            ex_locs_skip = ts_ignore_df[ts_ignore_df["internalLocation"].isin(group_df["internalLocation"])][
+                "externalLocation"
             ]
+
+            split_ts = [key for key in split_ts if not str(key) in ex_locs_skip.values.astype(np.str)]
 
             ex_locs_dict = {
-                k: (
-                    ex_locs_dict[k[1:]]
-                    if (k[1:] in ex_locs_dict.keys()) and (k not in split_ts)
-                    else v
-                )
+                k: (ex_locs_dict[k[1:]] if (k[1:] in ex_locs_dict.keys()) and (k not in split_ts) else v)
                 for (k, v) in ex_locs_dict.items()
             }
 
-            org_uniques = np.unique(
-                [val for key, val in ex_locs_dict.items() if key not in split_ts]
-            )
+            org_uniques = np.unique([val for key, val in ex_locs_dict.items() if key not in split_ts])
             if (len(org_uniques) == 1) & (len(split_ts) == 1):
-                ex_locs_dict = {
-                    k: (org_uniques[0] if k in split_ts else v)
-                    for (k, v) in ex_locs_dict.items()
-                }
+                ex_locs_dict = {k: (org_uniques[0] if k in split_ts else v) for (k, v) in ex_locs_dict.items()}
 
-            group_df["ex_loc_group"] = group_df["externalLocation"].apply(
-                (lambda x: ex_locs_dict[x])
-            )
+            group_df["ex_loc_group"] = group_df["externalLocation"].apply((lambda x: ex_locs_dict[x]))
 
             for int_loc, loc_df in group_df.groupby("internalLocation"):
-                sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[
-                    0
-                ]
+                sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
 
-                end_time = pd.to_datetime(
-                    self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
-                )
+                date_str = self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
+                # TODO: fix this nice
+                try:
+                    end_time = pd.to_datetime(date_str)
+                except pd._libs.tslibs.np_datetime.OutOfBoundsDatetime as err:
+                    logger.warning(f"date {date_str} is out of bounds! err={err}")
+                    # sys.exit()
 
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
@@ -1078,51 +828,27 @@ class MeetpuntConfig:
 
                 else:
                     if not any([re.match("HR.", ex_par) for ex_par in ex_pars]):
-                        if any(
-                            [
-                                re.match("HR.", ex_par)
-                                for ex_par in np.unique(group_df["externalParameter"])
-                            ]
-                        ):
+                        if any([re.match("HR.", ex_par) for ex_par in np.unique(group_df["externalParameter"])]):
                             if sub_type not in ["totaal", "vispassage"]:
                                 if pd.Timestamp.now() < end_time:
                                     sp_locs = np.unique(
-                                        group_df[
-                                            group_df["externalParameter"].str.match(
-                                                "HR."
-                                            )
-                                        ]["internalLocation"]
+                                        group_df[group_df["externalParameter"].str.match("HR.")]["internalLocation"]
                                     )
                                     ts_errors["internalLocation"].append(int_loc)
                                     ts_errors["eind"].append(end_time)
-                                    ts_errors["internalParameters"].append(
-                                        ",".join(int_pars)
-                                    )
+                                    ts_errors["internalParameters"].append(",".join(int_pars))
 
-                                    ts_errors["externalParameters"].append(
-                                        ",".join(ex_pars)
-                                    )
+                                    ts_errors["externalParameters"].append(",".join(ex_pars))
 
-                                    ts_errors["externalLocations"].append(
-                                        ",".join(ex_locs)
-                                    )
+                                    ts_errors["externalLocations"].append(",".join(ex_locs))
 
                                     ts_errors["type"].append(sub_type)
                                     ts_errors["fout"].append(
-                                        (
-                                            f"{sub_type} zonder stuurpeil "
-                                            f"({','.join(sp_locs)} wel)"
-                                        )
+                                        (f"{sub_type} zonder stuurpeil " f"({','.join(sp_locs)} wel)")
                                     )
                     else:
-                        time_series = loc_df.groupby(
-                            ["ex_loc_group", "externalParameter"]
-                        )
-                        sp_series = [
-                            series
-                            for series in time_series
-                            if bool(re.match("HR.", series[0][1]))
-                        ]
+                        time_series = loc_df.groupby(["ex_loc_group", "externalParameter"])
+                        sp_series = [series for series in time_series if bool(re.match("HR.", series[0][1]))]
                         for idx, series in enumerate(sp_series):
                             ex_par = series[0][1]
                             ex_locs = series[1]["externalLocation"]
@@ -1130,13 +856,9 @@ class MeetpuntConfig:
                             if len(int_par) > 1:
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
-                                ts_errors["internalParameters"].append(
-                                    ",".join(int_pars)
-                                )
+                                ts_errors["internalParameters"].append(",".join(int_pars))
 
-                                ts_errors["externalParameters"].append(
-                                    ",".join(ex_pars)
-                                )
+                                ts_errors["externalParameters"].append(",".join(ex_pars))
 
                                 ts_errors["externalLocations"].append(",".join(ex_locs))
                                 ts_errors["type"].append(sub_type)
@@ -1147,35 +869,22 @@ class MeetpuntConfig:
                                         f'{",".join(ex_locs)}'
                                     )
                                 )
-                            other_series = [
-                                series
-                                for idy, series in enumerate(sp_series)
-                                if not idy == idx
-                            ]
+                            other_series = [series for idy, series in enumerate(sp_series) if not idy == idx]
 
-                            other_int_pars = [
-                                np.unique(series[1]["internalParameter"])
-                                for series in other_series
-                            ]
+                            other_int_pars = [np.unique(series[1]["internalParameter"]) for series in other_series]
 
                             if len(other_int_pars) > 0:
                                 other_int_pars = np.concatenate(other_int_pars)
 
-                            conflicting_pars = [
-                                par for par in int_par if par in other_int_pars
-                            ]
+                            conflicting_pars = [par for par in int_par if par in other_int_pars]
 
                             if len(conflicting_pars) > 0:
                                 # 2 sp series gekoppeld aan dezelfde fews parameter
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
-                                ts_errors["internalParameters"].append(
-                                    ",".join(int_pars)
-                                )
+                                ts_errors["internalParameters"].append(",".join(int_pars))
 
-                                ts_errors["externalParameters"].append(
-                                    ",".join(ex_pars)
-                                )
+                                ts_errors["externalParameters"].append(",".join(ex_pars))
 
                                 ts_errors["externalLocations"].append(",".join(ex_locs))
                                 ts_errors["type"].append(sub_type)
@@ -1189,22 +898,15 @@ class MeetpuntConfig:
 
         self.consistency[sheet_name] = pd.DataFrame(ts_errors)
         if len(self.consistency[sheet_name]) == 0:
-            self.logging.info(
-                (
-                    "logical coupling of all timeseries to internal "
-                    "locations/parameters"
-                )
-            )
+            logger.info("logical coupling of all timeseries to internal locations/parameters")
         else:
-            self.logging.warning(
-                (
-                    f"{len(self.consistency[sheet_name])} timeseries "
-                    r"coupled illogical to internal locations/parameters"
-                )
+            logger.warning(
+                f"{len(self.consistency[sheet_name])} timeseries coupled illogical to internal locations/parameters"
             )
 
-    def check_validation_rules(self, sheet_name="validation error"):
+    def check_validation_rules(self, sheet_name: str = "validation error") -> None:
         """Check if validation rules are consistent."""
+        logger.info(f"start {self.check_validation_rules.__name__}")
         valid_errors = {
             "internalLocation": [],
             "start": [],
@@ -1214,18 +916,16 @@ class MeetpuntConfig:
             "fout_beschrijving": [],
         }
 
-        location_sets_dict = xml_to_dict(
-            self.fews_config.RegionConfigFiles["LocationSets"]
-        )["locationSets"]["locationSet"]
+        location_sets_dict = xml_to_dict(self.fews_config.RegionConfigFiles["LocationSets"])["locationSets"][
+            "locationSet"
+        ]
 
         if self.hoofdloc is None:
             self._read_locs()
 
         for set_name in self.validation_rules.keys():
             location_set_meta = next(
-                loc_set
-                for loc_set in location_sets_dict
-                if loc_set["id"] == self.location_sets[set_name]["id"]
+                loc_set for loc_set in location_sets_dict if loc_set["id"] == self.location_sets[set_name]["id"]
             )["csvFile"]
 
             location_set_gdf = getattr(self, self._locs_mapping[set_name])
@@ -1233,49 +933,32 @@ class MeetpuntConfig:
             if not isinstance(attrib_files, list):
                 attrib_files = [attrib_files]
 
-            attrib_files = [
-                attrib_file
-                for attrib_file in attrib_files
-                if "attribute" in attrib_file.keys()
-            ]
+            attrib_files = [attrib_file for attrib_file in attrib_files if "attribute" in attrib_file.keys()]
 
             for attrib_file in attrib_files:
                 attribs = attrib_file["attribute"]
                 join_id = attrib_file["id"].replace("%", "")
                 if not isinstance(attrib_file["attribute"], list):
                     attribs = [attribs]
-                attribs = [
-                    attrib["number"].replace("%", "")
-                    for attrib in attribs
-                    if "number" in attrib.keys()
-                ]
+                attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
 
                 attrib_df = pd.read_csv(
-                    self.fews_config.MapLayerFiles[
-                        attrib_file["csvFile"].replace(".csv", "")
-                    ],
+                    self.fews_config.MapLayerFiles[attrib_file["csvFile"].replace(".csv", "")],
                     sep=None,
                     engine="python",
                 )
 
                 attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
-                drop_cols = [
-                    col for col in attrib_df if col not in attribs + ["LOC_ID"]
-                ]
+                drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
 
                 attrib_df = attrib_df.drop(columns=drop_cols, axis=1)
-                location_set_gdf = location_set_gdf.merge(
-                    attrib_df, on="LOC_ID", how="outer"
-                )
+                location_set_gdf = location_set_gdf.merge(attrib_df, on="LOC_ID", how="outer")
 
             validation_rules = self.validation_rules[set_name]
             validaton_attributes = get_validation_attribs(validation_rules)
             idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
             params_df = pd.DataFrame.from_dict(
-                {
-                    int_loc: [df["internalParameter"].values]
-                    for int_loc, df in idmap_df.groupby("internalLocation")
-                },
+                {int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")},
                 orient="index",
                 columns=["internalParameters"],
             )
@@ -1291,9 +974,7 @@ class MeetpuntConfig:
                     int_pars = []
 
                 attribs_required = get_validation_attribs(validation_rules, int_pars)
-                attribs_missing = [
-                    attrib for attrib in attribs_required if attrib not in row.keys()
-                ]
+                attribs_missing = [attrib for attrib in attribs_required if attrib not in row.keys()]
 
                 attribs_obsolete = [
                     attrib
@@ -1301,16 +982,7 @@ class MeetpuntConfig:
                     if (attrib not in attribs_required) and (attrib in row.keys())
                 ]
 
-                attribs = [
-                    attrib
-                    for attrib in attribs_required
-                    if attrib not in attribs_missing
-                ]
-
-                for key, value in {
-                    "missend": attribs_missing,
-                    "overbodig": attribs_obsolete,
-                }.items():
+                for key, value in {"missend": attribs_missing, "overbodig": attribs_obsolete}.items():
                     if len(value) > 0:
                         valid_errors["internalLocation"] += [int_loc]
                         valid_errors["start"] += [row["START"]]
@@ -1329,55 +1001,34 @@ class MeetpuntConfig:
                                 if all(attrib in row.keys() for attrib in [hmin, hmax]):
                                     if row[hmax] < row[hmin]:
                                         errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [
-                                            f"{hmax} < {hmin}"
-                                        ]
+                                        errors["fout_beschrijving"] += [f"{hmax} < {hmin}"]
 
-                        elif all(
-                            key in rule.keys()
-                            for key in ["hmax", "smax", "smin", "hmin"]
-                        ):
+                        elif all(key in rule.keys() for key in ["hmax", "smax", "smin", "hmin"]):
                             hmax = rule["hmax"][0]
                             hmin = rule["hmin"][0]
                             for smin, smax in zip(rule["smin"], rule["smax"]):
                                 if all(attrib in row.keys() for attrib in [smin, smax]):
                                     if row[smax] <= row[smin]:
                                         errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [
-                                            f"{smax} <= {smin}"
-                                        ]
+                                        errors["fout_beschrijving"] += [f"{smax} <= {smin}"]
 
                                     if row[hmax] < row[smax]:
                                         errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [
-                                            f"{'hmax'} < {smax}"
-                                        ]
+                                        errors["fout_beschrijving"] += [f"{'hmax'} < {smax}"]
 
                                     if row[smin] < row[hmin]:
                                         errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [
-                                            f"{smin} < {hmin}"
-                                        ]
+                                        errors["fout_beschrijving"] += [f"{smin} < {hmin}"]
 
-                    valid_errors["internalLocation"] += [row["LOC_ID"]] * len(
-                        errors["fout_beschrijving"]
-                    )
+                    valid_errors["internalLocation"] += [row["LOC_ID"]] * len(errors["fout_beschrijving"])
 
-                    valid_errors["start"] += [row["START"]] * len(
-                        errors["fout_beschrijving"]
-                    )
+                    valid_errors["start"] += [row["START"]] * len(errors["fout_beschrijving"])
 
-                    valid_errors["eind"] += [row["EIND"]] * len(
-                        errors["fout_beschrijving"]
-                    )
+                    valid_errors["eind"] += [row["EIND"]] * len(errors["fout_beschrijving"])
 
-                    valid_errors["internalParameters"] += [",".join(int_pars)] * len(
-                        errors["fout_beschrijving"]
-                    )
+                    valid_errors["internalParameters"] += [",".join(int_pars)] * len(errors["fout_beschrijving"])
 
-                    valid_errors["fout_type"] += [errors["fout_type"]] * len(
-                        errors["fout_beschrijving"]
-                    )
+                    valid_errors["fout_type"] += [errors["fout_type"]] * len(errors["fout_beschrijving"])
 
                     valid_errors["fout_beschrijving"] += errors["fout_beschrijving"]
 
@@ -1385,16 +1036,13 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = self.consistency[sheet_name].drop_duplicates()
 
         if len(self.consistency[sheet_name]) == 0:
-            self.logging.info("No missing incorrect validation rules")
+            logger.info("No missing incorrect validation rules")
         else:
-            self.logging.warning(
-                "{} validation rules contain errors/are missing".format(
-                    len(self.consistency[sheet_name])
-                )
-            )
+            logger.warning(f"{len(self.consistency[sheet_name])} validation rules contain errors/are missing")
 
-    def check_intpar_expar_consistency(self, sheet_name="par mismatch"):
+    def check_intpar_expar_consistency(self, sheet_name: str = "par mismatch") -> None:
         """Check if internal and external parameters are consistent."""
+        logger.info(f"start {self.check_intpar_expar_consistency.__name__}")
         par_errors = {
             "internalLocation": [],
             "internalParameter": [],
@@ -1402,13 +1050,9 @@ class MeetpuntConfig:
             "fout": [],
         }
 
-        # internal_parameters = [mapping[
-        #     'internal'] for mapping in self.parameter_mapping]
-
         idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
         for idx, row in idmap_df.iterrows():
             error = None
-            ext_par = None
             ext_par = [
                 mapping["external"]
                 for mapping in self.parameter_mapping
@@ -1429,22 +1073,14 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = pd.DataFrame(par_errors)
 
         if len(self.consistency[sheet_name]) == 0:
-            self.logging.info("geen regex fouten op interne en externe parameters")
+            logger.info("no regex errors for internal and external parameters")
         else:
-            self.logging.warning(
-                "{} regex fouten op interne en externe parameters".format(
-                    len(self.consistency[sheet_name])
-                )
-            )
+            logger.warning(f"{len(self.consistency[sheet_name])} regex errors for internal and external parameters")
 
-    def check_location_set_errors(self, sheet_name="locSet error"):
+    def check_location_set_errors(self, sheet_name: str = "locSet error") -> None:
         """Check on errors in locationsets."""
-        # fews_config = self.fews_config
-        # config = self
+        logger.info(f"start {self.check_location_set_errors.__name__}")
         xy_ignore_df = self.consistency["xy_ignore"]
-        #        from fews_utilities import xml_to_dict
-        #        import regex as re
-
         location_sets = self.location_sets
         idmap_sections = self.idmap_sections
 
@@ -1476,21 +1112,17 @@ class MeetpuntConfig:
         }
 
         for set_name, section_name in sets.items():
-            self.logging.info(set_name)
+            logger.info(set_name)
             location_set = location_sets[set_name]
             location_gdf = location_set["gdf"]
-            csv_file = self.fews_config.locationSets[location_set["id"]]["csvFile"][
-                "file"
-            ]
+            csv_file = self.fews_config.locationSets[location_set["id"]]["csvFile"]["file"]
             int_locs = []
 
             for idmap in ["IdOPVLWATER", "IdOPVLWATER_HYMOS"]:
                 for section in idmap_sections[idmap][section_name]:
                     int_locs += [
                         item["internalLocation"]
-                        for item in xml_to_dict(
-                            self.fews_config.IdMapFiles[idmap], **section
-                        )["idMap"]["map"]
+                        for item in xml_to_dict(self.fews_config.IdMapFiles[idmap], **section)["idMap"]["map"]
                     ]
 
             if set_name == "sublocaties":
@@ -1500,7 +1132,6 @@ class MeetpuntConfig:
             elif set_name == "hoofdlocaties":
                 int_locs = [loc for loc in int_locs if loc[-1] == "0"]
 
-            # idx, row = list(location_gdf.iterrows())[0]
             for idx, row in list(location_gdf.iterrows()):
                 error = {
                     "name_error": False,
@@ -1534,69 +1165,43 @@ class MeetpuntConfig:
                         "krooshek",
                         "vispassage",
                     ]:
-                        if not re.match(
-                            f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*-{sub_type}", loc_name
-                        ):
+                        if not re.match(f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*-{sub_type}", loc_name):
                             error["name_error"] = True
 
                     else:
-                        if not re.match((
-                            f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*-"
-                            f"{sub_type}[0-9]_{loc_functie}"),
-                            loc_name,
+                        if not re.match(
+                            (f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*-" f"{sub_type}[0-9]_{loc_functie}"), loc_name,
                         ):
                             error["name_error"] = True
 
                     if not error["name_error"]:
                         caw_name = re.match("([A-Z0-9 ]*)_", loc_name).group(1)
                         if not all(
-                            location_gdf[
-                                location_gdf["LOC_ID"].str.match(f"..{caw_code}")
-                            ]["LOC_NAME"].str.match(f"({caw_name}_{caw_code}-K)")
+                            location_gdf[location_gdf["LOC_ID"].str.match(f"..{caw_code}")]["LOC_NAME"].str.match(
+                                f"({caw_name}_{caw_code}-K)"
+                            )
                         ):
                             error["caw_name_inconsistent"] = True
 
-                    if (
-                        not row["HBOV"]
-                        in location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values
-                    ):
+                    if not row["HBOV"] in location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
                         error["missing_hbov"] = True
 
-                    if (
-                        not row["HBEN"]
-                        in location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values
-                    ):
+                    if not row["HBEN"] in location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
                         error["missing_hben"] = True
 
-                    if (
-                        not row["HBOVPS"]
-                        in location_sets["peilschalen"]["gdf"]["LOC_ID"].values
-                    ):
+                    if not row["HBOVPS"] in location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
                         error["missing_hbovps"] = True
 
-                    if (
-                        not row["HBENPS"]
-                        in location_sets["peilschalen"]["gdf"]["LOC_ID"].values
-                    ):
+                    if not row["HBENPS"] in location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
                         error["missing_hbenps"] = True
 
-                    if (
-                        not row["PAR_ID"]
-                        in location_sets["hoofdlocaties"]["gdf"]["LOC_ID"].values
-                    ):
+                    if not row["PAR_ID"] in location_sets["hoofdlocaties"]["gdf"]["LOC_ID"].values:
                         error["missing_hloc"] = True
 
                     else:
-                        if not any(
-                            [
-                                re.match(loc, loc_id)
-                                for loc in xy_ignore_df["internalLocation"]
-                            ]
-                        ):
+                        if not any([re.match(loc, loc_id) for loc in xy_ignore_df["internalLocation"]]):
                             if (
-                                not par_gdf[par_gdf["LOC_ID"] == row["PAR_ID"]][
-                                    "geometry"
-                                ]
+                                not par_gdf[par_gdf["LOC_ID"] == row["PAR_ID"]]["geometry"]
                                 .values[0]
                                 .equals(row["geometry"])
                             ):
@@ -1617,16 +1222,13 @@ class MeetpuntConfig:
                     if not error["name_error"]:
                         caw_name = re.match("([A-Z0-9 ]*)_", loc_name).group(1)
                         if not all(
-                            location_gdf[
-                                location_gdf["LOC_ID"].str.match(f"..{caw_code}")
-                            ]["LOC_NAME"].str.match(f"({caw_name}_{caw_code}-w)")
+                            location_gdf[location_gdf["LOC_ID"].str.match(f"..{caw_code}")]["LOC_NAME"].str.match(
+                                f"({caw_name}_{caw_code}-w)"
+                            )
                         ):
                             error["caw_name_inconsistent"] = True
 
-                    if (
-                        not row["PEILSCHAAL"]
-                        in location_sets["peilschalen"]["gdf"]["LOC_ID"].values
-                    ):
+                    if not row["PEILSCHAAL"] in location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
                         error["missing_peilschaal"] = True
 
                     if loc_id not in int_locs:
@@ -1641,31 +1243,23 @@ class MeetpuntConfig:
                     for key, value in error.items():
                         loc_set_errors[key].append(value)
 
-        self.consistency["locSet error"] = pd.DataFrame(loc_set_errors)
+        self.consistency[sheet_name] = pd.DataFrame(loc_set_errors)
         # opname in samenvatting
 
         if len(self.consistency["locSet error"]) == 0:
-            self.logging.info("no errors in locationSets")
+            logger.info("no errors in locationSets")
         else:
-            self.logging.warning(
-                "{} errors in locationSets".format(
-                    len(self.consistency["locSet error"])
-                )
-            )
+            logger.warning(f"{len(self.consistency['locSet error'])} errors in locationSets")
 
-    def write_excel(self):
+    def write_excel(self) -> None:
         """Write consistency to excel."""
         consistency_xlsx = self.paths["consistency_xlsx"]
-        consistency_out_xlsx = consistency_xlsx.parent.joinpath(
-            f"{consistency_xlsx.stem}_uit.xlsx"
-        )
+        consistency_out_xlsx = consistency_xlsx.parent.joinpath(f"{consistency_xlsx.stem}_uit.xlsx")
 
         index = self.consistency["inhoudsopgave"]
         index.index = index["werkblad"]
         summary = {
-            key: len(df)
-            for key, df in self.consistency.items()
-            if key not in self.fixed_sheets + ["inhoudsopgave"]
+            key: len(df) for key, df in self.consistency.items() if key not in self.fixed_sheets + ["inhoudsopgave"]
         }
 
         # read input xlsx and empty all warning sheets
@@ -1684,13 +1278,9 @@ class MeetpuntConfig:
         for key, value in summary.items():
             worksheet.append([key, value, index.loc[key]["beschrijving"]])
             if (value > 0) and (key != "mpt"):
-                worksheet[worksheet.max_row][1].fill = PatternFill(
-                    fgColor="FF0000", fill_type="solid"
-                )
+                worksheet[worksheet.max_row][1].fill = PatternFill(fgColor="FF0000", fill_type="solid")
             else:
-                worksheet[worksheet.max_row][1].fill = PatternFill(
-                    fgColor="92D050", fill_type="solid"
-                )
+                worksheet[worksheet.max_row][1].fill = PatternFill(fgColor="92D050", fill_type="solid")
 
         worksheet.column_dimensions["A"].width = 40
         worksheet.column_dimensions["C"].width = 100
@@ -1721,7 +1311,7 @@ class MeetpuntConfig:
         xls_writer.book.active = xls_writer.book["samenvatting"]
         xls_writer.save()
 
-    def write_csvs(self):
+    def write_csvs(self) -> None:
         """Write locationSets to CSV."""
         if "mpt" not in self.consistency.keys():
             self.hist_tags_to_mpt()
@@ -1735,42 +1325,28 @@ class MeetpuntConfig:
         location_sets = {
             key: value
             for key, value in self.location_sets.items()
-            if value["id"]
-            in ["OPVLWATER_HOOFDLOC", "OPVLWATER_WATERSTANDEN_AUTO", "OPVLWATER_SUBLOC"]
+            if value["id"] in ["OPVLWATER_HOOFDLOC", "OPVLWATER_WATERSTANDEN_AUTO", "OPVLWATER_SUBLOC"]
         }
 
         for key, value in location_sets.items():
-            self.logging.info(f"writing CSV for set: {key}")
+            logger.info(f"writing CSV for set: {key}")
             gdf = value["gdf"]
             df = gdf.drop("geometry", axis=1)
-            df[["START", "EIND"]] = df.apply(
-                update_date, args=(mpt_df, date_threshold), axis=1, result_type="expand"
-            )
+            df[["START", "EIND"]] = df.apply(update_date, args=(mpt_df, date_threshold), axis=1, result_type="expand")
 
             if value["id"] == "OPVLWATER_WATERSTANDEN_AUTO":
                 grouper = self.mpt_hist_tags.groupby(["fews_locid"])
-                df["HIST_TAG"] = df.apply(
-                    update_histtag, args=[grouper], axis=1, result_type="expand"
-                )
+                df["HIST_TAG"] = df.apply(update_histtag, args=[grouper], axis=1, result_type="expand")
 
             elif value["id"] == "OPVLWATER_SUBLOC":
                 grouper = df.groupby(["PAR_ID"])
-                par_types_df = (
-                    grouper["TYPE"]
-                    .unique()
-                    .apply(lambda x: sorted(x))
-                    .transform(lambda x: "/".join(x))
-                )
+                par_types_df = grouper["TYPE"].unique().apply(lambda x: sorted(x)).transform(lambda x: "/".join(x))
 
                 df["PAR_ID"] = gdf["LOC_ID"].str[0:-1] + "0"
                 df["ALLE_TYPES"] = df["PAR_ID"].apply(lambda x: par_types_df.loc[x])
-                df[["HBOVPS", "HBENPS"]] = df.apply(
-                    self._update_staff_gauge, axis=1, result_type="expand"
-                )
+                df[["HBOVPS", "HBENPS"]] = df.apply(self._update_staff_gauge, axis=1, result_type="expand")
 
-            csv_file = self.paths["csv_out"].joinpath(
-                self.fews_config.locationSets[value["id"]]["csvFile"]["file"]
-            )
+            csv_file = self.paths["csv_out"].joinpath(self.fews_config.locationSets[value["id"]]["csvFile"]["file"])
             if csv_file.suffix == "":
                 csv_file = Path(f"{csv_file}.csv")
             df.to_csv(csv_file, index=False)
