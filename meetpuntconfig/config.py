@@ -1,12 +1,12 @@
-"""Module to read, check and write a HDSR meetpuntconfiguratie."""
 from meetpuntconfig.fews_utilities import FewsConfig
 from meetpuntconfig.fews_utilities import xml_to_dict
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from openpyxl.styles import PatternFill
 from pathlib import Path
-from shapely.geometry import Point
+from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import json
@@ -22,11 +22,11 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-# def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
-def idmap2tags(row, idmap):
-    """Add FEWS-locationIds to hist_tags output df.apply() method."""
+def idmap2tags(row: pd.Series, idmap: Optional[List[str]]):
+    """Add FEWS-locationIds to hist_tags in df.apply() method."""
     # TODO: fix typing args
     # TODO: return type is np.NaN or a List[str]?
+    #  def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
     exloc, expar = row["serie"].split("_", 1)
     fews_locs = [
         col["internalLocation"]
@@ -67,14 +67,12 @@ def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tu
 
     if loc_id in h_locs:
         start_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["STARTDATE"].dropna().min()
-
         end_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["ENDDATE"].dropna().max()
-
     return start_date, end_date
 
 
 def update_date(row, mpt_df, date_threshold):
-    """Return start and end-date output df.apply() method."""
+    """Return start and end-date in df.apply() method."""
     int_loc = row["LOC_ID"]
     if int_loc in mpt_df.index:
         start_date = mpt_df.loc[int_loc]["STARTDATE"].strftime("%Y%m%d")
@@ -85,12 +83,11 @@ def update_date(row, mpt_df, date_threshold):
     else:
         start_date = row["START"]
         end_date = row["EIND"]
-
     return start_date, end_date
 
 
 def update_histtag(row, grouper):
-    """Assign last histTag to waterstandsloc output df.apply method."""
+    """Assign last histTag to waterstandsloc in df.apply method."""
     return next(
         (
             df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
@@ -114,9 +111,9 @@ def _sort_validation_attribs(rule):
 
 
 class MeetpuntConfig:
-    """Meetpuntconfig class."""
+    """Class to read, check and write a HDSR meetpuntconfiguratie."""
 
-    def __init__(self):
+    def __init__(self, config_json_path: str = None):
         self.paths = dict()
         self.fews_config = None
         self.location_sets = dict()
@@ -137,33 +134,34 @@ class MeetpuntConfig:
         self._locs_mapping = dict(
             hoofdlocaties="hoofdloc", sublocaties="subloc", waterstandlocaties="waterstandloc", mswlocaties="mswloc",
         )
-        # initiate meetpunt_config
-        config_json_path = Path("./config/config_xxx.json")
-        self._read_config(config_json_path)
+        self.config_json_path = config_json_path if config_json_path else Path("./config/config.json")
+        self._read_config()
 
-    def _read_config(self, config_json: Path) -> None:
-        if config_json.exists():
-            with open(config_json) as src:
-                config = json.load(src)
-                workdir = Path(config_json).parent
-        else:
-            logger.error(f"{config_json} does not exist")
+    def _read_config(self) -> None:
+        if not self.config_json_path.is_file():
+            logger.error(f"{self.config_json_path} files does not exist")
             sys.exit()
+
+        with open(self.config_json_path) as src:
+            config = json.load(src)
+            workdir = Path(self.config_json_path).parent
 
         # add paths to config
         for key, path in config["paden"].items():
-            path = Path(path)
-            if not path.is_absolute():
-                path = workdir.joinpath(path).resolve()
-            if path.exists():
-                self.paths[key] = path
+            _path = Path(path)
+            if not _path.is_absolute():
+                _path = workdir.joinpath(_path).resolve()
+            if _path.exists():
+                self.paths[key] = _path
             else:
-                if path.suffix == "":
-                    logging.warning(f"{path} does not exist. Folder will be created")
-                    path.mkdir()
-                else:
-                    logger.error(f"{path} does not exist. Please define existing file output {config_json}.")
+                if _path.suffix != "":
+                    logger.error(
+                        f"{_path} does not exist. Please define "
+                        f"existing file in {self.config_json_path.as_posix()}."
+                    )
                     sys.exit()
+                logging.warning(f"{_path} does not exist. Folder will be created")
+                _path.mkdir()
 
         # add fews_config
         self.fews_config = FewsConfig(self.paths["fews_config"])
@@ -179,7 +177,7 @@ class MeetpuntConfig:
                 else:
                     logger.error(f"{key} not a csvFile location-set")
             else:
-                logger.error(f"locationSet {key} specified output {config_json} not output fews-config")
+                logger.error(f"locationSet {key} specified in {self.config_json_path} not in fews-config")
 
         # add rest of config
         self.idmap_files = config["idmap_files"]
@@ -207,7 +205,7 @@ class MeetpuntConfig:
                 if not pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
                     logger.error(
                         (
-                            f"col '{col}' output {self.paths['hist_tags_csv']} "
+                            f"col '{col}' in {self.paths['hist_tags_csv']} "
                             "can not be converted to np.datetime64 format. "
                             "Check if values are dates."
                         )
@@ -228,9 +226,9 @@ class MeetpuntConfig:
             else:
                 logger.error(
                     (
-                        f"specify a histTag_ignore worksheet output "
+                        f"specify a histTag_ignore worksheet in "
                         f"{self.paths['consistency_xlsx']} or a csv-file "
-                        "output the config-json"
+                        "in the config-json"
                     )
                 )
                 sys.exit()
@@ -304,7 +302,7 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = mpt_df
 
     def check_idmap_sections(self, sheet_name: str = "idmap section error") -> None:
-        """Check if all KW/OW locations are output the correct section."""
+        """Check if all KW/OW locations are in the correct section."""
         logger.info(f"start {self.check_idmap_sections.__name__}")
         self.consistency[sheet_name] = pd.DataFrame(
             columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
@@ -333,7 +331,7 @@ class MeetpuntConfig:
                                 f"{len(idmap_wrong_section)} "
                                 f"internalLocations not {prefix}XXXXXX "
                                 f"between {section_start} and {section_end} "
-                                f"output {idmap}."
+                                f"in {idmap}."
                             )
                         )
 
@@ -343,7 +341,7 @@ class MeetpuntConfig:
                         self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
 
     def check_missing_hist_tags(self, sheet_name: str = "histTags noMatch") -> None:
-        """Check if hisTags are missing output config."""
+        """Check if hisTags are missing in config."""
         logger.info(f"start {self.check_missing_hist_tags.__name__}")
         if self.hist_tags_ignore is None:
             self._read_hist_tags_ignore()
@@ -368,10 +366,10 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = hist_tags_no_match_df
 
         if not self.consistency[sheet_name].empty:
-            logger.warning("{} histTags not output idMaps".format(len(self.consistency[sheet_name])))
+            logger.warning("{} histTags not in idMaps".format(len(self.consistency[sheet_name])))
 
         else:
-            logger.info("all histTags output idMaps")
+            logger.info("all histTags in idMaps")
 
     def check_ignored_hist_tags(
         self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"]
@@ -397,7 +395,7 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = hist_tag_ignore_match_df
 
         if not self.consistency[sheet_name].empty:
-            logger.warning(f"{len(self.consistency[sheet_name])} histTags should not be output histTags ignore")
+            logger.warning(f"{len(self.consistency[sheet_name])} histTags should not be in histTags ignore")
         else:
             logger.info("hisTags ignore list consistent with idmaps")
 
@@ -420,12 +418,12 @@ class MeetpuntConfig:
 
                 df["bestand"] = idmap_file
                 self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
-                logger.warning(f"{len(idmap_doubles)} double idmap(s) output {idmap_file}")
+                logger.warning(f"{len(idmap_doubles)} double idmap(s) in {idmap_file}")
             else:
-                logger.info(f"No double idmaps output {idmap_file}")
+                logger.info(f"No double idmaps in {idmap_file}")
 
     def check_missing_pars(self, sheet_name: str = "pars missing") -> None:
-        """Check if internal parameters output idmaps are missing output paramters.xml."""
+        """Check if internal parameters in idmaps are missing in paramters.xml."""
         logger.info(f"start {self.check_missing_pars.__name__}")
         config_parameters = list(self.fews_config.get_parameters(dict_keys="parameters").keys())
 
@@ -434,9 +432,9 @@ class MeetpuntConfig:
         params_missing = [parameter for parameter in id_map_parameters if parameter not in config_parameters]
 
         if len(params_missing) == 0:
-            logger.info("all internal paramters are output config")
+            logger.info("all internal paramters are in config")
         else:
-            logger.warning(f"{len(params_missing)} parameter(s) output idMaps are missing output config")
+            logger.warning(f"{len(params_missing)} parameter(s) in idMaps are missing in config")
 
             self.consistency[sheet_name] = pd.DataFrame({"parameters": params_missing})
 
@@ -539,7 +537,7 @@ class MeetpuntConfig:
             self.hoofdloc["geometry"] = self.hoofdloc.apply((lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1)
             self.hoofdloc = self.hoofdloc[columns]
         else:
-            logger.warning("{} Errors output consistency hlocs".format(len(self.consistency[sheet_name])))
+            logger.warning("{} Errors in consistency hlocs".format(len(self.consistency[sheet_name])))
             logger.warning(("Hoofdlocaties will only be re-written " "when consistency errors are resolved"))
 
     def check_expar_errors_intloc_missing(
@@ -646,9 +644,9 @@ class MeetpuntConfig:
             logger.warning(f"{len(self.consistency[expar_sheet])} locations met ExPar errors")
 
         if len(self.consistency[intloc_sheet]) == 0:
-            logger.info("All internal locations are output locationSets")
+            logger.info("All internal locations are in locationSets")
         else:
-            logger.warning(f"{len(self.consistency[intloc_sheet])} Internal locations are not output locationSets")
+            logger.warning(f"{len(self.consistency[intloc_sheet])} Internal locations are not in locationSets")
 
     def check_expar_missing(self, sheet_name: str = "exPar missing") -> None:
         """Check if external paramters are missing on locations."""
@@ -1063,7 +1061,7 @@ class MeetpuntConfig:
                 if not any(re.match(par, row["externalParameter"]) for par in ext_par):
                     error = "parameter mismatch"
             else:
-                error = "pars niet opgenomen output config"
+                error = "pars niet opgenomen in config"
             if error:
                 par_errors["internalLocation"].append(row["internalLocation"])
                 par_errors["internalParameter"].append(row["internalParameter"])
@@ -1078,7 +1076,7 @@ class MeetpuntConfig:
             logger.warning(f"{len(self.consistency[sheet_name])} regex errors for internal and external parameters")
 
     def check_location_set_errors(self, sheet_name: str = "locSet error") -> None:
-        """Check on errors output locationsets."""
+        """Check on errors in locationsets."""
         logger.info(f"start {self.check_location_set_errors.__name__}")
         xy_ignore_df = self.consistency["xy_ignore"]
         location_sets = self.location_sets
@@ -1244,12 +1242,12 @@ class MeetpuntConfig:
                         loc_set_errors[key].append(value)
 
         self.consistency[sheet_name] = pd.DataFrame(loc_set_errors)
-        # opname output samenvatting
+        # opname in samenvatting
 
         if len(self.consistency["locSet error"]) == 0:
-            logger.info("no errors output locationSets")
+            logger.info("no errors in locationSets")
         else:
-            logger.warning(f"{len(self.consistency['locSet error'])} errors output locationSets")
+            logger.warning(f"{len(self.consistency['locSet error'])} errors in locationSets")
 
     def write_excel(self) -> None:
         """Write consistency to excel."""

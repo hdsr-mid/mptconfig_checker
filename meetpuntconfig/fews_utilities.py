@@ -1,6 +1,6 @@
 from collections import defaultdict
-from lxml import etree as ET
-from shapely.geometry import Point
+from lxml import etree as ET  # noqa
+from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
 from typing import Union
 
@@ -8,7 +8,8 @@ import geopandas as gpd
 import os
 
 
-geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
+# TODO: move to constants
+GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
 
 
 def xml_to_etree(xml_file: str) -> ET._Element:
@@ -74,7 +75,7 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
 
 def xml_to_dict(xml_file: str, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
-    # TODO: xml_file is a path, so make it type Path
+    # TODO: xml_file type is a path
     etree = xml_to_etree(xml_file)
     return etree_to_dict(etree, section_start=section_start, section_end=section_end)
 
@@ -187,8 +188,8 @@ class FewsConfig:
         else:
             gdf["geometry"] = gdf.apply((lambda x: Point(float(x[x_attrib]), float(x[y_attrib]))), axis=1,)
         crs = None
-        if location_set["csvFile"]["geoDatum"] in geo_datum.keys():
-            crs = geo_datum[location_set["csvFile"]["geoDatum"]]
+        if location_set["csvFile"]["geoDatum"] in GEO_DATUM.keys():
+            crs = GEO_DATUM[location_set["csvFile"]["geoDatum"]]
         if crs:
             gdf.crs = crs
         return gdf

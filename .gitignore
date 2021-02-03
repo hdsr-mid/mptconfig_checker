@@ -1,3 +1,30 @@
+
+*.pyc
+scripts/mpt_startenddate_total_pixml_transferdb.py
+scripts/test.csv
+scripts/mpt_startenddate_total_pixml_transferdb_dt.py
+data/consistency_uit.xlsx
+config/config.ini
+data/consistency_uit.xlsx
+data/consistency_uit.xlsx
+data/consistency_uit.xlsx
+data/~$consistency_uit.xlsx
+data/mpt_startenddate_total_pixml_transferdb_ignore.csv
+config/config_example.ini.bak
+data/csv/oppvlwater_hoofdloc.csv
+*.csv
+*.bak
+scripts/test.py
+config/config.json
+data/~$consistency.xlsx
+*.txt
+meetpuntconfig.egg-info/*
+data/consistency_dec_versie.xlsx
+data/consistency_jan_versie.xlsx
+data/consistency_uit_dec_versie.xlsx
+meetpuntconfig/fews_utilities_black.py
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -41,7 +68,8 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
-.coverage
+*.coverage
+.coveragerc
 .coverage.*
 .cache
 nosetests.xml
@@ -128,8 +156,19 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# ----------------------------
+# Idea stuff below
+# ----------------------------
+.DS_Store
+*.idea
+.idea/
 
-*.csv
-*.xlsx
-.idea
-.idea/*
+# File-based project format
+*.iws
+
+# IntelliJ
+out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
