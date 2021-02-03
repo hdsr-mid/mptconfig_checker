@@ -11,9 +11,8 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 version = "1.0"
 
 install_requires = [
+    "dataclasses",
     "geopandas",
-    "pandas",
-    "numpy",
     "lxml",
     "openpyxl",
     "xlrd",
@@ -45,8 +44,6 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Build Tools",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",

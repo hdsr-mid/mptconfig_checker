@@ -1,6 +1,6 @@
-# exclude whole dir, but keep .gitkeep (so dir exists)
+# exclude all files in output dir, but keep .gitignore (so dir exists)
 data/output/*
-!data/output/.gitkeep
+!data/output/.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

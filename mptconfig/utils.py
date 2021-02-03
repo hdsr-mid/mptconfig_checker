@@ -3,8 +3,8 @@ from typing import Optional
 from typing import Tuple
 
 import logging
-import numpy as np
-import pandas as pd
+import numpy as np  # noqa numpy comes with geopandas
+import pandas as pd  # noqa pandas comes with geopandas
 import re
 
 

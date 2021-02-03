@@ -1,3 +1,4 @@
+from mptconfig import constants
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
 from mptconfig.utils import _sort_validation_attribs
@@ -13,10 +14,9 @@ from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import List
 
-import json
 import logging
-import numpy as np
-import pandas as pd
+import numpy as np  # noqa numpy comes with geopandas
+import pandas as pd  # noqa pandas comes with geopandas
 import re
 import sys
 
@@ -50,34 +50,24 @@ class MeetpuntConfig:
         self._locs_mapping = dict(
             hoofdlocaties="hoofdloc", sublocaties="subloc", waterstandlocaties="waterstandloc", mswlocaties="mswloc",
         )
-        self.config_json_path = config_json_path if config_json_path else Path("./config/config.json")
+        self.config_json_path = config_json_path if config_json_path else Path("./data/input/config.json")
         self._read_config()
 
     def _read_config(self) -> None:
-        if not self.config_json_path.is_file():
-            logger.error(f"{self.config_json_path} files does not exist")
-            sys.exit()
-
-        with open(self.config_json_path) as src:
-            config = json.load(src)
-            workdir = Path(self.config_json_path).parent
-
         # add paths to config
-        for key, path in config["paden"].items():
-            _path = Path(path)
-            if not _path.is_absolute():
-                _path = workdir.joinpath(_path).resolve()
-            if _path.exists():
-                self.paths[key] = _path
+        for key, path in constants.PATHS.items():
+            if not path.is_absolute():
+                path = constants.BASE_DIR.joinpath(path).resolve()
+            if path.exists():
+                self.paths[key] = path
             else:
-                if _path.suffix != "":
+                if path.suffix != "":
                     logger.error(
-                        f"{_path} does not exist. Please define "
-                        f"existing file in {self.config_json_path.as_posix()}."
+                        f"{path} does not exist. Please define existing file in {self.config_json_path.as_posix()}."
                     )
                     sys.exit()
-                logging.warning(f"{_path} does not exist. Folder will be created")
-                _path.mkdir()
+                logging.warning(f"{path} does not exist. Folder will be created")
+                path.mkdir()
 
         # add fews_config
         self.fews_config = FewsConfig(self.paths["fews_config"])
@@ -96,12 +86,12 @@ class MeetpuntConfig:
                 logger.error(f"locationSet {key} specified in {self.config_json_path} not in fews-config")
 
         # add rest of config
-        self.idmap_files = config["idmap_files"]
-        self.idmap_sections = config["idmap_sections"]
-        self.external_parameters_allowed = config["external_parameters_allowed"]
-        self.parameter_mapping = config["parameter_mapping"]
-        self.validation_rules = config["validation_rules"]
-        self.fixed_sheets = config["fixed_sheets"]
+        self.idmap_files = config["IDMAP_FILES"]
+        self.idmap_sections = config["IDMAP_SECTIONS"]
+        self.external_parameters_allowed = config["EXTERNAL_PARAMETERS_ALLOWED"]
+        self.parameter_mapping = config["PARAMETER_MAPPING"]
+        self.validation_rules = config["VALIDATION_RULES"]
+        self.fixed_sheets = config["FIXED_SHEETS"]
 
         # read consistency df from input-excel
         self.consistency = pd.read_excel(self.paths["consistency_xlsx"], sheet_name=None, engine="openpyxl")
