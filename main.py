@@ -1,4 +1,4 @@
-from meetpuntconfig.config import MeetpuntConfig
+from mptconfig.config import MeetpuntConfig
 
 import logging
 import sys

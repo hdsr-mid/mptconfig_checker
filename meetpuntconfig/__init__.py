@@ -1,6 +1,0 @@
-__title__ = "meetpuntconfig checker"
-__description__ = "Check consistency HDSR meetpuntconfig with FEWS"
-__version__ = "1.0.0"
-__author__ = "Daniel Tollenaar, Renier Kramer"
-__author_email__ = "daniel@d2hydro.nl, renier.kramer@hdsr.nl"
-__license__ = "MIT"

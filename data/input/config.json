@@ -1,10 +1,10 @@
 {
 	"paden": {
-		"consistency_xlsx": "..\\data\\consistency.xlsx",
-		"mpt_ignore_csv": "..\\data\\mpt_startenddate_total_pixml_transferdb_ignore.csv",
-		"hist_tags_csv": "..\\data\\get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
-		"fews_config": "d:\\FEWS\\HDSR_WIS\\CAW\\config",
-		"csv_out": "..\\data\\csv"
+		"consistency_xlsx": "..\\data\\input\\consistency.xlsx",
+		"mpt_ignore_csv": "..\\data\\input\\mpt_startenddate_total_pixml_transferdb_ignore.csv",
+		"hist_tags_csv": "..\\data\\input\\get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+		"fews_config": "D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config",
+		"csv_out": "..\\data\\output"
 	},
 	"fixed_sheets": [
 		"histTag_ignore",
