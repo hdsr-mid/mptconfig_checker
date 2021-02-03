@@ -5,10 +5,6 @@
 		"hist_tags_csv": "..\\data\\input\\get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
 		"fews_config": "D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config",
 		"csv_out": "..\\data\\output",
-
-		D:\WIS_6.0_ONTWIKKEL_202101\FEWS_SA\config
-
-
 	},
 	"fixed_sheets": [
 		"histTag_ignore",
