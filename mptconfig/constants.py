@@ -52,20 +52,27 @@ IDMAP_SECTIONS = {
     },
 }
 
-EXTERNAL_PARAMETERS_ALLOWED = (
-    {
-        "pompvijzel": ["FQ.$", "I.B$", "IB.$", "I.H$", "IH.$", "I.L$", "IL.$", "Q.$", "TT.$"],
-        "stuw": ["SW.$", "Q.$", "ES.$"],
-        "schuif": ["ES.$", "SP.$", "SS.$", "Q.$", "SM.$"],
-        "afsluiter": ["ES.$"],
-        "debietmeter": ["Q.$"],
-        "vispassage": ["ES.$", "SP.$", "SS.$", "Q.$"],
-        "krooshek": ["HB.$", "HO.$"],
-        "waterstand": ["HB.$", "HO.$", "H$"],
-    },
-)
 
-PARAMETERS_MAPPING = [
+SECTION_TYPE_PREFIX_MAPPER = {
+    "KUNSTWERKEN": "KW",
+    "WATERSTANDLOCATIES": "OW",
+    "MSWLOCATIES": "(OW|KW)",
+}
+
+
+EXTERNAL_PARAMETERS_ALLOWED = {
+    "pompvijzel": ["FQ.$", "I.B$", "IB.$", "I.H$", "IH.$", "I.L$", "IL.$", "Q.$", "TT.$"],
+    "stuw": ["SW.$", "Q.$", "ES.$"],
+    "schuif": ["ES.$", "SP.$", "SS.$", "Q.$", "SM.$"],
+    "afsluiter": ["ES.$"],
+    "debietmeter": ["Q.$"],
+    "vispassage": ["ES.$", "SP.$", "SS.$", "Q.$"],
+    "krooshek": ["HB.$", "HO.$"],
+    "waterstand": ["HB.$", "HO.$", "H$"],
+}
+
+
+PARAMETER_MAPPING = [
     {"internal": "DD.", "external": "I.B"},
     {"internal": "DDH.", "external": "I.H"},
     {"internal": "DDL.", "external": "I.L"},
