@@ -1,18 +1,23 @@
-from meetpuntconfig.fews_utilities import FewsConfig
-from meetpuntconfig.fews_utilities import xml_to_dict
+from mptconfig import constants
+from mptconfig.fews_utilities import FewsConfig
+from mptconfig.fews_utilities import xml_to_dict
+from mptconfig.utils import _sort_validation_attribs
+from mptconfig.utils import get_validation_attribs
+from mptconfig.utils import idmap2tags
+from mptconfig.utils import update_date
+from mptconfig.utils import update_histtag
+from mptconfig.utils import update_hlocs
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from openpyxl.styles import PatternFill
 from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
+from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Tuple
 
-import json
 import logging
-import numpy as np
-import pandas as pd
+import numpy as np  # noqa numpy comes with geopandas
+import pandas as pd  # noqa pandas comes with geopandas
 import re
 import sys
 
@@ -22,94 +27,6 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-def idmap2tags(row: pd.Series, idmap: Optional[List[str]]):
-    """Add FEWS-locationIds to hist_tags in df.apply() method."""
-    # TODO: fix typing args
-    # TODO: return type is np.NaN or a List[str]?
-    #  def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
-    exloc, expar = row["serie"].split("_", 1)
-    fews_locs = [
-        col["internalLocation"]
-        for col in idmap
-        if col["externalLocation"] == exloc and col["externalParameter"] == expar
-    ]
-    return np.NaN if fews_locs == 0 else fews_locs
-
-
-def get_validation_attribs(validation_rules, int_pars=None, loc_type=None):
-    """Get attributes from validationRules."""
-    if int_pars is None:
-        int_pars = [rule["parameter"] for rule in validation_rules]
-    result = []
-    for rule in validation_rules:
-        if "type" in rule.keys():
-            if rule["type"] == loc_type:
-                if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-                    for key, attribute in rule["extreme_values"].items():
-                        if isinstance(attribute, list):
-                            result += [value["attribute"] for value in attribute]
-                        else:
-                            result += [attribute]
-        elif any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-            for key, attribute in rule["extreme_values"].items():
-                if isinstance(attribute, list):
-                    result += [value["attribute"] for value in attribute]
-                else:
-                    result += [attribute]
-    return result
-
-
-def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
-    """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
-    loc_id = row.name
-    start_date = row["STARTDATE"]
-    end_date = row["ENDDATE"]
-
-    if loc_id in h_locs:
-        start_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["STARTDATE"].dropna().min()
-        end_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["ENDDATE"].dropna().max()
-    return start_date, end_date
-
-
-def update_date(row, mpt_df, date_threshold):
-    """Return start and end-date in df.apply() method."""
-    int_loc = row["LOC_ID"]
-    if int_loc in mpt_df.index:
-        start_date = mpt_df.loc[int_loc]["STARTDATE"].strftime("%Y%m%d")
-        end_date = mpt_df.loc[int_loc]["ENDDATE"]
-        if end_date > date_threshold:
-            end_date = pd.Timestamp(year=2100, month=1, day=1)
-        end_date = end_date.strftime("%Y%m%d")
-    else:
-        start_date = row["START"]
-        end_date = row["EIND"]
-    return start_date, end_date
-
-
-def update_histtag(row, grouper):
-    """Assign last histTag to waterstandsloc in df.apply method."""
-    return next(
-        (
-            df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
-            for loc_id, df in grouper
-            if loc_id == row["LOC_ID"]
-        ),
-        None,
-    )
-
-
-def _sort_validation_attribs(rule):
-    result = {}
-    for key, value in rule.items():
-        if isinstance(value, str):
-            result[key] = [value]
-        elif isinstance(value, list):
-            periods = [val["period"] for val in value]
-            attribs = [val["attribute"] for val in value]
-            result[key] = [attrib for _, attrib in sorted(zip(periods, attribs))]
-    return result
-
-
 class MeetpuntConfig:
     """Class to read, check and write a HDSR meetpuntconfiguratie."""
 
@@ -117,8 +34,8 @@ class MeetpuntConfig:
         self.paths = dict()
         self.fews_config = None
         self.location_sets = dict()
-        self.hist_tags = None
-        self.hist_tags_ignore = None
+        self._hist_tags = None
+        self._hist_tags_ignore = None
         self.fixed_sheets = None
         self.idmap_files = None
         self.idmap_sections = None
@@ -134,40 +51,29 @@ class MeetpuntConfig:
         self._locs_mapping = dict(
             hoofdlocaties="hoofdloc", sublocaties="subloc", waterstandlocaties="waterstandloc", mswlocaties="mswloc",
         )
-        self.config_json_path = config_json_path if config_json_path else Path("./config/config.json")
+        self.config_json_path = config_json_path if config_json_path else Path("./data/input/config.json")
+        self._set_paths()
         self._read_config()
 
+    def _set_paths(self):
+        """add paths to config. check_constants validates if paths exists. """
+        for key, path in constants.PATHS["files"].items():
+            if not path.is_absolute():
+                path = constants.BASE_DIR.joinpath(path).resolve()
+            self.paths[key] = path
+        for key, path in constants.PATHS["dirs"].items():
+            if not path.is_absolute():
+                path = constants.BASE_DIR.joinpath(path).resolve()
+            self.paths[key] = path
+
     def _read_config(self) -> None:
-        if not self.config_json_path.is_file():
-            logger.error(f"{self.config_json_path} files does not exist")
-            sys.exit()
-
-        with open(self.config_json_path) as src:
-            config = json.load(src)
-            workdir = Path(self.config_json_path).parent
-
-        # add paths to config
-        for key, path in config["paden"].items():
-            _path = Path(path)
-            if not _path.is_absolute():
-                _path = workdir.joinpath(_path).resolve()
-            if _path.exists():
-                self.paths[key] = _path
-            else:
-                if _path.suffix != "":
-                    logger.error(
-                        f"{_path} does not exist. Please define "
-                        f"existing file in {self.config_json_path.as_posix()}."
-                    )
-                    sys.exit()
-                logging.warning(f"{_path} does not exist. Folder will be created")
-                _path.mkdir()
 
         # add fews_config
+        # TODO: fews_config must be in Paths
         self.fews_config = FewsConfig(self.paths["fews_config"])
 
         # add location_sets
-        for key, value in config["location_sets"].items():
+        for key, value in constants.LOCATIONS_SETS.items():
             if value in self.fews_config.locationSets.keys():
                 if "csvFile" in self.fews_config.locationSets[value].keys():
                     self.location_sets[key] = {
@@ -180,67 +86,69 @@ class MeetpuntConfig:
                 logger.error(f"locationSet {key} specified in {self.config_json_path} not in fews-config")
 
         # add rest of config
-        self.idmap_files = config["idmap_files"]
-        self.idmap_sections = config["idmap_sections"]
-        self.external_parameters_allowed = config["external_parameters_allowed"]
-        self.parameter_mapping = config["parameter_mapping"]
-        self.validation_rules = config["validation_rules"]
-        self.fixed_sheets = config["fixed_sheets"]
+        self.idmap_files = constants.IDMAP_FILES
+        self.idmap_sections = constants.IDMAP_SECTIONS
+        self.external_parameters_allowed = constants.EXTERNAL_PARAMETERS_ALLOWED
+        self.parameter_mapping = constants.PARAMETER_MAPPING
+        self.validation_rules = constants.VALIDATION_RULES
+        self.fixed_sheets = constants.FIXED_SHEETS
 
         # read consistency df from input-excel
         self.consistency = pd.read_excel(self.paths["consistency_xlsx"], sheet_name=None, engine="openpyxl")
-
         self.consistency = {key: value for key, value in self.consistency.items() if key in self.fixed_sheets}
 
-    def _read_hist_tags(self, force: bool = False):
-        if not self.hist_tags or force:
-            if "hist_tags_csv" in self.paths.keys():
-                logger.info(f"reading histags: {self.paths['hist_tags_csv']}")
-                dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
-                self.hist_tags = pd.read_csv(
-                    self.paths["hist_tags_csv"], parse_dates=dtype_cols, sep=None, engine="python",
+    @property
+    def hist_tags(self) -> pd.DataFrame:
+        if self._hist_tags is not None:
+            return self._hist_tags
+        logger.info(f"reading histags: {self.paths['hist_tags_csv']}")
+        dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
+        self._hist_tags = pd.read_csv(
+            filepath_or_buffer=self.paths["hist_tags_csv"], parse_dates=dtype_cols, sep=None, engine="python",
+        )
+
+        for col in dtype_cols:
+            if pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
+                continue
+            logger.error(
+                f"col {col} in {self.paths['hist_tags_csv']} can not be converted "
+                f"to np.datetime64 format. Check if values are dates."
+            )
+            sys.exit()
+        return self._hist_tags
+
+    @property
+    def hist_tags_ignore(self) -> pd.DataFrame:
+        if self._hist_tags_ignore is not None:
+            return self._hist_tags_ignore
+
+        if "mpt_ignore_csv" in self.paths.keys():
+            logger.info(f"Reading hist tags to be ignored from {self.paths['mpt_ignore_csv']}")
+            self._hist_tags_ignore = pd.read_csv(
+                filepath_or_buffer=self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python"
+            )
+        elif "histTag_ignore" in self.consistency.keys():
+            self._hist_tags_ignore = self.consistency["histTag_ignore"]
+            logger.info(f"Reading hist tags to be ignored from {self.paths['consistency_xlsx']}")
+        else:
+            logger.error(
+                (
+                    f"specify a histTag_ignore worksheet in "
+                    f"{self.paths['consistency_xlsx']} or a csv-file "
+                    "in the config-json"
                 )
+            )
+            sys.exit()
+        self._hist_tags_ignore["UNKNOWN_SERIE"] = self._hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
+        return self._hist_tags_ignore
 
-            for col in dtype_cols:
-                if not pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
-                    logger.error(
-                        (
-                            f"col '{col}' in {self.paths['hist_tags_csv']} "
-                            "can not be converted to np.datetime64 format. "
-                            "Check if values are dates."
-                        )
-                    )
-
-                    sys.exit()
-
-    def _read_hist_tags_ignore(self, force: bool = False):
-        if (not self.hist_tags_ignore) or force:
-            if "mpt_ignore_csv" in self.paths.keys():
-                logger.info(f"Reading hist tags to be ignored from {self.paths['mpt_ignore_csv']}")
-                self.hist_tags_ignore = pd.read_csv(self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python")
-
-            elif "histTag_ignore" in self.consistency.keys():
-                self.hist_tags_ignore = self.consistency["histTag_ignore"]
-                logger.info(f"Reading hist tags to be ignored from {self.paths['consistency_xlsx']}")
-
-            else:
-                logger.error(
-                    (
-                        f"specify a histTag_ignore worksheet in "
-                        f"{self.paths['consistency_xlsx']} or a csv-file "
-                        "in the config-json"
-                    )
-                )
-                sys.exit()
-            self.hist_tags_ignore["UNKNOWN_SERIE"] = self.hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
-
-    def _get_idmaps(self, idmap_files=None):
+    def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
         if not idmap_files:
             idmap_files = self.idmap_files
         idmaps = [xml_to_dict(self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
         return [item for sublist in idmaps for item in sublist]
 
-    def _read_locs(self):
+    def _read_locs(self) -> None:
         self.hoofdloc = self.fews_config.get_locations("OPVLWATER_HOOFDLOC")
         self.subloc = self.fews_config.get_locations("OPVLWATER_SUBLOC")
         self.waterstandloc = self.fews_config.get_locations("OPVLWATER_WATERSTANDEN_AUTO")
@@ -257,11 +165,8 @@ class MeetpuntConfig:
 
         return result["HBOV"], result["HBEN"]
 
-    def hist_tags_to_mpt(self, sheet_name: str = "mpt"):
+    def hist_tags_to_mpt(self, sheet_name: str = "mpt") -> None:
         """Convert histTag-ids to mpt-ids."""
-
-        if self.hist_tags is None:
-            self._read_hist_tags()
 
         idmaps = self._get_idmaps()
 
@@ -307,47 +212,41 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = pd.DataFrame(
             columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
-
         for idmap, subsecs in self.idmap_sections.items():
             for section_type, sections in subsecs.items():
                 for section in sections:
-                    if section_type == "KUNSTWERKEN":
-                        prefix = "KW"
-                    if section_type == "WATERSTANDLOCATIES":
-                        prefix = "OW"
-                    if section_type == "MSWLOCATIES":
-                        prefix = "(OW|KW)"
-                    pattern = fr"{prefix}\d{{6}}$"
-                    idmapping = xml_to_dict(self.fews_config.IdMapFiles[idmap], **section)["idMap"]["map"]
 
+                    xml_file_path = self.fews_config.IdMapFiles[idmap]
+                    # not all section have a 'section_start' and 'section_end'
+                    _dict = xml_to_dict(**section, xml_file=xml_file_path)
+                    idmapping = _dict["idMap"]["map"]
+
+                    prefix = constants.SECTION_TYPE_PREFIX_MAPPER[section_type]
+                    pattern = fr"{prefix}\d{{6}}$"
                     idmap_wrong_section = [
                         idmap for idmap in idmapping if not bool(re.match(pattern, idmap["internalLocation"]))
                     ]
-                    if idmap_wrong_section:
-                        section_start = section["section_start"] if "section_start" in section.keys() else ""
-                        section_end = section["section_end"] if "section_end" in section.keys() else ""
-                        logger.warning(
-                            (
-                                f"{len(idmap_wrong_section)} "
-                                f"internalLocations not {prefix}XXXXXX "
-                                f"between {section_start} and {section_end} "
-                                f"in {idmap}."
-                            )
+                    if not idmap_wrong_section:
+                        continue
+                    section_start = section["section_start"] if "section_start" in section.keys() else ""
+                    section_end = section["section_end"] if "section_end" in section.keys() else ""
+                    logger.warning(
+                        (
+                            f"{len(idmap_wrong_section)} "
+                            f"internalLocations not {prefix}XXXXXX "
+                            f"between {section_start} and {section_end} "
+                            f"in {idmap}."
                         )
+                    )
 
-                        df = pd.DataFrame(idmap_wrong_section)
-                        df["sectie"] = section_start
-                        df["bestand"] = idmap
-                        self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
+                    df = pd.DataFrame(idmap_wrong_section)
+                    df["sectie"] = section_start
+                    df["bestand"] = idmap
+                    self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
 
     def check_missing_hist_tags(self, sheet_name: str = "histTags noMatch") -> None:
         """Check if hisTags are missing in config."""
         logger.info(f"start {self.check_missing_hist_tags.__name__}")
-        if self.hist_tags_ignore is None:
-            self._read_hist_tags_ignore()
-
-        if self.hist_tags is None:
-            self._read_hist_tags()
 
         hist_tags_df = self.hist_tags.copy()
 
@@ -372,7 +271,7 @@ class MeetpuntConfig:
             logger.info("all histTags in idMaps")
 
     def check_ignored_hist_tags(
-        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"]
+        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"],
     ) -> None:
         """Check if ignored histTags do match with idmap."""
         # TODO: 'idmap_files=["IdOPVLWATER"]' is a anti-pattern!
@@ -380,10 +279,6 @@ class MeetpuntConfig:
         #  more info: https://stackoverflow.com/questions/1132941/least-astonishment-and-the-mutable-default-argument
         logger.info(f"start {self.check_ignored_hist_tags.__name__}")
 
-        if self.hist_tags_ignore is None:
-            self._read_hist_tags_ignore()
-        if self.hist_tags is None:
-            self._read_hist_tags()
         hist_tags_opvlwater_df = self.hist_tags.copy()
         idmaps = self._get_idmaps(idmap_files=idmap_files)
         hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(idmap2tags, args=[idmaps], axis=1)
@@ -545,7 +440,6 @@ class MeetpuntConfig:
     ) -> None:
         """Check on wrong external parameters and missing internal locations."""
         logger.info(f"start {self.check_expar_errors_intloc_missing.__name__}")
-        expars_allowed = self.external_parameters_allowed
 
         if self.hoofdloc is None:
             self._read_locs()
@@ -589,7 +483,9 @@ class MeetpuntConfig:
                 sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
 
                 regexes += [
-                    j for i in [values for keys, values in expars_allowed.items() if keys in all_types] for j in i
+                    j
+                    for i in [values for keys, values in self.external_parameters_allowed.items() if keys in all_types]
+                    for j in i
                 ]
 
                 regexes += list(dict.fromkeys(regexes))

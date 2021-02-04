@@ -1,4 +1,5 @@
-from meetpuntconfig.config import MeetpuntConfig
+from mptconfig.config import MeetpuntConfig
+from mptconfig.constants import check_constants
 
 import logging
 import sys
@@ -32,6 +33,7 @@ def setup_logging() -> None:
 if __name__ == "__main__":
     check_python_version()
     setup_logging()
+    check_constants()
 
     # run checks
     meetpunt_config = MeetpuntConfig()

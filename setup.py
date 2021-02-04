@@ -1,25 +1,52 @@
-from meetpuntconfig import __author__
-from meetpuntconfig import __author_email__
-from meetpuntconfig import __description__
-from meetpuntconfig import __license__
-from meetpuntconfig import __version__
+from os import path
+from setuptools import find_packages
 from setuptools import setup
 
 
-with open("README.md", encoding="utf8") as f:
+# read the contents of your README file
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+
+version = "1.0"
+
+install_requires = [
+    "dataclasses",
+    "geopandas",
+    "lxml",
+    "openpyxl",
+    "xlrd",
+    "pathlib",
+    "typing",
+]
+
+tests_require = [
+    "pytest",
+]
 
 setup(
     name="mptconfig_checker",
-    version=__version__,
-    description=__description__,
+    version=version,
+    description="Check consistency HDSR mptconfig with FEWS",
     long_description=long_description,
     url="https://github.com/hdsr-mid/mptconfig_checker",
-    author=__author__,
-    author_email=__author_email__,
-    license=__license__,
-    packages=["meetpuntconfig"],
+    author="Daniel Tollenaar, Renier Kramer",
+    author_email="daniel@d2hydro.nl, renier.kramer@hdsr.nl",
+    license="MIT",
+    packages=find_packages(include=["mptconfig", "mptconfig.*"]),
     python_requires=">=3.6",
-    install_requires=["geopandas", "pandas", "lxml", "numpy", "openpyxl", "xlrd", "typing", "pathlib"],
-    keywords="HDSR, meetpuntconfig, FEWS, mptconfig_checker",
+    install_requires=install_requires,
+    tests_require=tests_require,
+    extras_require={"test": tests_require},
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        # "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "Topic :: Software Development :: Build Tools",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+    ],
+    keywords="HDSR, mptconfig, FEWS, mptconfig_checker",
 )
