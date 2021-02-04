@@ -21,7 +21,7 @@ def xml_to_etree(xml_file: str) -> ET._Element:
     return etree
 
 
-def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = None, section_end: str = None) -> Dict:
+def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = None, section_end: str = None,) -> Dict:
     """ converts an etree to a dictionary """
     # TODO: kan t alleen een ET._Element of ET._Comment zijn?
     if isinstance(etree, ET._Comment):
@@ -120,8 +120,8 @@ class FewsConfig:
                 ..
                 },
             self.MapLayerFiles = {
-                'afvoergebieden': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\afvoergebieden.shx',
-                'begroeiingsgraad_trajecten': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\begroeiingsgraad_trajecten.shx',
+                'afvoergebieden': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\afvoergebieden.shx',  # noqa
+                'begroeiingsgraad_trajecten': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\begroeiingsgraad_trajecten.shx',  # noqa
                 },
             etc
 

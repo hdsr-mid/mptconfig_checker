@@ -16,7 +16,13 @@ PATHS = {
     },
 }
 
-FIXED_SHEETS = ["histTag_ignore", "inhoudsopgave", "exLoc_ignore", "TS800_ignore", "xy_ignore"]
+FIXED_SHEETS = [
+    "histTag_ignore",
+    "inhoudsopgave",
+    "exLoc_ignore",
+    "TS800_ignore",
+    "xy_ignore",
+]
 
 LOCATIONS_SETS = {
     "hoofdlocaties": "OPVLWATER_HOOFDLOC",
@@ -26,7 +32,13 @@ LOCATIONS_SETS = {
     "peilschalen": "OPVLWATER_PEILSCHALEN",
 }
 
-IDMAP_FILES = ["IdOPVLWATER", "IdOPVLWATER_HYMOS", "IdHDSR_NSC", "IdOPVLWATER_WQ", "IdGrondwaterCAW"]
+IDMAP_FILES = [
+    "IdOPVLWATER",
+    "IdOPVLWATER_HYMOS",
+    "IdHDSR_NSC",
+    "IdOPVLWATER_WQ",
+    "IdGrondwaterCAW",
+]
 
 IDMAP_SECTIONS = {
     "IdOPVLWATER": {

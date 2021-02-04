@@ -34,8 +34,8 @@ class MeetpuntConfig:
         self.paths = dict()
         self.fews_config = None
         self.location_sets = dict()
-        self.hist_tags = None
-        self.hist_tags_ignore = None
+        self._hist_tags = None
+        self._hist_tags_ignore = None
         self.fixed_sheets = None
         self.idmap_files = None
         self.idmap_sections = None
@@ -97,49 +97,50 @@ class MeetpuntConfig:
         self.consistency = pd.read_excel(self.paths["consistency_xlsx"], sheet_name=None, engine="openpyxl")
         self.consistency = {key: value for key, value in self.consistency.items() if key in self.fixed_sheets}
 
-    def _read_hist_tags(self, force: bool = False):
-        if not self.hist_tags or force:
-            if "hist_tags_csv" in self.paths.keys():
-                logger.info(f"reading histags: {self.paths['hist_tags_csv']}")
-                dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
-                self.hist_tags = pd.read_csv(
-                    self.paths["hist_tags_csv"], parse_dates=dtype_cols, sep=None, engine="python",
+    @property
+    def hist_tags(self) -> pd.DataFrame:
+        if self._hist_tags is not None:
+            return self._hist_tags
+        logger.info(f"reading histags: {self.paths['hist_tags_csv']}")
+        dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
+        self._hist_tags = pd.read_csv(
+            filepath_or_buffer=self.paths["hist_tags_csv"], parse_dates=dtype_cols, sep=None, engine="python",
+        )
+
+        for col in dtype_cols:
+            if pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
+                continue
+            logger.error(
+                f"col {col} in {self.paths['hist_tags_csv']} can not be converted "
+                f"to np.datetime64 format. Check if values are dates."
+            )
+            sys.exit()
+        return self._hist_tags
+
+    @property
+    def hist_tags_ignore(self) -> pd.DataFrame:
+        if self._hist_tags_ignore is not None:
+            return self._hist_tags_ignore
+
+        if "mpt_ignore_csv" in self.paths.keys():
+            logger.info(f"Reading hist tags to be ignored from {self.paths['mpt_ignore_csv']}")
+            self._hist_tags_ignore = pd.read_csv(
+                filepath_or_buffer=self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python"
+            )
+        elif "histTag_ignore" in self.consistency.keys():
+            self._hist_tags_ignore = self.consistency["histTag_ignore"]
+            logger.info(f"Reading hist tags to be ignored from {self.paths['consistency_xlsx']}")
+        else:
+            logger.error(
+                (
+                    f"specify a histTag_ignore worksheet in "
+                    f"{self.paths['consistency_xlsx']} or a csv-file "
+                    "in the config-json"
                 )
-
-            # TODO: can dtype_cols ook None zijn?
-            for col in dtype_cols:
-                if not pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
-                    logger.error(
-                        (
-                            f"col '{col}' in {self.paths['hist_tags_csv']} "
-                            "can not be converted to np.datetime64 format. "
-                            "Check if values are dates."
-                        )
-                    )
-
-                    sys.exit()
-
-    def _read_hist_tags_ignore(self, force: bool = False) -> None:
-        # TODO: invert statement
-        if force or not self.hist_tags_ignore:
-            if "mpt_ignore_csv" in self.paths.keys():
-                logger.info(f"Reading hist tags to be ignored from {self.paths['mpt_ignore_csv']}")
-                self.hist_tags_ignore = pd.read_csv(self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python")
-
-            elif "histTag_ignore" in self.consistency.keys():
-                self.hist_tags_ignore = self.consistency["histTag_ignore"]
-                logger.info(f"Reading hist tags to be ignored from {self.paths['consistency_xlsx']}")
-
-            else:
-                logger.error(
-                    (
-                        f"specify a histTag_ignore worksheet in "
-                        f"{self.paths['consistency_xlsx']} or a csv-file "
-                        "in the config-json"
-                    )
-                )
-                sys.exit()
-            self.hist_tags_ignore["UNKNOWN_SERIE"] = self.hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
+            )
+            sys.exit()
+        self._hist_tags_ignore["UNKNOWN_SERIE"] = self._hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
+        return self._hist_tags_ignore
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
         if not idmap_files:
@@ -166,9 +167,6 @@ class MeetpuntConfig:
 
     def hist_tags_to_mpt(self, sheet_name: str = "mpt") -> None:
         """Convert histTag-ids to mpt-ids."""
-
-        if self.hist_tags is None:
-            self._read_hist_tags()
 
         idmaps = self._get_idmaps()
 
@@ -249,11 +247,6 @@ class MeetpuntConfig:
     def check_missing_hist_tags(self, sheet_name: str = "histTags noMatch") -> None:
         """Check if hisTags are missing in config."""
         logger.info(f"start {self.check_missing_hist_tags.__name__}")
-        if self.hist_tags_ignore is None:
-            self._read_hist_tags_ignore()
-
-        if self.hist_tags is None:
-            self._read_hist_tags()
 
         hist_tags_df = self.hist_tags.copy()
 
@@ -278,7 +271,7 @@ class MeetpuntConfig:
             logger.info("all histTags in idMaps")
 
     def check_ignored_hist_tags(
-        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"]
+        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"],
     ) -> None:
         """Check if ignored histTags do match with idmap."""
         # TODO: 'idmap_files=["IdOPVLWATER"]' is a anti-pattern!
@@ -286,10 +279,6 @@ class MeetpuntConfig:
         #  more info: https://stackoverflow.com/questions/1132941/least-astonishment-and-the-mutable-default-argument
         logger.info(f"start {self.check_ignored_hist_tags.__name__}")
 
-        if self.hist_tags_ignore is None:
-            self._read_hist_tags_ignore()
-        if self.hist_tags is None:
-            self._read_hist_tags()
         hist_tags_opvlwater_df = self.hist_tags.copy()
         idmaps = self._get_idmaps(idmap_files=idmap_files)
         hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(idmap2tags, args=[idmaps], axis=1)

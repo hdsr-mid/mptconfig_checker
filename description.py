@@ -1,7 +1,8 @@
 """
 1
 inpar = internal parameter
-- Staat inpar in parameter xml?
+- alle id_mapping.xml inpars (bijv ‘H.R.0’) in de id_mapping.xml moeten voorkomen in RegionConfigFiles/parameters.xml
+- check_missing_pars()
 
 2
 Inpar <> exper
