@@ -12,7 +12,31 @@ PATHS_nr1 = {
     },
     "dirs": {
         "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
-        "output_dir": BASE_DIR / "data" / "output",
+        "" "output_dir": BASE_DIR / "data" / "output",
+    },
+    "expected_summary": {
+        "idmap section error": 36,
+        "histTags ignore match": 0,
+        "histTags noMatch": 56,
+        "idmaps double": 0,
+        "mpt": 1770,
+        "pars missing": 1,
+        "hloc error": 0,
+        "exPar error": 2,
+        "intLoc missing": 2,
+        "exPar missing": 338,
+        "exLoc error": 8,
+        "timeSeries error": 62,
+        "validation error": 273,
+        "par mismatch": 0,
+        "locSet error": 319,
+    },
+    "paden": {
+        "consistency_xlsx": "..\\data\\consistency.xlsx",
+        "mpt_ignore_csv": "..\\data\\mpt_startenddate_total_pixml_transferdb_ignore.csv",
+        "hist_tags_csv": "..\\data\\get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
+        "fews_config": "D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config",
+        "csv_out": "..\\data\\csv",
     },
 }
 
@@ -26,8 +50,30 @@ PATHS_nr2 = {
         "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config",
         "output_dir": BASE_DIR / "data" / "output",
     },
+    "expected_summary": {
+        "idmap section error": 34,
+        "histTags ignore match": 1,
+        "histTags noMatch": 15,
+        "idmaps double": 0,
+        "mpt": 1802,
+        "hloc error": 18,
+        "exPar error": 2,
+        "intLoc missing": 0,
+        "exPar missing": 346,
+        "exLoc error": 5,
+        "timeSeries error": 7,
+        "validation error": 321,
+        "par mismatch": 0,
+        "locSet error": 337,
+    },
+    "paden": {
+        "consistency_xlsx": "..\\data\\consistency.xlsx",
+        "mpt_ignore_csv": "..\\data\\mpt_startenddate_total_pixml_transferdb_ignore.csv",
+        "hist_tags_csv": "..\\data\\get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        "fews_config": "D:\\WIS_6.0_ONTWIKKEL_202101\\FEWS_SA\\config",
+        "csv_out": "..\\data\\csv",
+    },
 }
-
 
 PATHS_nr3 = {
     "files": {
@@ -38,6 +84,30 @@ PATHS_nr3 = {
     "dirs": {
         "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
         "output_dir": BASE_DIR / "data" / "output",
+    },
+    "expected_summary": {
+        "idmap section error": 36,
+        "histTags ignore match": 0,
+        "histTags noMatch": 69,
+        "idmaps double": 0,
+        "mpt": 1770,
+        "pars missing": 1,
+        "hloc error": 0,
+        "exPar error": 2,
+        "intLoc missing": 2,
+        "exPar missing": 338,
+        "exLoc error": 8,
+        "timeSeries error": 62,
+        "validation error": 273,
+        "par mismatch": 0,
+        "locSet error": 319,
+    },
+    "paden": {
+        "consistency_xlsx": "..\\data\\consistency.xlsx",
+        "mpt_ignore_csv": "..\\data\\mpt_startenddate_total_pixml_transferdb_ignore.csv",
+        "hist_tags_csv": "..\\data\\get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        "fews_config": "D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config",
+        "csv_out": "..\\data\\csv",
     },
 }
 
@@ -210,15 +280,15 @@ def check_constants():
     ), f"BASE_DIR name ={BASE_DIR.name} should be project's root 'mptconfig_checker'"
 
     # check 2
-    files = "files"
-    dirs = "dirs"
-    assert (
-        len(PATHS.keys()) == 2 and files in PATHS.keys() and dirs in PATHS.keys()
-    ), f"PATHS keys {PATHS.keys()} must be exact {files} and {dirs}"
-    for _, path in PATHS[files].items():
-        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-
-        assert path.is_file(), f"file does not exist with path={path}"
-    for _, path in PATHS[dirs].items():
-        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-        assert path.is_dir(), f"dir does not exist with path={path}"
+    # files = "files"
+    # dirs = "dirs"
+    # assert (
+    #     len(PATHS.keys()) == 2 and files in PATHS.keys() and dirs in PATHS.keys()
+    # ), f"PATHS keys {PATHS.keys()} must be exact {files} and {dirs}"
+    # for _, path in PATHS[files].items():
+    #     assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
+    #
+    #     assert path.is_file(), f"file does not exist with path={path}"
+    # for _, path in PATHS[dirs].items():
+    #     assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
+    #     assert path.is_dir(), f"dir does not exist with path={path}"
