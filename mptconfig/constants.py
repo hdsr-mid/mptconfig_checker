@@ -4,17 +4,44 @@ from pathlib import Path
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
 
-PATHS = {
+PATHS_nr1 = {
     "files": {
-        "consistency_xlsx": BASE_DIR / "data" / "input" / "consistency.xlsx",
+        "consistency_input_xlsx": BASE_DIR / "data" / "input" / "consistency_input.xlsx",
+        "mpt_ignore_csv": BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
+        "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
+    },
+    "dirs": {
+        "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        "output_dir": BASE_DIR / "data" / "output",
+    },
+}
+
+PATHS_nr2 = {
+    "files": {
+        "consistency_input_xlsx": BASE_DIR / "data" / "input" / "consistency_input.xlsx",
         "mpt_ignore_csv": BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
         "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
     },
     "dirs": {
-        "fews_config": Path("D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config"),
-        "csv_out": BASE_DIR / "data" / "output",
+        "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config",
+        "output_dir": BASE_DIR / "data" / "output",
     },
 }
+
+
+PATHS_nr3 = {
+    "files": {
+        "consistency_input_xlsx": BASE_DIR / "data" / "input" / "consistency_input.xlsx",
+        "mpt_ignore_csv": BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
+        "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+    },
+    "dirs": {
+        "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        "output_dir": BASE_DIR / "data" / "output",
+    },
+}
+
+PATHS = PATHS_nr3
 
 FIXED_SHEETS = [
     "histTag_ignore",
@@ -190,6 +217,7 @@ def check_constants():
     ), f"PATHS keys {PATHS.keys()} must be exact {files} and {dirs}"
     for _, path in PATHS[files].items():
         assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
+
         assert path.is_file(), f"file does not exist with path={path}"
     for _, path in PATHS[dirs].items():
         assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"

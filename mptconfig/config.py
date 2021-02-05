@@ -19,6 +19,7 @@ import logging
 import numpy as np  # noqa numpy comes with geopandas
 import pandas as pd  # noqa pandas comes with geopandas
 import re
+import shutil
 import sys
 
 
@@ -94,7 +95,7 @@ class MeetpuntConfig:
         self.fixed_sheets = constants.FIXED_SHEETS
 
         # read consistency df from input-excel
-        self.consistency = pd.read_excel(self.paths["consistency_xlsx"], sheet_name=None, engine="openpyxl")
+        self.consistency = pd.read_excel(self.paths["consistency_input_xlsx"], sheet_name=None, engine="openpyxl")
         self.consistency = {key: value for key, value in self.consistency.items() if key in self.fixed_sheets}
 
     @property
@@ -134,7 +135,7 @@ class MeetpuntConfig:
             logger.error(
                 (
                     f"specify a histTag_ignore worksheet in "
-                    f"{self.paths['consistency_xlsx']} or a csv-file "
+                    f"{self.paths['consistency_input_xlsx']} or a csv-file "
                     "in the config-json"
                 )
             )
@@ -1138,29 +1139,40 @@ class MeetpuntConfig:
                         loc_set_errors[key].append(value)
 
         self.consistency[sheet_name] = pd.DataFrame(loc_set_errors)
-        # opname in samenvatting
 
+        # opname in samenvatting
         if len(self.consistency["locSet error"]) == 0:
             logger.info("no errors in locationSets")
         else:
             logger.warning(f"{len(self.consistency['locSet error'])} errors in locationSets")
 
     def write_excel(self) -> None:
-        """Write consistency to excel."""
-        consistency_xlsx = self.paths["consistency_xlsx"]
-        consistency_out_xlsx = consistency_xlsx.parent.joinpath(f"{consistency_xlsx.stem}_uit.xlsx")
+        """Write consistency to excel.
+        1. copy file consistency_input_xlsx to consistency_output_xlsx
+        2. empty all warning sheets of consistency_output_xlsx
+        3. save results (incl summary) to consistency_output_xlsx
+        """
+        consistency_input_xlsx_path = self.paths["consistency_input_xlsx"]
+        consistency_output_xlsx_path = self.paths["output_dir"] / "consistency_output.xlsx"
+        shutil.copy(src=consistency_input_xlsx_path, dst=consistency_output_xlsx_path)
 
+        # remove all xlsx sheets that will be filled with new data
+        book = load_workbook(filename=consistency_output_xlsx_path)
+        for worksheet in book.worksheets:
+            if worksheet.title not in self.fixed_sheets:
+                book.remove(worksheet)
+
+        # create summary dict
         index = self.consistency["inhoudsopgave"]
         index.index = index["werkblad"]
         summary = {
             key: len(df) for key, df in self.consistency.items() if key not in self.fixed_sheets + ["inhoudsopgave"]
         }
 
-        # read input xlsx and empty all warning sheets
-        book = load_workbook(consistency_xlsx)
-        for worksheet in book.worksheets:
-            if worksheet.title not in self.fixed_sheets:
-                book.remove(worksheet)
+        # TODO: remove this
+        from mptconfig.tmp import validate_expected_summary
+
+        validate_expected_summary(new_summary=summary)
 
         # add summary
         worksheet = book.create_sheet("samenvatting", 1)
@@ -1181,26 +1193,27 @@ class MeetpuntConfig:
         worksheet.auto_filter.ref = worksheet.dimensions
 
         # add warning sheets
-        xls_writer = pd.ExcelWriter(consistency_out_xlsx, engine="openpyxl")
+        xls_writer = pd.ExcelWriter(path=consistency_output_xlsx_path, engine="openpyxl")
         xls_writer.book = book
 
         for sheet_name in summary.keys():
             df = self.consistency[sheet_name]
+            if df.empty:
+                continue
+            if df.index.name is None:
+                df.to_excel(xls_writer, sheet_name=sheet_name, index=False)
+            else:
+                df.to_excel(xls_writer, sheet_name=sheet_name, index=True)
+            worksheet = xls_writer.sheets[sheet_name]
+            for col in worksheet.columns:
+                worksheet.column_dimensions[col[0].column_letter].width = 20
+            worksheet.auto_filter.ref = worksheet.dimensions
+            worksheet.freeze_panes = worksheet["B2"]
             if not df.empty:
-                if df.index.name is None:
-                    df.to_excel(xls_writer, sheet_name=sheet_name, index=False)
+                if sheet_name == "mpt":
+                    worksheet.sheet_properties.tabColor = "92D050"
                 else:
-                    df.to_excel(xls_writer, sheet_name=sheet_name, index=True)
-                worksheet = xls_writer.sheets[sheet_name]
-                for col in worksheet.columns:
-                    worksheet.column_dimensions[col[0].column_letter].width = 20
-                worksheet.auto_filter.ref = worksheet.dimensions
-                worksheet.freeze_panes = worksheet["B2"]
-                if not df.empty:
-                    if sheet_name == "mpt":
-                        worksheet.sheet_properties.tabColor = "92D050"
-                    else:
-                        worksheet.sheet_properties.tabColor = "FF0000"
+                    worksheet.sheet_properties.tabColor = "FF0000"
 
         xls_writer.book.active = xls_writer.book["samenvatting"]
         xls_writer.save()
@@ -1240,7 +1253,7 @@ class MeetpuntConfig:
                 df["ALLE_TYPES"] = df["PAR_ID"].apply(lambda x: par_types_df.loc[x])
                 df[["HBOVPS", "HBENPS"]] = df.apply(self._update_staff_gauge, axis=1, result_type="expand")
 
-            csv_file = self.paths["csv_out"].joinpath(self.fews_config.locationSets[value["id"]]["csvFile"]["file"])
+            csv_file = self.paths["output_dir"].joinpath(self.fews_config.locationSets[value["id"]]["csvFile"]["file"])
             if csv_file.suffix == "":
                 csv_file = Path(f"{csv_file}.csv")
             df.to_csv(csv_file, index=False)
