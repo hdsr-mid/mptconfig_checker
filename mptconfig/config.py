@@ -44,10 +44,11 @@ class MeetpuntConfig:
         self.consistency = None
         self.parameter_mapping = None
         self.validation_rules = None
-        self.hoofdloc = None
-        self.subloc = None
-        self.waterstandloc = None
-        self.mswloc = None
+        self._hoofdloc = None
+        self._hoofdloc_new = None
+        self._subloc = None
+        self._waterstandloc = None
+        self._mswloc = None
         self.mpt_hist_tags = None
         self._locs_mapping = dict(
             hoofdlocaties="hoofdloc", sublocaties="subloc", waterstandlocaties="waterstandloc", mswlocaties="mswloc",
@@ -149,11 +150,52 @@ class MeetpuntConfig:
         idmaps = [xml_to_dict(self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
         return [item for sublist in idmaps for item in sublist]
 
-    def _read_locs(self) -> None:
-        self.hoofdloc = self.fews_config.get_locations("OPVLWATER_HOOFDLOC")
-        self.subloc = self.fews_config.get_locations("OPVLWATER_SUBLOC")
-        self.waterstandloc = self.fews_config.get_locations("OPVLWATER_WATERSTANDEN_AUTO")
-        self.mswloc = self.fews_config.get_locations("MSW_STATIONS")
+    @property
+    def mswloc(self) -> pd.DataFrame:
+        if self._mswloc is not None:
+            return self._mswloc
+        self._mswloc = self.fews_config.get_locations("MSW_STATIONS")
+        return self._mswloc
+
+    @property
+    def waterstandloc(self) -> pd.DataFrame:
+        if self._waterstandloc is not None:
+            return self._waterstandloc
+        self._waterstandloc = self.fews_config.get_locations("OPVLWATER_WATERSTANDEN_AUTO")
+        return self._waterstandloc
+
+    @property
+    def subloc(self) -> pd.DataFrame:
+        if self._subloc is not None:
+            return self._subloc
+        self._subloc = self.fews_config.get_locations("OPVLWATER_SUBLOC")
+        return self._subloc
+
+    @property
+    def hoofdloc(self) -> pd.DataFrame:
+        """Get the latest version of the hoofdlocation: _hoofdloc_new or else _hoofdloc"""
+        if self._hoofdloc_new is not None:
+            return self._hoofdloc_new
+        if self._hoofdloc is not None:
+            return self._hoofdloc
+        self._hoofdloc = self.fews_config.get_locations("OPVLWATER_HOOFDLOC")
+        return self._hoofdloc
+
+    def _create_hoofdloc_new(self, par_dict: Dict):
+        """ hoofdloc_new is created/rewritten from sublocs in case no errors
+        found during check if all sublocs of same hloc have consistent
+        parameters (check_hloc_consistency()). """
+        assert isinstance(par_dict, Dict), f"par_dict should be a dictionary, not a {type(par_dict)}"
+        par_gdf = pd.DataFrame(par_dict)
+        columns = list(self.hoofdloc.columns)
+        drop_cols = [col for col in self.hoofdloc.columns if (col in par_gdf.columns) & (not col == "LOC_ID")]
+        drop_cols = drop_cols + ["geometry"]
+        self._hoofdloc_new = self.hoofdloc.drop(drop_cols, axis=1, inplace=False)
+        self._hoofdloc_new = par_gdf.merge(self._hoofdloc_new, on="LOC_ID")
+        self._hoofdloc_new["geometry"] = self._hoofdloc_new.apply(
+            (lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1
+        )
+        self._hoofdloc_new = self._hoofdloc_new[columns]
 
     def _update_staff_gauge(self, row):
         """Assign upstream and downstream staff gauges to subloc."""
@@ -319,7 +361,9 @@ class MeetpuntConfig:
                 logger.info(f"No double idmaps in {idmap_file}")
 
     def check_missing_pars(self, sheet_name: str = "pars missing") -> None:
-        """Check if internal parameters in idmaps are missing in paramters.xml."""
+        """Check if internal parameters in idmaps are missing in paramters.xml.
+        alle id_mapping.xml inpars (bijv ‘H.R.0’) moeten voorkomen in RegionConfigFiles/parameters.xml
+        """
         logger.info(f"start {self.check_missing_pars.__name__}")
         config_parameters = list(self.fews_config.get_parameters(dict_keys="parameters").keys())
 
@@ -337,13 +381,7 @@ class MeetpuntConfig:
     def check_hloc_consistency(self, sheet_name: str = "hloc error") -> None:
         """Check if all sublocs of same hloc have consistent parameters."""
         logger.info(f"start {self.check_hloc_consistency.__name__}")
-        if "xy_ignore" in self.consistency.keys():
-            xy_ignore_df = self.consistency["xy_ignore"]
-        else:
-            xy_ignore_df = pd.DataFrame({"internalLocation": [], "x": [], "y": []})
-
-        if self.hoofdloc is None:
-            self._read_locs()
+        xy_ignore_df = self.consistency.get("xy_ignore", pd.DataFrame({"internalLocation": [], "x": [], "y": []}))
 
         hloc_errors = {
             "LOC_ID": [],
@@ -421,29 +459,19 @@ class MeetpuntConfig:
                         value = ""
                     hloc_errors[key].append(value)
         self.consistency[sheet_name] = pd.DataFrame(hloc_errors)
-        if self.consistency[sheet_name].empty:
-            logger.info("no consistency errors. Hlocs rewritten from sublocs")
-            par_gdf = pd.DataFrame(par_dict)
-            columns = list(self.hoofdloc.columns)
-            drop_cols = [col for col in self.hoofdloc.columns if (col in par_gdf.columns) & (not col == "LOC_ID")]
 
-            drop_cols = drop_cols + ["geometry"]
-            self.hoofdloc = self.hoofdloc.drop(drop_cols, axis=1)
-            self.hoofdloc = par_gdf.merge(self.hoofdloc, on="LOC_ID")
-            self.hoofdloc["geometry"] = self.hoofdloc.apply((lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1)
-            self.hoofdloc = self.hoofdloc[columns]
+        if not hloc_errors:
+            logger.info("no consistency errors. Rewrite hlocs from sublocs")
+            self._create_hoofdloc_new(par_dict=par_dict)
         else:
-            logger.warning("{} Errors in consistency hlocs".format(len(self.consistency[sheet_name])))
-            logger.warning(("Hoofdlocaties will only be re-written " "when consistency errors are resolved"))
+            logger.warning(f"{len(self.consistency[sheet_name])} errors in consistency hlocs")
+            logger.warning("Hlocs will only be re-written when consistency errors are resolved")
 
     def check_expar_errors_intloc_missing(
         self, expar_sheet: str = "exPar error", intloc_sheet: str = "intLoc missing"
     ) -> None:
         """Check on wrong external parameters and missing internal locations."""
         logger.info(f"start {self.check_expar_errors_intloc_missing.__name__}")
-
-        if self.hoofdloc is None:
-            self._read_locs()
 
         ex_par_errors = {
             "internalLocation": [],
@@ -555,8 +583,7 @@ class MeetpuntConfig:
             "QS": [],
             "HS": [],
         }
-        if self.hoofdloc is None:
-            self._read_locs()
+
         idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
         for index, row in self.hoofdloc.iterrows():
             missings = dict.fromkeys(["QR", "QS", "HS"], False)
@@ -651,8 +678,6 @@ class MeetpuntConfig:
 
         idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
 
-        if self.subloc is None:
-            self._read_locs()
         idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(self.subloc["LOC_ID"].values)]
 
         idmap_subloc_df.loc[:, "type"] = idmap_subloc_df["internalLocation"].apply(
@@ -814,9 +839,6 @@ class MeetpuntConfig:
         location_sets_dict = xml_to_dict(self.fews_config.RegionConfigFiles["LocationSets"])["locationSets"][
             "locationSet"
         ]
-
-        if self.hoofdloc is None:
-            self._read_locs()
 
         for set_name in self.validation_rules.keys():
             location_set_meta = next(
@@ -1223,9 +1245,6 @@ class MeetpuntConfig:
         if "mpt" not in self.consistency.keys():
             self.hist_tags_to_mpt()
         mpt_df = self.consistency["mpt"]
-
-        if self.waterstandloc is None:
-            self._read_locs()
 
         date_threshold = mpt_df["ENDDATE"].max() - pd.Timedelta(weeks=26)
 

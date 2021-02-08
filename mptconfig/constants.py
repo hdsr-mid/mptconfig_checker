@@ -11,8 +11,9 @@ PATHS_nr1 = {
         "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
     },
     "dirs": {
-        "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
-        "" "output_dir": BASE_DIR / "data" / "output",
+        # "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        "fews_config": Path("C:/") / "Users" / "e6105" / "Downloads" / "201902" / "config",
+        "output_dir": BASE_DIR / "data" / "output",
     },
     "expected_summary": {
         "idmap section error": 36,
@@ -47,7 +48,8 @@ PATHS_nr2 = {
         "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
     },
     "dirs": {
-        "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config",
+        # "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config",
+        "fews_config": Path("C:/") / "Users" / "e6105" / "Downloads" / "202101" / "config",
         "output_dir": BASE_DIR / "data" / "output",
     },
     "expected_summary": {
@@ -82,7 +84,8 @@ PATHS_nr3 = {
         "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
     },
     "dirs": {
-        "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        # "fews_config": Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        "fews_config": Path("C:/") / "Users" / "e6105" / "Downloads" / "201902" / "config",
         "output_dir": BASE_DIR / "data" / "output",
     },
     "expected_summary": {
@@ -280,15 +283,14 @@ def check_constants():
     ), f"BASE_DIR name ={BASE_DIR.name} should be project's root 'mptconfig_checker'"
 
     # check 2
-    # files = "files"
-    # dirs = "dirs"
+    files = "files"
+    dirs = "dirs"
     # assert (
     #     len(PATHS.keys()) == 2 and files in PATHS.keys() and dirs in PATHS.keys()
     # ), f"PATHS keys {PATHS.keys()} must be exact {files} and {dirs}"
-    # for _, path in PATHS[files].items():
-    #     assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-    #
-    #     assert path.is_file(), f"file does not exist with path={path}"
-    # for _, path in PATHS[dirs].items():
-    #     assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-    #     assert path.is_dir(), f"dir does not exist with path={path}"
+    for _, path in PATHS[files].items():
+        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
+        assert path.is_file(), f"file does not exist with path={path}"
+    for _, path in PATHS[dirs].items():
+        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
+        assert path.is_dir(), f"dir does not exist with path={path}"
