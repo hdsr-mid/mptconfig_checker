@@ -1,8 +1,35 @@
+from collections import namedtuple
 from pathlib import Path
 
 
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
+
+
+PathNamedTuple = namedtuple("Paths", ["path", "is_file", "must_exist"])
+
+
+class Paths:
+    consistency_input_xlsx = PathNamedTuple(
+        path=BASE_DIR / "data" / "input" / "consistency_input.xlsx", is_file=True, must_exist=True,
+    )
+    mpt_ignore_csv = PathNamedTuple(
+        path=BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
+        is_file=True,
+        must_exist=True,
+    )
+    hist_tags_csv = PathNamedTuple(
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
+        is_file=True,
+        must_exist=True,
+    )
+    fews_config = PathNamedTuple(
+        path=Path("C:/") / "Users" / "e6105" / "Downloads" / "201902" / "config", is_file=False, must_exist=True,
+    )
+    output_dir = PathNamedTuple(
+        path=BASE_DIR / "data" / "output", is_file=False, must_exist=False,  # will be created if not exists
+    )
+
 
 PATHS_nr1 = {
     "files": {
@@ -285,12 +312,21 @@ def check_constants():
     # check 2
     files = "files"
     dirs = "dirs"
-    # assert (
-    #     len(PATHS.keys()) == 2 and files in PATHS.keys() and dirs in PATHS.keys()
-    # ), f"PATHS keys {PATHS.keys()} must be exact {files} and {dirs}"
-    for _, path in PATHS[files].items():
-        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-        assert path.is_file(), f"file does not exist with path={path}"
-    for _, path in PATHS[dirs].items():
-        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-        assert path.is_dir(), f"dir does not exist with path={path}"
+    all_defined_paths = sorted([key for key in Paths.__dict__ if not key.startswith("__")])
+    assert all_defined_paths == sorted(
+        ["consistency_input_xlsx", "fews_config", "hist_tags_csv", "mpt_ignore_csv", "output_dir"]
+    )
+    for path_nt in [
+        Paths.consistency_input_xlsx,
+        Paths.fews_config,
+        Paths.hist_tags_csv,
+        Paths.mpt_ignore_csv,
+        Paths.output_dir,
+    ]:
+        assert isinstance(path_nt.path, Path), f"path {path_nt.path} is not of type pathlib.Path"
+        if not path_nt.must_exist:
+            continue
+        if path_nt.is_file:
+            assert path_nt.path.is_file(), f"file does not exist with path={path_nt.path}"
+        else:
+            assert path_nt.path.is_dir(), f"dir does not exist with path={path_nt.path}"

@@ -31,8 +31,8 @@ pd.options.mode.chained_assignment = None
 class MeetpuntConfig:
     """Class to read, check and write a HDSR meetpuntconfiguratie."""
 
-    def __init__(self, config_json_path: str = None):
-        self.paths = dict()
+    def __init__(self):
+        self.paths = constants.Paths
         self.fews_config = None
         self.location_sets = dict()
         self._hist_tags = None
@@ -53,26 +53,12 @@ class MeetpuntConfig:
         self._locs_mapping = dict(
             hoofdlocaties="hoofdloc", sublocaties="subloc", waterstandlocaties="waterstandloc", mswlocaties="mswloc",
         )
-        self.config_json_path = config_json_path if config_json_path else Path("./data/input/config.json")
-        self._set_paths()
         self._read_config()
-
-    def _set_paths(self):
-        """add paths to config. check_constants validates if paths exists. """
-        for key, path in constants.PATHS["files"].items():
-            if not path.is_absolute():
-                path = constants.BASE_DIR.joinpath(path).resolve()
-            self.paths[key] = path
-        for key, path in constants.PATHS["dirs"].items():
-            if not path.is_absolute():
-                path = constants.BASE_DIR.joinpath(path).resolve()
-            self.paths[key] = path
 
     def _read_config(self) -> None:
 
         # add fews_config
-        # TODO: fews_config must be in Paths
-        self.fews_config = FewsConfig(self.paths["fews_config"])
+        self.fews_config = FewsConfig(path=self.paths.fews_config.path)
 
         # add location_sets
         for key, value in constants.LOCATIONS_SETS.items():
@@ -84,8 +70,9 @@ class MeetpuntConfig:
                     }
                 else:
                     logger.error(f"{key} not a csvFile location-set")
-            else:
-                logger.error(f"locationSet {key} specified in {self.config_json_path} not in fews-config")
+            # else:
+            #     # TODO: get rid of this self.config_json_path
+            #     logger.error(f"locationSet {key} specified in {self.config_json_path} not in fews-config")
 
         # add rest of config
         self.idmap_files = constants.IDMAP_FILES
@@ -96,24 +83,24 @@ class MeetpuntConfig:
         self.fixed_sheets = constants.FIXED_SHEETS
 
         # read consistency df from input-excel
-        self.consistency = pd.read_excel(self.paths["consistency_input_xlsx"], sheet_name=None, engine="openpyxl")
+        self.consistency = pd.read_excel(io=self.paths.consistency_input_xlsx.path, sheet_name=None, engine="openpyxl")
         self.consistency = {key: value for key, value in self.consistency.items() if key in self.fixed_sheets}
 
     @property
     def hist_tags(self) -> pd.DataFrame:
         if self._hist_tags is not None:
             return self._hist_tags
-        logger.info(f"reading histags: {self.paths['hist_tags_csv']}")
+        logger.info(f"reading histags: {self.paths.hist_tags_csv.name}")
         dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
         self._hist_tags = pd.read_csv(
-            filepath_or_buffer=self.paths["hist_tags_csv"], parse_dates=dtype_cols, sep=None, engine="python",
+            filepath_or_buffer=self.paths.hist_tags_csv.path, parse_dates=dtype_cols, sep=None, engine="python",
         )
 
         for col in dtype_cols:
             if pd.api.types.is_datetime64_dtype(self.hist_tags[col]):
                 continue
             logger.error(
-                f"col {col} in {self.paths['hist_tags_csv']} can not be converted "
+                f"col {col} in {self.paths.hist_tags_csv.path} can not be converted "
                 f"to np.datetime64. Check if values are dates."
             )
             sys.exit()
@@ -124,8 +111,9 @@ class MeetpuntConfig:
         if self._hist_tags_ignore is not None:
             return self._hist_tags_ignore
 
+        # TODO: fix this with self.paths.mpt_ignore_csv.path ??
         if "mpt_ignore_csv" in self.paths.keys():
-            logger.info(f"Reading hist tags to be ignored from {self.paths['mpt_ignore_csv']}")
+            logger.info(f"Reading hist tags to be ignored from {self.paths.mpt_ignore_csv.path}")
             self._hist_tags_ignore = pd.read_csv(
                 filepath_or_buffer=self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python"
             )
