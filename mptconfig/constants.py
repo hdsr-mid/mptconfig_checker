@@ -114,7 +114,7 @@ PATHS_nr3 = {
     },
 }
 
-PATHS = PATHS_nr3
+PATHS = PATHS_nr2
 
 FIXED_SHEETS = [
     "histTag_ignore",

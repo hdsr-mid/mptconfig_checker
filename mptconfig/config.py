@@ -114,7 +114,7 @@ class MeetpuntConfig:
                 continue
             logger.error(
                 f"col {col} in {self.paths['hist_tags_csv']} can not be converted "
-                f"to np.datetime64 format. Check if values are dates."
+                f"to np.datetime64. Check if values are dates."
             )
             sys.exit()
         return self._hist_tags
@@ -145,6 +145,19 @@ class MeetpuntConfig:
         return self._hist_tags_ignore
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
+        """
+        Get id mapping from 1 or more sources (xml files) and return them in a flatted list
+
+        Example:
+            idmap_files = ['IdOPVLWATER', 'IdOPVLWATER_HYMOS', 'IdHDSR_NSC', 'IdOPVLWATER_WQ', 'IdGrondwaterCAW']
+        returns:
+            [
+                ...,
+                {'externalLocation': '7612', 'externalParameter': 'HB1', 'internalLocation': 'OW761202', 'internalParameter': 'H.G.0'},  # noqa
+                {'externalLocation': '7612', 'externalParameter': 'HO1', 'internalLocation': 'OW761201', 'internalParameter': 'H.G.0'},  # noqa
+                ...,
+            ]
+        """
         if not idmap_files:
             idmap_files = self.idmap_files
         idmaps = [xml_to_dict(self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
@@ -193,7 +206,7 @@ class MeetpuntConfig:
         self._hoofdloc_new = self.hoofdloc.drop(drop_cols, axis=1, inplace=False)
         self._hoofdloc_new = par_gdf.merge(self._hoofdloc_new, on="LOC_ID")
         self._hoofdloc_new["geometry"] = self._hoofdloc_new.apply(
-            (lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1
+            func=(lambda x: Point(float(x["X"]), float(x["Y"]))), axis=1
         )
         self._hoofdloc_new = self._hoofdloc_new[columns]
 
@@ -210,12 +223,9 @@ class MeetpuntConfig:
 
     def hist_tags_to_mpt(self, sheet_name: str = "mpt") -> None:
         """Convert histTag-ids to mpt-ids."""
-
         idmaps = self._get_idmaps()
-
         hist_tags_df = self.hist_tags.copy()
         hist_tags_df["fews_locid"] = hist_tags_df.apply(idmap2tags, args=[idmaps], axis=1)
-
         hist_tags_df = hist_tags_df[hist_tags_df["fews_locid"].notna()]
         mpt_hist_tags_df = hist_tags_df.explode("fews_locid").reset_index(drop=True)
         self.mpt_hist_tags = mpt_hist_tags_df
@@ -231,7 +241,7 @@ class MeetpuntConfig:
         mpt_df.columns = ["STARTDATE", "ENDDATE"]
         mpt_df.index.name = "LOC_ID"
         kw_locs = list(mpt_df[mpt_df.index.str.contains("KW", regex=False)].index)
-        h_locs = np.unique(["{}0".format(loc[0:-1]) for loc in kw_locs])
+        h_locs = np.unique([f"{loc[0:-1]}0" for loc in kw_locs])
         h_locs_missing = [loc for loc in h_locs if loc not in list(mpt_df.index)]
         h_locs_df = pd.DataFrame(
             data={
@@ -244,7 +254,7 @@ class MeetpuntConfig:
         h_locs_df = h_locs_df.set_index("LOC_ID")
         mpt_df = pd.concat([mpt_df, h_locs_df], axis=0)
         mpt_df[["STARTDATE", "ENDDATE"]] = mpt_df.apply(
-            update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
+            func=update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
         mpt_df = mpt_df.sort_index()
         self.consistency[sheet_name] = mpt_df
@@ -308,30 +318,26 @@ class MeetpuntConfig:
         self.consistency[sheet_name] = hist_tags_no_match_df
 
         if not self.consistency[sheet_name].empty:
-            logger.warning("{} histTags not in idMaps".format(len(self.consistency[sheet_name])))
-
+            logger.warning(f"{len(self.consistency[sheet_name])} histTags not in idMaps")
         else:
             logger.info("all histTags in idMaps")
 
     def check_ignored_hist_tags(
-        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = ["IdOPVLWATER"],
+        self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = None,
     ) -> None:
         """Check if ignored histTags do match with idmap."""
-        # TODO: 'idmap_files=["IdOPVLWATER"]' is a anti-pattern!
-        #  we should avoid mutable objects (e.g. list) as arguments
-        #  more info: https://stackoverflow.com/questions/1132941/least-astonishment-and-the-mutable-default-argument
         logger.info(f"start {self.check_ignored_hist_tags.__name__}")
-
+        if not idmap_files:
+            idmap_files = ["IdOPVLWATER"]
         hist_tags_opvlwater_df = self.hist_tags.copy()
         idmaps = self._get_idmaps(idmap_files=idmap_files)
-        hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(idmap2tags, args=[idmaps], axis=1)
+        hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(func=idmap2tags, args=[idmaps], axis=1)
         hist_tags_opvlwater_df = hist_tags_opvlwater_df[hist_tags_opvlwater_df["fews_locid"].notna()]
         hist_tag_ignore_match_df = self.hist_tags_ignore[
             self.hist_tags_ignore["UNKNOWN_SERIE"].isin(hist_tags_opvlwater_df["serie"])
         ]
         hist_tag_ignore_match_df = hist_tag_ignore_match_df.set_index("UNKNOWN_SERIE")
         self.consistency[sheet_name] = hist_tag_ignore_match_df
-
         if not self.consistency[sheet_name].empty:
             logger.warning(f"{len(self.consistency[sheet_name])} histTags should not be in histTags ignore")
         else:
@@ -459,13 +465,13 @@ class MeetpuntConfig:
                         value = ""
                     hloc_errors[key].append(value)
         self.consistency[sheet_name] = pd.DataFrame(hloc_errors)
-
-        if not hloc_errors:
+        nr_errors_found = len(self.consistency[sheet_name])
+        if nr_errors_found:
+            logger.warning(f"{nr_errors_found} errors in consistency hlocs")
+            logger.warning("Hlocs will only be re-written when consistency errors are resolved")
+        else:
             logger.info("no consistency errors. Rewrite hlocs from sublocs")
             self._create_hoofdloc_new(par_dict=par_dict)
-        else:
-            logger.warning(f"{len(self.consistency[sheet_name])} errors in consistency hlocs")
-            logger.warning("Hlocs will only be re-written when consistency errors are resolved")
 
     def check_expar_errors_intloc_missing(
         self, expar_sheet: str = "exPar error", intloc_sheet: str = "intLoc missing"
@@ -484,7 +490,8 @@ class MeetpuntConfig:
             "SS./SM.": [],
         }
         int_loc_missing = []
-        idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        idmap_df = pd.DataFrame(idmaps)
         for int_loc, loc_group in idmap_df.groupby("internalLocation"):
             errors = dict.fromkeys(["I.X", "IX.", "FQ", "SS./SM."], False)
             ex_pars = np.unique(loc_group["externalParameter"].values)
@@ -583,8 +590,8 @@ class MeetpuntConfig:
             "QS": [],
             "HS": [],
         }
-
-        idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        idmap_df = pd.DataFrame(data=idmaps)
         for index, row in self.hoofdloc.iterrows():
             missings = dict.fromkeys(["QR", "QS", "HS"], False)
             int_loc = row["LOC_ID"]
@@ -622,8 +629,8 @@ class MeetpuntConfig:
         """Check if external locations are consistent with internal locations."""
         logger.info(f"start {self.check_exloc_intloc_consistency.__name__}")
         ex_loc_errors = {"internalLocation": [], "externalLocation": []}
-
-        idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        idmap_df = pd.DataFrame(data=idmaps)
         for loc_group in idmap_df.groupby("externalLocation"):
             int_loc_error = []
             ex_loc = loc_group[0]
@@ -676,7 +683,8 @@ class MeetpuntConfig:
         else:
             ts_ignore_df = pd.DataFrame({"internalLocation": [], "externalLocation": []})
 
-        idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        idmap_df = pd.DataFrame(data=idmaps)
 
         idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(self.subloc["LOC_ID"].values)]
 
@@ -873,7 +881,10 @@ class MeetpuntConfig:
 
             validation_rules = self.validation_rules[set_name]
             validaton_attributes = get_validation_attribs(validation_rules)
-            idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
+
+            idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+            idmap_df = pd.DataFrame(data=idmaps)
+
             params_df = pd.DataFrame.from_dict(
                 {int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")},
                 orient="index",
@@ -967,7 +978,8 @@ class MeetpuntConfig:
             "fout": [],
         }
 
-        idmap_df = pd.DataFrame.from_dict(self._get_idmaps(["IdOPVLWATER"]))
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        idmap_df = pd.DataFrame(data=idmaps)
         for idx, row in idmap_df.iterrows():
             error = None
             ext_par = [
