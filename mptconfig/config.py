@@ -38,7 +38,7 @@ class MeetpuntConfig:
         self._hist_tags = None
         self._hist_tags_ignore = None
         self.fixed_sheets = None
-        self.idmap_files = None
+        self.idmap_ffiles = None
         self.idmap_sections = None
         self.external_parameters_allowed = None
         self.consistency = None
@@ -90,7 +90,7 @@ class MeetpuntConfig:
     def hist_tags(self) -> pd.DataFrame:
         if self._hist_tags is not None:
             return self._hist_tags
-        logger.info(f"reading histags: {self.paths.hist_tags_csv.name}")
+        logger.info(f"reading histags: {self.paths.hist_tags_csv.path}")
         dtype_cols = ["total_min_start_dt", "total_max_end_dt"]
         self._hist_tags = pd.read_csv(
             filepath_or_buffer=self.paths.hist_tags_csv.path, parse_dates=dtype_cols, sep=None, engine="python",
@@ -111,24 +111,8 @@ class MeetpuntConfig:
         if self._hist_tags_ignore is not None:
             return self._hist_tags_ignore
 
-        # TODO: fix this with self.paths.mpt_ignore_csv.path ??
-        if "mpt_ignore_csv" in self.paths.keys():
-            logger.info(f"Reading hist tags to be ignored from {self.paths.mpt_ignore_csv.path}")
-            self._hist_tags_ignore = pd.read_csv(
-                filepath_or_buffer=self.paths["mpt_ignore_csv"], sep=None, header=0, engine="python"
-            )
-        elif "histTag_ignore" in self.consistency.keys():
-            self._hist_tags_ignore = self.consistency["histTag_ignore"]
-            logger.info(f"Reading hist tags to be ignored from {self.paths['consistency_xlsx']}")
-        else:
-            logger.error(
-                (
-                    f"specify a histTag_ignore worksheet in "
-                    f"{self.paths['consistency_input_xlsx']} or a csv-file "
-                    "in the config-json"
-                )
-            )
-            sys.exit()
+        logger.info(f"Reading hist tags to be ignored from {self.paths.consistency_input_xlsx.path}")
+        self._hist_tags_ignore = self.consistency["histTag_ignore"]
         self._hist_tags_ignore["UNKNOWN_SERIE"] = self._hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
         return self._hist_tags_ignore
 
@@ -1174,9 +1158,8 @@ class MeetpuntConfig:
         2. empty all warning sheets of consistency_output_xlsx
         3. save results (incl summary) to consistency_output_xlsx
         """
-        consistency_input_xlsx_path = self.paths["consistency_input_xlsx"]
-        consistency_output_xlsx_path = self.paths["output_dir"] / "consistency_output.xlsx"
-        shutil.copy(src=consistency_input_xlsx_path, dst=consistency_output_xlsx_path)
+        consistency_output_xlsx_path = self.paths.output_dir.path / "consistency_output.xlsx"
+        shutil.copy(src=self.paths.consistency_input_xlsx.path, dst=consistency_output_xlsx_path)
 
         # remove all xlsx sheets that will be filled with new data
         book = load_workbook(filename=consistency_output_xlsx_path)
@@ -1272,7 +1255,8 @@ class MeetpuntConfig:
                 df["ALLE_TYPES"] = df["PAR_ID"].apply(lambda x: par_types_df.loc[x])
                 df[["HBOVPS", "HBENPS"]] = df.apply(self._update_staff_gauge, axis=1, result_type="expand")
 
-            csv_file = self.paths["output_dir"].joinpath(self.fews_config.locationSets[value["id"]]["csvFile"]["file"])
-            if csv_file.suffix == "":
-                csv_file = Path(f"{csv_file}.csv")
-            df.to_csv(csv_file, index=False)
+            csv_filename = self.fews_config.locationSets[value["id"]]["csvFile"]["file"]
+            csv_file_path = self.paths.output_dir.path / csv_filename
+            if not csv_file_path.suffix:
+                csv_file_path = Path(f"{csv_file_path}.csv")
+            df.to_csv(csv_file_path, index=False)

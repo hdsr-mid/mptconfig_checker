@@ -22,10 +22,7 @@ def dict_compare(d1: Dict, d2: Dict):
 
 
 def validate_expected_summary(new_summary: Dict) -> None:
-    expected_summary = constants.PATHS["expected_summary"]
-    assert expected_summary, "this should not happen, no expected_summary found"
-
-    added, removed, modified, same = dict_compare(d1=expected_summary, d2=new_summary)
+    added, removed, modified, same = dict_compare(d1=constants.EXPECTED_SUMMARY, d2=new_summary)
 
     if same:
         logger.info("nice, summary is as expected")
