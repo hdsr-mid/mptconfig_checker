@@ -14,6 +14,8 @@ from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
 from typing import List
+from typing import Optional
+from typing import Tuple
 
 import logging
 import numpy as np  # noqa numpy comes with geopandas
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-class MeetpuntConfig:
+class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
     The main property of the class is 'self.consistency' which is:
         - a dictionary of panda dataframes: each dataframe is one excel sheet.
@@ -35,9 +37,9 @@ class MeetpuntConfig:
     """
 
     def __init__(self):
-        self.fews_config = None
-        self.location_sets = dict()
         self.consistency = None
+        self._fews_config = None
+        self._location_sets = None
         self._hist_tags = None
         self._hist_tags_ignore = None
         self._hoofdloc = None
@@ -46,30 +48,41 @@ class MeetpuntConfig:
         self._waterstandloc = None
         self._mswloc = None
         self._mpt_hist_tags = None
-        self._read_config()
+        self._fews_config = None
+        self.read_config()
 
-    def _read_config(self) -> None:
-        self.fews_config = FewsConfig(path=constants.PathConstants.fews_config.path)
+    def read_config(self):
+        """Read consistency df from input-excel into dict with dataframes, each frame representing an excel sheet. """
+        consistency = pd.read_excel(
+            io=constants.PathConstants.consistency_input_xlsx.path, sheet_name=None, engine="openpyxl"
+        )
+        self.consistency = {key: value for key, value in consistency.items() if key in constants.FIXED_SHEETS}
 
-        # add location_sets to fews_config
+    @property
+    def fews_config(self):
+        if self._fews_config is not None:
+            return self._fews_config
+        self._fews_config = FewsConfig(path=constants.PathConstants.fews_config.path)
+        return self._fews_config
+
+    @property
+    def location_sets(self) -> Dict:
+        if self._location_sets is not None:
+            return self._location_sets
+        self._location_sets = {}
         for key, value in constants.LOCATIONS_SETS.items():
-            if value not in self.fews_config.locationSets.keys():
+            if value not in self.fews_config.location_sets.keys():
                 # TODO: @daniel: error or warning? is it blocking later on?
                 logger.error(f"locationSet {key} specified in constants.LOCATIONS_SETS not in fews-config")
-            elif "csvFile" in self.fews_config.locationSets[value].keys():
-                self.location_sets[key] = {
+            elif "csvFile" in self.fews_config.location_sets[value].keys():
+                self._location_sets[key] = {
                     "id": value,
                     "gdf": self.fews_config.get_locations(location_set_key=value),
                 }
             else:
                 # TODO: @daniel: error or warning? is it blocking later on?
                 logger.error(f"{key} not a csvFile location-set")
-
-        # read consistency df from input-excel
-        consistency = pd.read_excel(
-            io=constants.PathConstants.consistency_input_xlsx.path, sheet_name=None, engine="openpyxl"
-        )
-        self.consistency = {key: value for key, value in consistency.items() if key in constants.FIXED_SHEETS}
+        return self._location_sets
 
     @property
     def hist_tags(self) -> pd.DataFrame:
@@ -115,44 +128,48 @@ class MeetpuntConfig:
         """
         if not idmap_files:
             idmap_files = constants.IDMAP_FILES
-        idmaps = [xml_to_dict(xml_file=self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
+        idmaps = [xml_to_dict(xml_filepath=self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
         return [item for sublist in idmaps for item in sublist]
 
     @property
     def mswloc(self) -> pd.DataFrame:
         if self._mswloc is not None:
             return self._mswloc
-        self._mswloc = self.fews_config.get_locations("MSW_STATIONS")
+        self._mswloc = self.fews_config.get_locations(location_set_key="MSW_STATIONS")
         return self._mswloc
 
     @property
     def waterstandloc(self) -> pd.DataFrame:
         if self._waterstandloc is not None:
             return self._waterstandloc
-        self._waterstandloc = self.fews_config.get_locations("OPVLWATER_WATERSTANDEN_AUTO")
+        self._waterstandloc = self.fews_config.get_locations(location_set_key="OPVLWATER_WATERSTANDEN_AUTO")
         return self._waterstandloc
 
     @property
     def subloc(self) -> pd.DataFrame:
         if self._subloc is not None:
             return self._subloc
-        self._subloc = self.fews_config.get_locations("OPVLWATER_SUBLOC")
+        self._subloc = self.fews_config.get_locations(location_set_key="OPVLWATER_SUBLOC")
         return self._subloc
 
     @property
     def hoofdloc(self) -> pd.DataFrame:
-        """Get the latest version of the hoofdlocation: _hoofdloc_new or else _hoofdloc"""
-        if self._hoofdloc_new is not None:
-            return self._hoofdloc_new
+        """Get the latest version of the hoofdlocation: hoofdloc_new or else hoofdloc"""
+        if self.hoofdloc_new is not None:
+            return self.hoofdloc_new
         if self._hoofdloc is not None:
             return self._hoofdloc
-        self._hoofdloc = self.fews_config.get_locations("OPVLWATER_HOOFDLOC")
+        self._hoofdloc = self.fews_config.get_locations(location_set_key="OPVLWATER_HOOFDLOC")
         return self._hoofdloc
 
-    def _create_hoofdloc_new(self, par_dict: Dict):
-        """Create/rewrite hoofdloc_new from sublocs in case no errors found during
+    @property
+    def hoofdloc_new(self) -> Optional[pd.DataFrame]:
+        return self._hoofdloc_new
+
+    def _create_hoofdloc_new(self, par_dict: Dict) -> None:
+        """Create a new hoofdloc from sublocs in case no errors found during
         check_hloc_consistency in case all sublocs of same hloc have consistent parameters."""
-        assert isinstance(par_dict, Dict), f"par_dict should be a dictionary, not a {type(par_dict)}"
+        assert isinstance(par_dict, dict), f"par_dict should be a dictionary, not a {type(par_dict)}"
         par_gdf = pd.DataFrame(par_dict)
         columns = list(self.hoofdloc.columns)
         drop_cols = [col for col in self.hoofdloc.columns if col in par_gdf.columns and col != "LOC_ID"]
@@ -164,15 +181,13 @@ class MeetpuntConfig:
         )
         self._hoofdloc_new = self._hoofdloc_new[columns]
 
-    def _update_staff_gauge(self, row):
+    def _update_staff_gauge(self, row: pd.Series) -> Tuple[str, str]:
         """Assign upstream and downstream staff gauges to subloc."""
         result = {"HBOV": "", "HBEN": ""}
-
         for key in result.keys():
             df = self.waterstandloc.loc[self.waterstandloc["LOC_ID"] == row[key]]
             if not df.empty:
                 result[key] = df["PEILSCHAAL"].values[0]
-
         return result["HBOV"], result["HBEN"]
 
     @property
@@ -230,7 +245,7 @@ class MeetpuntConfig:
 
                     xml_file_path = self.fews_config.IdMapFiles[idmap]
                     # not all section have a 'section_start' and 'section_end'
-                    _dict = xml_to_dict(xml_file=xml_file_path, **section)
+                    _dict = xml_to_dict(xml_filepath=xml_file_path, **section)
                     idmapping = _dict["idMap"]["map"]
 
                     prefix = constants.SECTION_TYPE_PREFIX_MAPPER[section_type]
@@ -1020,7 +1035,7 @@ class MeetpuntConfig:
             logger.info(set_name)
             location_set = location_sets[set_name]
             location_gdf = location_set["gdf"]
-            csv_file = self.fews_config.locationSets[location_set["id"]]["csvFile"]["file"]
+            csv_file = self.fews_config.location_sets[location_set["id"]]["csvFile"]["file"]
             int_locs = []
 
             for idmap in ["IdOPVLWATER", "IdOPVLWATER_HYMOS"]:
@@ -1264,7 +1279,7 @@ class MeetpuntConfig:
                 df["ALLE_TYPES"] = df["PAR_ID"].apply(func=lambda x: par_types_df.loc[x])
                 df[["HBOVPS", "HBENPS"]] = df.apply(func=self._update_staff_gauge, axis=1, result_type="expand")
 
-            csv_file_name = self.fews_config.locationSets[value["id"]]["csvFile"]["file"]
+            csv_file_name = self.fews_config.location_sets[value["id"]]["csvFile"]["file"]
             csv_file_path = constants.PathConstants.output_dir.path / csv_file_name
             if not csv_file_path.suffix:
                 csv_file_path = Path(f"{csv_file_path}.csv")

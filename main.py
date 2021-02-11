@@ -1,4 +1,4 @@
-from mptconfig.config import MeetpuntConfig
+from mptconfig.config import MptConfigChecker
 from mptconfig.constants import check_constants
 
 import logging
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     check_constants()
 
     # run checks
-    meetpunt_config = MeetpuntConfig()
+    meetpunt_config = MptConfigChecker()
     meetpunt_config.check_idmap_sections()
     meetpunt_config.check_ignored_hist_tags()
     meetpunt_config.check_missing_hist_tags()

@@ -11,10 +11,10 @@ import geopandas as gpd
 import os
 
 
-def xml_to_etree(xml_file: str) -> ET._Element:
+def xml_to_etree(xml_filepath: Path) -> ET._Element:
     """ parses an xml-file to an etree. ETree can be used in function etree_to_dict """
-    # TODO: xml_file is a path, so make it type Path
-    etree = ET.parse(xml_file).getroot()
+    assert isinstance(xml_filepath, Path), f"path {xml_filepath} must be a pathlib.Path"
+    etree = ET.parse(source=xml_filepath.as_posix()).getroot()
     return etree
 
 
@@ -72,16 +72,17 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
     return _dict
 
 
-def xml_to_dict(xml_file: str, section_start: str = None, section_end: str = None) -> Dict:
+def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
     # TODO: xml_file type is a path
-    etree = xml_to_etree(xml_file=xml_file)
+    etree = xml_to_etree(xml_filepath=xml_filepath)
     return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 
 
 class FewsConfig:
     def __init__(self, path):
         self.path = path
+        self._location_sets = None
 
         # FEWS config dir-structure
         self.CoefficientSetsFiles = dict()
@@ -101,50 +102,53 @@ class FewsConfig:
         self.WorkflowFiles = dict()
 
         # populate config dir-structure
+        self._validate_constructor()
         self._populate_files()
 
-        # get locationSets
-        # TODO: no camelcase. But leave it for now as a lot of location_sets exists
-        self.locationSets = self._get_location_sets()
+    def _validate_constructor(self):
+        assert isinstance(self.path, Path), f"path {self.path} must be a pathlib.Path"
+        assert self.path.is_dir(), f"path {self.path} must be an existing directory"
 
     def _populate_files(self) -> None:
         """Set all fews config filepaths (.xml, .shx, etc) on self.
 
         Example result:
-            self.IdMapFiles = {
-                'IdAHN': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\IdMapFiles\\IdAHN.xml',
-                'IdArtDiver': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\IdMapFiles\\IdArtDiver.xml',
-                ..
+            self.CoefficientSetsFiles = {
+                'BovenkantBuis': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/CoefficientSetsFiles/BovenkantBuis.xml'),  # noqa
+                'DebietParameters': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/CoefficientSetsFiles/DebietParameters.xml')  # noqa
                 },
-            self.MapLayerFiles = {
-                'afvoergebieden': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\afvoergebieden.shx',  # noqa
-                'begroeiingsgraad_trajecten': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\begroeiingsgraad_trajecten.shx',  # noqa
+            self.DisplayConfigFiles = {
+                'GridDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/GridDisplay.xml'),  # noqa
+                'ManualForecastDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/ManualForecastDisplay.xml'),  # noqa
+                'SystemMonitorDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/SystemMonitorDisplay.xml'),  # noqa
+                etc..
                 },
-            etc
-
-        TODO: work with pathlib.Path
+            etc..
         """
         for dirpath, dirnames, filenames in os.walk(self.path):
-            if dirpath == self.path:
+            _dirpath = Path(dirpath)
+            if _dirpath == self.path:
                 continue
-            prop = next((key for key in self.__dict__.keys() if key in dirpath), None)
-            if not prop:
+            if _dirpath.name not in self.__dict__.keys():
                 continue
-            self.__dict__[prop].update(
-                {os.path.splitext(file_name)[0]: os.path.join(dirpath, file_name) for file_name in filenames}
-            )
+            self.__dict__[_dirpath.name].update({Path(filename).stem: _dirpath / filename for filename in filenames})
 
-    def _get_location_sets(self) -> Dict:
-        """Extract a dict of locationsets."""
-        location_sets = xml_to_dict(xml_file=self.RegionConfigFiles["LocationSets"])["locationSets"]["locationSet"]
-        return {
+    @property
+    def location_sets(self) -> Dict:
+        if self._location_sets is not None:
+            return self._location_sets
+        location_dict = xml_to_dict(xml_file=self.RegionConfigFiles["LocationSets"])
+        location_sets = location_dict["locationSets"]["locationSet"]
+        self._location_sets = {
             location_set["id"]: {key: value for key, value in location_set.items() if key != "id"}
             for location_set in location_sets
         }
+        return self._location_sets
 
     def get_parameters(self, dict_keys: str = "groups") -> Dict:
         """Extract a dictionary of parameter(groups) from a FEWS-config."""
         # TODO: include parameters from CSV-files (support parametersCsvFile)
+        # TODO: @daniel: wat bedoel je hiermee?
         assert dict_keys in ("groups", "parameters")
         parameters = xml_to_dict(xml_file=self.RegionConfigFiles["Parameters"])["parameters"]
         if dict_keys == "groups":
@@ -170,7 +174,8 @@ class FewsConfig:
         # TODO: support other than csvFile type locationSets
         # TODO: concatenate attribute-files
         # TODO: rename to internal attribute names
-        location_set = self.locationSets.get(location_set_key, None)
+        # TODO: @daniel: wat bedoel je met deze 3 TODO's?
+        location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
             return
         file = location_set.get("csvFile", {}).get("file", None)
