@@ -9,22 +9,14 @@ BASE_DIR = Path(__file__).parent.parent
 PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 
 
-# class Paths:
+# class PathConstants:
 #     # all paths must exists
-#     consistency_input_xlsx = PathNamedTuple(
-#     is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx",
-#     )
-#     mpt_ignore_csv = PathNamedTuple(
-#         is_file=True, path=BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
-#     )
+#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
 #     hist_tags_csv = PathNamedTuple(
-#         is_file=True,
-#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
+#         is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
 #     )
-#     fews_config = PathNamedTuple(
-#     is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
-#     )
-#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output",)
+#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
+#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
 #
 #
 # EXPECTED_SUMMARY = {
@@ -46,18 +38,14 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 # }
 #
 #
-class Paths:
+class PathConstants:
     # all paths must exists
-    consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx",)
-    mpt_ignore_csv = PathNamedTuple(
-        is_file=True, path=BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
-    )
+    consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
     hist_tags_csv = PathNamedTuple(
-        is_file=True,
-        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv"
     )
     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config")
-    output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output",)
+    output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
 
 
 EXPECTED_SUMMARY = {
@@ -77,19 +65,16 @@ EXPECTED_SUMMARY = {
     "locSet error": 337,
 }
 
-
-# class Paths:
+#
+# class PathConstants:
 #     # all paths must exists
-#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx",)
-#     mpt_ignore_csv = PathNamedTuple(
-#         is_file=True, path=BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
-#     )
+#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
 #     hist_tags_csv = PathNamedTuple(
 #         is_file=True,
 #         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
 #     )
-#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",)
-#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output",)
+#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
+#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
 #
 #
 # EXPECTED_SUMMARY = {
@@ -272,28 +257,27 @@ VALIDATION_RULES = {
 
 
 def check_constants():
-    # check 1
+    # check 1: BASE_DIR's name
     assert (
         BASE_DIR.name == "mptconfig_checker"
     ), f"BASE_DIR name ={BASE_DIR.name} should be project's root 'mptconfig_checker'"
 
-    # check 2
-    all_defined_paths = [key for key in Paths.__dict__ if not key.startswith("__")]
-    assert sorted(all_defined_paths) == sorted(
-        ["consistency_input_xlsx", "fews_config", "hist_tags_csv", "mpt_ignore_csv", "output_dir"]
-    )
-    for path_nt in [
-        Paths.consistency_input_xlsx,
-        Paths.fews_config,
-        Paths.hist_tags_csv,
-        Paths.mpt_ignore_csv,
-        Paths.output_dir,
+    # check 2: PathConstants has exactly the following objects
+    all_defined_paths = [key for key in PathConstants.__dict__ if not key.startswith("__")]
+    assert sorted(all_defined_paths) == sorted(["consistency_input_xlsx", "fews_config", "hist_tags_csv", "output_dir"])
+
+    # check 3: all PathConstants paths must exists (not only .exists(), but is_file() or is_dir())
+    for path_namedtuple in [
+        PathConstants.consistency_input_xlsx,
+        PathConstants.fews_config,
+        PathConstants.hist_tags_csv,
+        PathConstants.output_dir,
     ]:
-        assert isinstance(path_nt.path, Path), f"path {path_nt.path} is not of type pathlib.Path"
-        if path_nt.is_file:
-            assert path_nt.path.is_file(), f"file does not exist with path={path_nt.path}"
+        assert isinstance(path_namedtuple.path, Path), f"path {path_namedtuple.path} is not of type pathlib.Path"
+        if path_namedtuple.is_file:
+            assert path_namedtuple.path.is_file(), f"file does not exist with path={path_namedtuple.path}"
         else:
-            assert path_nt.path.is_dir(), f"dir does not exist with path={path_nt.path}"
+            assert path_namedtuple.path.is_dir(), f"dir does not exist with path={path_namedtuple.path}"
 
 
 def check_input_file_content():

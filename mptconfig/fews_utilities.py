@@ -161,8 +161,8 @@ class FewsConfig:
                 group["parameter"] = [group["parameter"]]
             for parameter in group["parameter"]:
                 result.update({parameter["id"]: {}})
-                result[parameter["id"]] = {key: value for key, value in parameter.items() if not key == "id"}
-                result[parameter["id"]].update({key: value for key, value in group.items() if not key == "parameter"})
+                result[parameter["id"]] = {key: value for key, value in parameter.items() if key != "id"}
+                result[parameter["id"]].update({key: value for key, value in group.items() if key != "parameter"})
                 result[parameter["id"]]["groupId"] = result[parameter["id"]].pop("id")
         return result
 

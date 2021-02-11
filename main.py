@@ -36,7 +36,6 @@ if __name__ == "__main__":
     check_constants()
 
     # run checks
-
     meetpunt_config = MeetpuntConfig()
     meetpunt_config.check_idmap_sections()
     meetpunt_config.check_ignored_hist_tags()
