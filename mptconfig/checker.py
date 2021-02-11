@@ -243,9 +243,9 @@ class MptConfigChecker:
             for section_type, sections in subsecs.items():
                 for section in sections:
 
-                    xml_file_path = self.fews_config.IdMapFiles[idmap]
+                    xml_filepath = self.fews_config.IdMapFiles[idmap]
                     # not all section have a 'section_start' and 'section_end'
-                    _dict = xml_to_dict(xml_filepath=xml_file_path, **section)
+                    _dict = xml_to_dict(xml_filepath=xml_filepath, **section)
                     idmapping = _dict["idMap"]["map"]
 
                     prefix = constants.SECTION_TYPE_PREFIX_MAPPER[section_type]
@@ -701,7 +701,8 @@ class MptConfigChecker:
 
             split_ts = [key for key in split_ts if str(key) not in ex_locs_skip.values.astype(np.str)]
 
-            # TODO: renier use .get()
+            # TODO: whuuuuaaatt happens here!? :)
+            # TODO: use .get()
             ex_locs_dict = {
                 k: (ex_locs_dict[k[1:]] if (k[1:] in ex_locs_dict.keys()) and (k not in split_ts) else v)
                 for (k, v) in ex_locs_dict.items()
@@ -718,11 +719,14 @@ class MptConfigChecker:
 
                 date_str = self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
 
-                # TODO: Renier fix this nice
+                # TODO: @renier: handle out of bounds date string e.g. '32000101'
                 try:
                     end_time = pd.to_datetime(date_str)
                 except pd._libs.tslibs.np_datetime.OutOfBoundsDatetime as err:
+                    print("hoi")
                     logger.warning(f"date {date_str} is out of bounds! err={err}")
+                except Exception as err:
+                    print("hoi")
 
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
@@ -792,7 +796,8 @@ class MptConfigChecker:
                             conflicting_pars = [par for par in int_par if par in other_int_pars]
 
                             if len(conflicting_pars) > 0:
-                                # 2 sp series gekoppeld aan dezelfde fews parameter
+                                # TODO: @daniel 2 ?
+                                # 2 sp series coupled to the same fews parameter
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
                                 ts_errors["internalParameters"].append(",".join(int_pars))
@@ -803,7 +808,7 @@ class MptConfigChecker:
                                 ts_errors["type"].append(sub_type)
                                 ts_errors["fout"].append(
                                     (
-                                        f'{",".join(conflicting_pars)} gekoppeld aan '
+                                        f'{",".join(conflicting_pars)} coupled to  '
                                         f"sp-serie (exPar: {ex_par}, exLoc(s)):"
                                         f'{",".join(ex_locs)}'
                                     )
@@ -836,13 +841,12 @@ class MptConfigChecker:
             "mswlocaties": "mswloc",
         }
 
-        location_sets_dict = xml_to_dict(xml_file=self.fews_config.RegionConfigFiles["LocationSets"])["locationSets"][
-            "locationSet"
-        ]
+        locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
+        location_sets = locations_dict["locationSets"]["locationSet"]
 
         for set_name in constants.VALIDATION_RULES.keys():
             location_set_meta = next(
-                loc_set for loc_set in location_sets_dict if loc_set["id"] == self.location_sets[set_name]["id"]
+                loc_set for loc_set in location_sets if loc_set["id"] == self.location_sets[set_name]["id"]
             )["csvFile"]
 
             location_set_gdf = getattr(self, locs_mapping[set_name])
@@ -878,7 +882,9 @@ class MptConfigChecker:
             idmap_df = pd.DataFrame(data=idmaps)
 
             params_df = pd.DataFrame.from_dict(
-                {int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")},
+                data={
+                    int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")
+                },
                 orient="index",
                 columns=["internalParameters"],
             )
@@ -886,8 +892,6 @@ class MptConfigChecker:
             for (idx, row) in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
                 row = row.dropna()
-                # if set_name == 'sublocaties':
-                #     loc_type = row['TYPE']
                 if int_loc in params_df.index:
                     int_pars = np.unique(params_df.loc[int_loc]["internalParameters"])
                 else:
@@ -984,7 +988,7 @@ class MptConfigChecker:
                 if not any(re.match(pattern=par, string=row["externalParameter"]) for par in ext_par):
                     error = "parameter mismatch"
             else:
-                error = "pars niet opgenomen in config"
+                error = "pars not included in config"
             if error:
                 par_errors["internalLocation"].append(row["internalLocation"])
                 par_errors["internalParameter"].append(row["internalParameter"])
@@ -1046,7 +1050,7 @@ class MptConfigChecker:
                     ]
 
             if set_name == "sublocaties":
-                int_locs = [loc for loc in int_locs if not loc[-1] == "0"]
+                int_locs = [loc for loc in int_locs if loc[-1] != "0"]
                 par_gdf = location_sets["hoofdlocaties"]["gdf"]
 
             elif set_name == "hoofdlocaties":
@@ -1165,8 +1169,6 @@ class MptConfigChecker:
                         loc_set_errors[key].append(value)
 
         self.consistency[sheet_name] = pd.DataFrame(loc_set_errors)
-
-        # opname in samenvatting
         if len(self.consistency["locSet error"]) == 0:
             logger.info("no errors in locationSets")
         else:
@@ -1196,7 +1198,7 @@ class MptConfigChecker:
             if key not in constants.FIXED_SHEETS + ["inhoudsopgave"]
         }
 
-        # TODO: remove this
+        # TODO: @ renier: remove this
         from mptconfig.tmp import validate_expected_summary
 
         validate_expected_summary(new_summary=summary)
@@ -1249,9 +1251,8 @@ class MptConfigChecker:
         """Write locationSets to csv files."""
         if "mpt" not in self.consistency.keys():
             self.hist_tags_to_mpt()
-        mpt_df = self.consistency["mpt"]
 
-        date_threshold = mpt_df["ENDDATE"].max() - pd.Timedelta(weeks=26)
+        date_threshold = self.consistency["mpt"]["ENDDATE"].max() - pd.Timedelta(weeks=26)
 
         location_sets = {
             key: value
@@ -1264,7 +1265,7 @@ class MptConfigChecker:
             gdf = value["gdf"]
             df = gdf.drop("geometry", axis=1)
             df[["START", "EIND"]] = df.apply(
-                func=update_date, args=(mpt_df, date_threshold), axis=1, result_type="expand"
+                func=update_date, args=(self.consistency["mpt"], date_threshold), axis=1, result_type="expand"
             )
 
             if value["id"] == "OPVLWATER_WATERSTANDEN_AUTO":

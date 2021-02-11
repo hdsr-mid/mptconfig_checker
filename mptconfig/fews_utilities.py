@@ -137,7 +137,7 @@ class FewsConfig:
     def location_sets(self) -> Dict:
         if self._location_sets is not None:
             return self._location_sets
-        location_dict = xml_to_dict(xml_file=self.RegionConfigFiles["LocationSets"])
+        location_dict = xml_to_dict(xml_filepath=self.RegionConfigFiles["LocationSets"])
         location_sets = location_dict["locationSets"]["locationSet"]
         self._location_sets = {
             location_set["id"]: {key: value for key, value in location_set.items() if key != "id"}
@@ -148,9 +148,10 @@ class FewsConfig:
     def get_parameters(self, dict_keys: str = "groups") -> Dict:
         """Extract a dictionary of parameter(groups) from a FEWS-config."""
         # TODO: include parameters from CSV-files (support parametersCsvFile)
-        # TODO: @daniel: wat bedoel je hiermee?
+        # TODO: @daniel: wat bedoel je met deze TODO?
         assert dict_keys in ("groups", "parameters")
-        parameters = xml_to_dict(xml_file=self.RegionConfigFiles["Parameters"])["parameters"]
+        parameters_dict = xml_to_dict(xml_filepath=self.RegionConfigFiles["Parameters"])
+        parameters = parameters_dict["parameters"]
         if dict_keys == "groups":
             return {
                 group["id"]: {key: value for key, value in group.items() if key != "id"}

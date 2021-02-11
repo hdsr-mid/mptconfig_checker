@@ -1,4 +1,4 @@
-from mptconfig.config import MptConfigChecker
+from mptconfig.checker import MptConfigChecker
 from mptconfig.constants import check_constants
 
 import logging

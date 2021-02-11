@@ -1,6 +1,8 @@
+from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import TypeVar
 
 import logging
 import numpy as np  # noqa numpy comes with geopandas
@@ -8,13 +10,15 @@ import pandas as pd  # noqa pandas comes with geopandas
 import re
 
 
+PandasDataFrameGroupBy = TypeVar(name="pandas.core.groupby.generic.DataFrameGroupBy")
+
 logger = logging.getLogger(__name__)
 
 
 def idmap2tags(row: pd.Series, idmap: Optional[List[str]]):
     """Add FEWS-locationIds to hist_tags in df.apply() method."""
     # TODO: fix typing args
-    # TODO: return type is np.NaN or a List[str]?
+    # TODO: return type is np.NaN or a List[str]? <-- 1 functie altijd 1 dtype laten retourneren..
     #  def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
     exloc, expar = row["serie"].split("_", 1)
     fews_locs = [
@@ -25,13 +29,37 @@ def idmap2tags(row: pd.Series, idmap: Optional[List[str]]):
     return np.NaN if fews_locs == 0 else fews_locs
 
 
-def get_validation_attribs(validation_rules, int_pars=None, loc_type=None):
-    """Get attributes from validationRules."""
+def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
+    """Get attributes from validationRules.
+
+    Example:
+        get_validation_attribs(
+            validation_rules= [
+                {
+                    'parameter': 'H.R.',
+                    'extreme_values': {'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'}
+                },
+                {
+                    'parameter': 'H2.R.',
+                    'extreme_values': {'hmax': 'HR2_HMAX', 'hmin': 'HR2_HMIN'}
+                },
+                etc..
+            ]
+
+        results in result = [
+            'HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN', 'HR3_HMAX', 'HR3_HMIN', 'FRQ_HMAX',
+            'FRQ_HMIN', 'HEF_HMAX', 'HEF_HMIN', 'PERC_HMAX', 'PERC_SMAX', 'PERC_SMIN', 'PERC_HMIN',
+            'PERC2_HMAX', 'PERC2_SMAX', 'PERC2_SMIN', 'PERC2_HMIN', 'TT_HMAX', 'TT_HMIN'
+            ]
+
+    """
     if int_pars is None:
         int_pars = [rule["parameter"] for rule in validation_rules]
     result = []
     for rule in validation_rules:
         if "type" in rule.keys():
+            # TODO: @daniel, wat is loc_type? wordt niet meegegeven --> if rule["type'] == None ?
+            #  omdat rule een dict met str:str is, neem ik aan dat loc_type een string is. Klopt die aanname?
             if rule["type"] == loc_type:
                 if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
                     for key, attribute in rule["extreme_values"].items():
@@ -60,8 +88,8 @@ def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tu
     return start_date, end_date
 
 
-def update_date(row, mpt_df, date_threshold):
-    """Return start and end-date in df.apply() method."""
+def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timestamp) -> Tuple[str, str]:
+    """Return start and end-date, e.g. ('19970101', '21000101'), in df.apply() method."""
     int_loc = row["LOC_ID"]
     if int_loc in mpt_df.index:
         start_date = mpt_df.loc[int_loc]["STARTDATE"].strftime("%Y%m%d")
@@ -75,9 +103,9 @@ def update_date(row, mpt_df, date_threshold):
     return start_date, end_date
 
 
-def update_histtag(row, grouper):
+def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy):
     """Assign last histTag to waterstandsloc in df.apply method."""
-    return next(
+    a = next(
         (
             df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
             for loc_id, df in grouper
@@ -85,9 +113,16 @@ def update_histtag(row, grouper):
         ),
         None,
     )
+    return a
 
 
-def _sort_validation_attribs(rule):
+def _sort_validation_attribs(rule: Dict):
+    """
+    Example:
+        _sort_validation_attribs(rule={'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'})
+        returns
+        xxx
+    """
     result = {}
     for key, value in rule.items():
         if isinstance(value, str):
