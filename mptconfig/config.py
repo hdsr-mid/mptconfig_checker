@@ -54,7 +54,7 @@ class MeetpuntConfig:
         # add location_sets to fews_config
         for key, value in constants.LOCATIONS_SETS.items():
             if value not in self.fews_config.locationSets.keys():
-                # TODO: @daniel: error or warning? is it blocking later one?
+                # TODO: @daniel: error or warning? is it blocking later on?
                 logger.error(f"locationSet {key} specified in constants.LOCATIONS_SETS not in fews-config")
             elif "csvFile" in self.fews_config.locationSets[value].keys():
                 self.location_sets[key] = {
@@ -62,7 +62,7 @@ class MeetpuntConfig:
                     "gdf": self.fews_config.get_locations(location_set_key=value),
                 }
             else:
-                # TODO: @daniel: error or warning? is it blocking later one?
+                # TODO: @daniel: error or warning? is it blocking later on?
                 logger.error(f"{key} not a csvFile location-set")
 
         # read consistency df from input-excel
@@ -102,9 +102,7 @@ class MeetpuntConfig:
         return self._hist_tags_ignore
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
-        """
-        Get id mapping from 1 or more sources (xml files) and return them in a flatted list
-
+        """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
         Example:
             idmap_files = ['IdOPVLWATER', 'IdOPVLWATER_HYMOS', 'IdHDSR_NSC', 'IdOPVLWATER_WQ', 'IdGrondwaterCAW']
         returns:
@@ -117,7 +115,7 @@ class MeetpuntConfig:
         """
         if not idmap_files:
             idmap_files = constants.IDMAP_FILES
-        idmaps = [xml_to_dict(self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
+        idmaps = [xml_to_dict(xml_file=self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
         return [item for sublist in idmaps for item in sublist]
 
     @property
@@ -152,9 +150,8 @@ class MeetpuntConfig:
         return self._hoofdloc
 
     def _create_hoofdloc_new(self, par_dict: Dict):
-        """ hoofdloc_new is created/rewritten from sublocs in case no errors
-        found during check if all sublocs of same hloc have consistent
-        parameters (check_hloc_consistency()). """
+        """Create/rewrite hoofdloc_new from sublocs in case no errors found during
+        check_hloc_consistency in case all sublocs of same hloc have consistent parameters."""
         assert isinstance(par_dict, Dict), f"par_dict should be a dictionary, not a {type(par_dict)}"
         par_gdf = pd.DataFrame(par_dict)
         columns = list(self.hoofdloc.columns)
@@ -269,7 +266,7 @@ class MeetpuntConfig:
 
         idmaps = self._get_idmaps()
 
-        hist_tags_df["fews_locid"] = self.hist_tags.apply(idmap2tags, args=[idmaps], axis=1)
+        hist_tags_df["fews_locid"] = self.hist_tags.apply(func=idmap2tags, args=[idmaps], axis=1)
 
         hist_tags_no_match_df = hist_tags_df[hist_tags_df["fews_locid"].isna()]
         hist_tags_no_match_df = hist_tags_no_match_df[
@@ -659,10 +656,10 @@ class MeetpuntConfig:
         idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(self.subloc["LOC_ID"].values)]
 
         idmap_subloc_df.loc[:, "type"] = idmap_subloc_df["internalLocation"].apply(
-            (lambda x: self.subloc[self.subloc["LOC_ID"] == x]["TYPE"].values[0])
+            func=(lambda x: self.subloc[self.subloc["LOC_ID"] == x]["TYPE"].values[0])
         )
 
-        idmap_subloc_df.loc[:, "loc_groep"] = idmap_subloc_df["internalLocation"].apply((lambda x: x[0:-1]))
+        idmap_subloc_df.loc[:, "loc_groep"] = idmap_subloc_df["internalLocation"].apply(func=(lambda x: x[0:-1]))
 
         ts_errors = {
             "internalLocation": [],
@@ -699,7 +696,7 @@ class MeetpuntConfig:
             if len(org_uniques) == 1 and len(split_ts) == 1:
                 ex_locs_dict = {k: (org_uniques[0] if k in split_ts else v) for (k, v) in ex_locs_dict.items()}
 
-            group_df["ex_loc_group"] = group_df["externalLocation"].apply((lambda x: ex_locs_dict[x]))
+            group_df["ex_loc_group"] = group_df["externalLocation"].apply(func=(lambda x: ex_locs_dict[x]))
 
             for int_loc, loc_df in group_df.groupby("internalLocation"):
                 sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
@@ -824,7 +821,7 @@ class MeetpuntConfig:
             "mswlocaties": "mswloc",
         }
 
-        location_sets_dict = xml_to_dict(self.fews_config.RegionConfigFiles["LocationSets"])["locationSets"][
+        location_sets_dict = xml_to_dict(xml_file=self.fews_config.RegionConfigFiles["LocationSets"])["locationSets"][
             "locationSet"
         ]
 
@@ -1234,7 +1231,7 @@ class MeetpuntConfig:
         xls_writer.save()
 
     def write_csvs(self) -> None:
-        """Write locationSets to CSV."""
+        """Write locationSets to csv files."""
         if "mpt" not in self.consistency.keys():
             self.hist_tags_to_mpt()
         mpt_df = self.consistency["mpt"]
@@ -1251,22 +1248,24 @@ class MeetpuntConfig:
             logger.info(f"writing CSV for set: {key}. This may take a while")
             gdf = value["gdf"]
             df = gdf.drop("geometry", axis=1)
-            df[["START", "EIND"]] = df.apply(update_date, args=(mpt_df, date_threshold), axis=1, result_type="expand")
+            df[["START", "EIND"]] = df.apply(
+                func=update_date, args=(mpt_df, date_threshold), axis=1, result_type="expand"
+            )
 
             if value["id"] == "OPVLWATER_WATERSTANDEN_AUTO":
                 grouper = self.mpt_hist_tags.groupby(["fews_locid"])
-                df["HIST_TAG"] = df.apply(update_histtag, args=[grouper], axis=1, result_type="expand")
+                df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
 
             elif value["id"] == "OPVLWATER_SUBLOC":
                 grouper = df.groupby(["PAR_ID"])
-                par_types_df = grouper["TYPE"].unique().apply(lambda x: sorted(x)).transform(lambda x: "/".join(x))
+                par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
 
                 df["PAR_ID"] = gdf["LOC_ID"].str[0:-1] + "0"
-                df["ALLE_TYPES"] = df["PAR_ID"].apply(lambda x: par_types_df.loc[x])
-                df[["HBOVPS", "HBENPS"]] = df.apply(self._update_staff_gauge, axis=1, result_type="expand")
+                df["ALLE_TYPES"] = df["PAR_ID"].apply(func=lambda x: par_types_df.loc[x])
+                df[["HBOVPS", "HBENPS"]] = df.apply(func=self._update_staff_gauge, axis=1, result_type="expand")
 
-            csv_filename = self.fews_config.locationSets[value["id"]]["csvFile"]["file"]
-            csv_file_path = constants.PathConstants.output_dir.path / csv_filename
+            csv_file_name = self.fews_config.locationSets[value["id"]]["csvFile"]["file"]
+            csv_file_path = constants.PathConstants.output_dir.path / csv_file_name
             if not csv_file_path.suffix:
                 csv_file_path = Path(f"{csv_file_path}.csv")
             df.to_csv(csv_file_path, index=False)

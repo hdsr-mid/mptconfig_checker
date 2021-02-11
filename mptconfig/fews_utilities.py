@@ -1,5 +1,6 @@
 from collections import defaultdict
 from lxml import etree as ET  # noqa
+from mptconfig.constants import GEO_DATUM
 from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
@@ -8,10 +9,6 @@ from typing import Union
 
 import geopandas as gpd
 import os
-
-
-# TODO: move to constants
-GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
 
 
 def xml_to_etree(xml_file: str) -> ET._Element:
@@ -78,8 +75,8 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
 def xml_to_dict(xml_file: str, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
     # TODO: xml_file type is a path
-    etree = xml_to_etree(xml_file)
-    return etree_to_dict(etree, section_start=section_start, section_end=section_end)
+    etree = xml_to_etree(xml_file=xml_file)
+    return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 
 
 class FewsConfig:
@@ -111,7 +108,7 @@ class FewsConfig:
         self.locationSets = self._get_location_sets()
 
     def _populate_files(self) -> None:
-        """ Set all fews config filepaths (.xml, .shx, etc) on self.
+        """Set all fews config filepaths (.xml, .shx, etc) on self.
 
         Example result:
             self.IdMapFiles = {
@@ -138,18 +135,18 @@ class FewsConfig:
             )
 
     def _get_location_sets(self) -> Dict:
-        """build-in method to extract a dict of locationsets"""
-        location_sets = xml_to_dict(self.RegionConfigFiles["LocationSets"])["locationSets"]["locationSet"]
+        """Extract a dict of locationsets."""
+        location_sets = xml_to_dict(xml_file=self.RegionConfigFiles["LocationSets"])["locationSets"]["locationSet"]
         return {
             location_set["id"]: {key: value for key, value in location_set.items() if key != "id"}
             for location_set in location_sets
         }
 
     def get_parameters(self, dict_keys: str = "groups") -> Dict:
-        """method to extract a dictionary of parameter(groups) from a FEWS-config"""
+        """Extract a dictionary of parameter(groups) from a FEWS-config."""
         # TODO: include parameters from CSV-files (support parametersCsvFile)
         assert dict_keys in ("groups", "parameters")
-        parameters = xml_to_dict(self.RegionConfigFiles["Parameters"])["parameters"]
+        parameters = xml_to_dict(xml_file=self.RegionConfigFiles["Parameters"])["parameters"]
         if dict_keys == "groups":
             return {
                 group["id"]: {key: value for key, value in group.items() if key != "id"}
@@ -168,7 +165,7 @@ class FewsConfig:
 
     def get_locations(self, location_set_key: str) -> Optional[gpd.GeoDataFrame]:
         """Convert fews locationSet locations into geopandas df
-        args 'location_set_key' (str) is e.g. 'OPVLWATER_HOOFDLOC'
+        args 'location_set_key' (str) is e.g. 'OPVLWATER_HOOFDLOC'.
         """
         # TODO: support other than csvFile type locationSets
         # TODO: concatenate attribute-files
@@ -191,20 +188,19 @@ class FewsConfig:
         z_attrib = None
         if "z" in location_set["csvFile"].keys():
             # use key 'y' for z_attrib
+            # TODO: @daniel: why use 'y' for z_attrib?
             z_attrib = location_set["csvFile"]["y"].replace("%", "")
 
-        gdf = gpd.read_file(filepath)
+        gdf = gpd.read_file(filename=filepath)
 
         if z_attrib:
             gdf["geometry"] = gdf.apply(
-                (lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(x[z_attrib]),)), axis=1,
+                func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(x[z_attrib]),)), axis=1,
             )
         else:
-            gdf["geometry"] = gdf.apply((lambda x: Point(float(x[x_attrib]), float(x[y_attrib]))), axis=1,)
+            gdf["geometry"] = gdf.apply(func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]))), axis=1,)
 
-        crs = None
-        if location_set["csvFile"]["geoDatum"] in GEO_DATUM.keys():
-            crs = GEO_DATUM[location_set["csvFile"]["geoDatum"]]
-        if crs:
-            gdf.crs = crs
+        geo_datum_found = location_set["csvFile"]["geoDatum"]
+        crs = GEO_DATUM.get(geo_datum_found, None)
+        gdf.crs = crs if crs else None
         return gdf

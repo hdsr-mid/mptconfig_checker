@@ -6,6 +6,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent
 
 
+GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
+
+
 PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 
 
