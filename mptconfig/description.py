@@ -102,7 +102,7 @@ Sublocs: PARENT gelijk = XY, SYSTEEM, RAYON, KOMPAS gelijk
 
 13
 Subloc TYPE <> Inpar
-- Als je weet dat het een stuw dan moet er een Hk.0 zijn
+- Als je weet dat het een stuw is, dan moet er een Hk.0 zijn
 - Renier: soms wordt van een stuw toch niet Hk.0 gemeten?
 - Roger: Je kijkt naar bestaande relaties in idmapping
 

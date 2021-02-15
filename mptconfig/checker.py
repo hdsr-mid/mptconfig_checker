@@ -244,7 +244,7 @@ class MptConfigChecker:
                 for section in sections:
 
                     xml_filepath = self.fews_config.IdMapFiles[idmap]
-                    # not all section have a 'section_start' and 'section_end'
+                    # not all section have a 'section_start' and 'section_end' so use kwarg 'section'
                     _dict = xml_to_dict(xml_filepath=xml_filepath, **section)
                     idmapping = _dict["idMap"]["map"]
 
