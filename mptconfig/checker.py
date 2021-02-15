@@ -225,7 +225,7 @@ class MptConfigChecker:
         self._mpt_hist_tags = hist_tags_df.explode("fews_locid").reset_index(drop=True)
         return self._mpt_hist_tags
 
-    def hist_tags_to_mpt(self, sheet_name: str = "mpt") -> None:
+    def hist_tags_to_mpt(self, sheet_name: str = "mpt") -> Tuple[str, pd.DataFrame]:
         """Convert histTag-ids to mpt-ids."""
         mpt_df = pd.concat(
             [
@@ -255,7 +255,7 @@ class MptConfigChecker:
             func=update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
         mpt_df = mpt_df.sort_index()
-        self.consistency[sheet_name] = mpt_df
+        return sheet_name, mpt_df
 
     def check_idmap_sections(self, sheet_name: str = "idmap section error") -> Tuple[str, pd.DataFrame]:
         """Check if all KW/OW locations are in the correct section."""
@@ -345,10 +345,10 @@ class MptConfigChecker:
             logger.info("hisTags ignore list consistent with idmaps")
         return sheet_name, hist_tag_ignore_match_df
 
-    def check_double_idmaps(self, sheet_name: str = "idmaps double") -> None:
+    def check_double_idmaps(self, sheet_name: str = "idmaps double") -> Tuple[str, pd.DataFrame]:
         """Check if identical idmaps are doubled."""
         logger.info(f"start {self.check_double_idmaps.__name__}")
-        self.consistency[sheet_name] = pd.DataFrame(
+        result_df = pd.DataFrame(
             columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
         for idmap_file in constants.IDMAP_FILES:
@@ -364,9 +364,10 @@ class MptConfigChecker:
                 columns=["internalLocation", "externalLocation", "internalParameter", "externalParameter"],
             )
             df["bestand"] = idmap_file
-            self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
+            result_df = pd.concat(objs=[result_df, df], axis=0, join="outer")
+        return sheet_name, result_df
 
-    def check_missing_pars(self, sheet_name: str = "pars missing") -> None:
+    def check_missing_pars(self, sheet_name: str = "pars missing") -> Tuple[str, pd.DataFrame]:
         """Check if internal parameters in idmaps are missing in parameters.xml.
         alle id_mapping.xml inpars (bijv ‘H.R.0’) moeten voorkomen in RegionConfigFiles/parameters.xml
         """
@@ -381,9 +382,10 @@ class MptConfigChecker:
             logger.info("all internal paramters are in config")
         else:
             logger.warning(f"{len(params_missing)} parameter(s) in idMaps are missing in config")
-            self.consistency[sheet_name] = pd.DataFrame({"parameters": params_missing})
+        result_df = pd.DataFrame({"parameters": params_missing})
+        return sheet_name, result_df
 
-    def check_hloc_consistency(self, sheet_name: str = "hloc error") -> None:
+    def check_hloc_consistency(self, sheet_name: str = "hloc error") -> Tuple[str, pd.DataFrame]:
         """Check if all sublocs of same hloc have consistent parameters."""
         logger.info(f"start {self.check_hloc_consistency.__name__}")
         xy_ignore_df = self.consistency.get("xy_ignore", pd.DataFrame({"internalLocation": [], "x": [], "y": []}))
@@ -462,14 +464,16 @@ class MptConfigChecker:
                     if value is False:
                         value = ""
                     hloc_errors[key].append(value)
-        self.consistency[sheet_name] = pd.DataFrame(hloc_errors)
-        nr_errors_found = len(self.consistency[sheet_name])
+
+        result_df = pd.DataFrame(hloc_errors)
+        nr_errors_found = len(result_df)
         if nr_errors_found:
             logger.warning(f"{nr_errors_found} errors in consistency hlocs")
             logger.warning("Hlocs will only be re-written when consistency errors are resolved")
         else:
             logger.info("no consistency errors. Rewrite hlocs from sublocs")
             self._create_hoofdloc_new(par_dict=par_dict)
+        return sheet_name, result_df
 
     def check_expar_errors_intloc_missing(
         self, expar_sheet: str = "exPar error", intloc_sheet: str = "intLoc missing"
@@ -1273,8 +1277,7 @@ class MptConfigChecker:
 
     def write_csvs(self) -> None:
         """Write locationSets to csv files."""
-        if "mpt" not in self.consistency.keys():
-            self.hist_tags_to_mpt()
+        assert not self.consistency["mpt"].empty
 
         date_threshold = self.consistency["mpt"]["ENDDATE"].max() - pd.Timedelta(weeks=26)
 
@@ -1317,11 +1320,21 @@ class MptConfigChecker:
         sheet_name, sheet_df = self.check_ignored_hist_tags()
         self.consistency[sheet_name] = sheet_df
 
-        self.check_missing_hist_tags()
-        self.check_double_idmaps()
-        self.hist_tags_to_mpt()
-        self.check_missing_pars()
-        self.check_hloc_consistency()
+        sheet_name, sheet_df = self.check_missing_hist_tags()
+        self.consistency[sheet_name] = sheet_df
+
+        sheet_name, sheet_df = self.check_double_idmaps()
+        self.consistency[sheet_name] = sheet_df
+
+        sheet_name, sheet_df = self.hist_tags_to_mpt()
+        self.consistency[sheet_name] = sheet_df
+
+        sheet_name, sheet_df = self.check_missing_pars()
+        self.consistency[sheet_name] = sheet_df
+
+        sheet_name, sheet_df = self.check_hloc_consistency()
+        self.consistency[sheet_name] = sheet_df
+
         self.check_expar_errors_intloc_missing()
         self.check_expar_missing()
         self.check_exloc_intloc_consistency()
