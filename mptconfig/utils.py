@@ -1,6 +1,5 @@
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Tuple
 from typing import TypeVar
 
@@ -10,23 +9,20 @@ import pandas as pd  # noqa pandas comes with geopandas
 import re
 
 
-PandasDataFrameGroupBy = TypeVar(name="pandas.core.groupby.generic.DataFrameGroupBy")
+PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")
 
 logger = logging.getLogger(__name__)
 
 
-def idmap2tags(row: pd.Series, idmap: Optional[List[str]]):
+def idmap2tags(row: pd.Series, idmap: List[Dict]) -> List[str]:
     """Add FEWS-locationIds to hist_tags in df.apply() method."""
-    # TODO: fix typing args
-    # TODO: return type is np.NaN or a List[str]? <-- 1 functie altijd 1 dtype laten retourneren..
-    #  def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
-    exloc, expar = row["serie"].split("_", 1)
+    exloc, expar = row["serie"].split(sep="_", maxsplit=1)
     fews_locs = [
         col["internalLocation"]
         for col in idmap
         if col["externalLocation"] == exloc and col["externalParameter"] == expar
     ]
-    return np.NaN if fews_locs == 0 else fews_locs
+    return fews_locs if fews_locs else [""]
 
 
 def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
@@ -46,7 +42,8 @@ def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = N
                 etc..
             ]
 
-        results in result = [
+        returns:
+            [
             'HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN', 'HR3_HMAX', 'HR3_HMIN', 'FRQ_HMAX',
             'FRQ_HMIN', 'HEF_HMAX', 'HEF_HMIN', 'PERC_HMAX', 'PERC_SMAX', 'PERC_SMIN', 'PERC_HMIN',
             'PERC2_HMAX', 'PERC2_SMAX', 'PERC2_SMIN', 'PERC2_HMIN', 'TT_HMAX', 'TT_HMIN'
@@ -58,8 +55,8 @@ def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = N
     result = []
     for rule in validation_rules:
         if "type" in rule.keys():
-            # TODO: @daniel, wat is loc_type? wordt niet meegegeven --> if rule["type'] == None ?
-            #  omdat rule een dict met str:str is, neem ik aan dat loc_type een string is. Klopt die aanname?
+            # TODO: @daniel, wat is loc_type? wordt in geen enkele call meegegeven. Dus loc_type is None, dus hieronder staat: if rule["type'] == None ?
+            #  omdat rule een Dict[str:str] is, neem ik aan dat loc_type een string is. Klopt die aanname?
             if rule["type"] == loc_type:
                 if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
                     for key, attribute in rule["extreme_values"].items():
@@ -103,25 +100,64 @@ def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timesta
     return start_date, end_date
 
 
-def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy):
-    """Assign last histTag to waterstandsloc in df.apply method."""
-    a = next(
-        (
-            df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
-            for loc_id, df in grouper
-            if loc_id == row["LOC_ID"]
-        ),
-        None,
+def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
+    """Assign last histTag to waterstandsloc in df.apply method.
+    row['LOC_ID'] is e.g. 'OW100101'
+    updated_histtag_str is e.g. '1001_HO1'
+    """
+    # TODO:
+    #  @daniel, waarom generator? kunnen er meerdere updated_histtags per panda cel worden weggeschreven?
+    #  @daniel, is return value altijd str?
+    #  @daniel, kan len(updated_histtag) > 1 ??
+    #  @daniel, bij idmap2tags retourneer je ergens np.Nan of een [
+
+    # renier zn code
+    updated_histtag = [
+        df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
+        for loc_id, df in grouper
+        if loc_id == row["LOC_ID"]
+    ]
+    assert len(updated_histtag) in [0, 1], (
+        f"this should not happen, length of updated_histtag should be 0 or 1. " f"updated_histtag={updated_histtag}"
     )
-    return a
+    updated_histtag_str = updated_histtag[0] if updated_histtag else ""
+    return updated_histtag_str
+
+    # daniel zn code
+    # return next(
+    #     (
+    #         df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
+    #         for loc_id, df in grouper
+    #         if loc_id == row["LOC_ID"]
+    #     ),
+    #     None,
+    # )
 
 
-def _sort_validation_attribs(rule: Dict):
+def sort_validation_attribs(rule: Dict) -> Dict[str, list]:
     """
     Example:
-        _sort_validation_attribs(rule={'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'})
-        returns
-        xxx
+        rule = {
+            'hmax': 'HARDMAX',
+            'smax': [
+                {'period': 1, 'attribute': 'WIN_SMAX'},
+                {'period': 2, 'attribute': 'OV_SMAX'},
+                {'period': 3, 'attribute': 'ZOM_SMAX'}
+                ],
+            'smin': [
+                {'period': 1, 'attribute': 'WIN_SMIN'},
+                {'period': 2, 'attribute': 'OV_SMIN'},
+                {'period': 3, 'attribute': 'ZOM_SMIN'}
+                ],
+            'hmin': 'HARDMIN'
+            }
+        _sort_validation_attribs(rule) returns:
+        result = {
+            'hmax': ['HARDMAX'],
+            'smax': ['WIN_SMAX', 'OV_SMAX', 'ZOM_SMAX'],
+            'smin': ['WIN_SMIN', 'OV_SMIN', 'ZOM_SMIN'],
+            'hmin': ['HARDMIN']
+            }
     """
     result = {}
     for key, value in rule.items():

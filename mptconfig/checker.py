@@ -1,9 +1,9 @@
 from mptconfig import constants
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
-from mptconfig.utils import _sort_validation_attribs
 from mptconfig.utils import get_validation_attribs
 from mptconfig.utils import idmap2tags
+from mptconfig.utils import sort_validation_attribs
 from mptconfig.utils import update_date
 from mptconfig.utils import update_histtag
 from mptconfig.utils import update_hlocs
@@ -285,7 +285,7 @@ class MptConfigChecker:
 
         hist_tags_no_match_df = hist_tags_df[hist_tags_df["fews_locid"].isna()]
         hist_tags_no_match_df = hist_tags_no_match_df[
-            ~hist_tags_no_match_df["serie"].isin(self.hist_tags_ignore["UNKNOWN_SERIE"])
+            ~hist_tags_no_match_df["serie"].isin(values=self.hist_tags_ignore["UNKNOWN_SERIE"])
         ]
 
         hist_tags_no_match_df = hist_tags_no_match_df.drop("fews_locid", axis=1)
@@ -303,14 +303,17 @@ class MptConfigChecker:
     ) -> None:
         """Check if ignored histTags do match with idmap."""
         logger.info(f"start {self.check_ignored_hist_tags.__name__}")
+        assert isinstance(idmap_files, List) if idmap_files else True, "idmap_files must be a List"
         if not idmap_files:
             idmap_files = ["IdOPVLWATER"]
         hist_tags_opvlwater_df = self.hist_tags.copy()
         idmaps = self._get_idmaps(idmap_files=idmap_files)
+        # TODO: @daniel kan fews_locid een lijst met meerdere loc_id's zijn?
+        #  hist_tags_opvlwater_df.fews_locid.dtype is 'O' (is al string)
         hist_tags_opvlwater_df["fews_locid"] = self.hist_tags.apply(func=idmap2tags, args=[idmaps], axis=1)
         hist_tags_opvlwater_df = hist_tags_opvlwater_df[hist_tags_opvlwater_df["fews_locid"].notna()]
         hist_tag_ignore_match_df = self.hist_tags_ignore[
-            self.hist_tags_ignore["UNKNOWN_SERIE"].isin(hist_tags_opvlwater_df["serie"])
+            self.hist_tags_ignore["UNKNOWN_SERIE"].isin(values=hist_tags_opvlwater_df["serie"])
         ]
         hist_tag_ignore_match_df = hist_tag_ignore_match_df.set_index("UNKNOWN_SERIE")
         self.consistency[sheet_name] = hist_tag_ignore_match_df
@@ -668,7 +671,7 @@ class MptConfigChecker:
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
 
-        idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(self.subloc["LOC_ID"].values)]
+        idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(values=self.subloc["LOC_ID"].values)]
 
         idmap_subloc_df.loc[:, "type"] = idmap_subloc_df["internalLocation"].apply(
             func=(lambda x: self.subloc[self.subloc["LOC_ID"] == x]["TYPE"].values[0])
@@ -695,14 +698,14 @@ class MptConfigChecker:
                 if any([regex.match(string=key) for regex in [re.compile(pattern=rex) for rex in ["8..", ".8.."]]])
             ]
 
-            ex_locs_skip = ts_ignore_df[ts_ignore_df["internalLocation"].isin(group_df["internalLocation"])][
+            ex_locs_skip = ts_ignore_df[ts_ignore_df["internalLocation"].isin(values=group_df["internalLocation"])][
                 "externalLocation"
             ]
 
             split_ts = [key for key in split_ts if str(key) not in ex_locs_skip.values.astype(np.str)]
 
             # TODO: whuuuuaaatt happens here!? :)
-            # TODO: use .get()
+            # TODO: also use .get()
             ex_locs_dict = {
                 k: (ex_locs_dict[k[1:]] if (k[1:] in ex_locs_dict.keys()) and (k not in split_ts) else v)
                 for (k, v) in ex_locs_dict.items()
@@ -719,14 +722,12 @@ class MptConfigChecker:
 
                 date_str = self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
 
-                # TODO: @renier: handle out of bounds date string e.g. '32000101'
+                end_time = None
                 try:
                     end_time = pd.to_datetime(date_str)
-                except pd._libs.tslibs.np_datetime.OutOfBoundsDatetime as err:
-                    print("hoi")
-                    logger.warning(f"date {date_str} is out of bounds! err={err}")
-                except Exception as err:
-                    print("hoi")
+                except pd.errors.OutOfBoundsDatetime as err:
+                    # TODO: @renier: handle out of bounds in case date_str is e.g. '32000101'
+                    logger.error(err)
 
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
@@ -796,7 +797,7 @@ class MptConfigChecker:
                             conflicting_pars = [par for par in int_par if par in other_int_pars]
 
                             if len(conflicting_pars) > 0:
-                                # TODO: @daniel 2 ?
+                                # TODO: @daniel comment kan weg?
                                 # 2 sp series coupled to the same fews parameter
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
@@ -919,7 +920,7 @@ class MptConfigChecker:
                     param = validation_rule["parameter"]
                     if any(re.match(pattern=param, string=int_par) for int_par in int_pars):
                         rule = validation_rule["extreme_values"]
-                        rule = _sort_validation_attribs(rule)
+                        rule = sort_validation_attribs(rule)
                         if all(key in ["hmax", "hmin"] for key in rule.keys()):
                             for hmin, hmax in zip(rule["hmin"], rule["hmax"]):
                                 if all(attrib in row.keys() for attrib in [hmin, hmax]):
@@ -1198,7 +1199,7 @@ class MptConfigChecker:
             if key not in constants.FIXED_SHEETS + ["inhoudsopgave"]
         }
 
-        # TODO: @ renier: remove this
+        # TODO: @renier: remove this
         from mptconfig.tmp import validate_expected_summary
 
         validate_expected_summary(new_summary=summary)

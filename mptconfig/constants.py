@@ -16,8 +16,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 #     # all paths must exists
 #     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
 #     hist_tags_csv = PathNamedTuple(
-#         is_file=True,
-#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
+#         is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
 #     )
 #     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
 #     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
@@ -42,62 +41,62 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 # }
 
 # #
-# class PathConstants:
-#     # all paths must exists
-#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
-#     hist_tags_csv = PathNamedTuple(
-#         is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv"
-#     )
-#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config")
-#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
-#
-#
-# EXPECTED_SUMMARY = {
-#     "idmap section error": 34,
-#     "histTags ignore match": 1,
-#     "histTags noMatch": 15,
-#     "idmaps double": 0,
-#     "mpt": 1802,
-#     "hloc error": 18,
-#     "exPar error": 2,
-#     "intLoc missing": 0,
-#     "exPar missing": 346,
-#     "exLoc error": 5,
-#     "timeSeries error": 7,
-#     "validation error": 321,
-#     "par mismatch": 0,
-#     "locSet error": 337,
-# }
-
-#
 class PathConstants:
     # all paths must exists
     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
     hist_tags_csv = PathNamedTuple(
-        is_file=True,
-        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv"
     )
-    fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
+    fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config")
     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
 
 
 EXPECTED_SUMMARY = {
-    "idmap section error": 36,
-    "histTags ignore match": 0,
-    "histTags noMatch": 69,
+    "idmap section error": 34,
+    "histTags ignore match": 1,
+    "histTags noMatch": 15,
     "idmaps double": 0,
-    "mpt": 1770,
-    "pars missing": 1,
-    "hloc error": 0,
+    "mpt": 1802,
+    "hloc error": 18,
     "exPar error": 2,
-    "intLoc missing": 2,
-    "exPar missing": 338,
-    "exLoc error": 8,
-    "timeSeries error": 62,
-    "validation error": 273,
+    "intLoc missing": 0,
+    "exPar missing": 346,
+    "exLoc error": 5,
+    "timeSeries error": 7,
+    "validation error": 321,
     "par mismatch": 0,
-    "locSet error": 319,
+    "locSet error": 337,
 }
+
+#
+# class PathConstants:
+#     # all paths must exists
+#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
+#     hist_tags_csv = PathNamedTuple(
+#         is_file=True,
+#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+#     )
+#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
+#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
+#
+#
+# EXPECTED_SUMMARY = {
+#     "idmap section error": 36,
+#     "histTags ignore match": 0,
+#     "histTags noMatch": 69,
+#     "idmaps double": 0,
+#     "mpt": 1770,
+#     "pars missing": 1,
+#     "hloc error": 0,
+#     "exPar error": 2,
+#     "intLoc missing": 2,
+#     "exPar missing": 338,
+#     "exLoc error": 8,
+#     "timeSeries error": 62,
+#     "validation error": 273,
+#     "par mismatch": 0,
+#     "locSet error": 319,
+# }
 
 
 FIXED_SHEETS = [
