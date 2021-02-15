@@ -28,6 +28,41 @@ logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
+constants.check_constants()
+
+
+class MptConfigResults(dict):
+    def __init__(self):
+        super().__init__()
+        """Read input-excel (consistency_input_xlsx) into a dictionary with dataframes, each
+        dataframe representing an excel sheet."""
+        _dict = pd.read_excel(
+            io=constants.PathConstants.consistency_input_xlsx.path, sheet_name=None, engine="openpyxl"
+        )
+        for sheet_name, sheet_df in _dict.items():
+            if sheet_name not in constants.FIXED_SHEETS:
+                continue
+            super().__setitem__(sheet_name, sheet_df)
+
+    def __getitem__(self, sheet_name: str) -> pd.DataFrame:
+        if sheet_name not in self:
+            raise AttributeError(f"No such sheet_name: {sheet_name}")
+        return super().__getitem__(sheet_name)
+
+    def __setitem__(self, sheet_name: str, sheet_df: pd.DataFrame) -> None:
+        if sheet_name in self:
+            raise AssertionError(f"sheet_name {sheet_name} already exists")
+        if not isinstance(sheet_name, str):
+            raise AssertionError(f"sheet_name {sheet_name} must be a string and not a {type(sheet_name)}")
+        if not isinstance(sheet_df, pd.DataFrame):
+            raise AssertionError(f"sheet_df must be a panda Dataframe and not a {type(sheet_df)}")
+        super().__setitem__(sheet_name, sheet_df)
+
+    def __delitem__(self, sheet_name: str) -> None:
+        if sheet_name not in self:
+            raise AttributeError(f"No such sheet_name: {sheet_name}")
+        super().__delitem__(sheet_name)
+
 
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
@@ -37,8 +72,6 @@ class MptConfigChecker:
     """
 
     def __init__(self):
-        self.consistency = None
-        self._fews_config = None
         self._location_sets = None
         self._hist_tags = None
         self._hist_tags_ignore = None
@@ -49,14 +82,7 @@ class MptConfigChecker:
         self._mswloc = None
         self._mpt_hist_tags = None
         self._fews_config = None
-        self.read_config()
-
-    def read_config(self):
-        """Read consistency df from input-excel into dict with dataframes, each frame representing an excel sheet. """
-        consistency = pd.read_excel(
-            io=constants.PathConstants.consistency_input_xlsx.path, sheet_name=None, engine="openpyxl"
-        )
-        self.consistency = {key: value for key, value in consistency.items() if key in constants.FIXED_SHEETS}
+        self.consistency = MptConfigResults()
 
     @property
     def fews_config(self):
@@ -72,16 +98,14 @@ class MptConfigChecker:
         self._location_sets = {}
         for key, value in constants.LOCATIONS_SETS.items():
             if value not in self.fews_config.location_sets.keys():
-                # TODO: @daniel: error or warning? is it blocking later on?
-                logger.error(f"locationSet {key} specified in constants.LOCATIONS_SETS not in fews-config")
+                raise AssertionError(f"locationSet {key} specified in constants.LOCATIONS_SETS not in fews-config")
             elif "csvFile" in self.fews_config.location_sets[value].keys():
                 self._location_sets[key] = {
                     "id": value,
                     "gdf": self.fews_config.get_locations(location_set_key=value),
                 }
             else:
-                # TODO: @daniel: error or warning? is it blocking later on?
-                logger.error(f"{key} not a csvFile location-set")
+                raise AssertionError(f"{key} not a csvFile location-set")
         return self._location_sets
 
     @property
@@ -113,23 +137,6 @@ class MptConfigChecker:
         self._hist_tags_ignore = self.consistency["histTag_ignore"]
         self._hist_tags_ignore["UNKNOWN_SERIE"] = self._hist_tags_ignore["UNKNOWN_SERIE"].str.replace("#", "")
         return self._hist_tags_ignore
-
-    def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
-        """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
-        Example:
-            idmap_files = ['IdOPVLWATER', 'IdOPVLWATER_HYMOS', 'IdHDSR_NSC', 'IdOPVLWATER_WQ', 'IdGrondwaterCAW']
-        returns:
-            [
-                ...,
-                {'externalLocation': '7612', 'externalParameter': 'HB1', 'internalLocation': 'OW761202', 'internalParameter': 'H.G.0'},  # noqa
-                {'externalLocation': '7612', 'externalParameter': 'HO1', 'internalLocation': 'OW761201', 'internalParameter': 'H.G.0'},  # noqa
-                ...,
-            ]
-        """
-        if not idmap_files:
-            idmap_files = constants.IDMAP_FILES
-        idmaps = [xml_to_dict(xml_filepath=self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
-        return [item for sublist in idmaps for item in sublist]
 
     @property
     def mswloc(self) -> pd.DataFrame:
@@ -165,6 +172,23 @@ class MptConfigChecker:
     @property
     def hoofdloc_new(self) -> Optional[pd.DataFrame]:
         return self._hoofdloc_new
+
+    def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
+        """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
+        Example:
+            idmap_files = ['IdOPVLWATER', 'IdOPVLWATER_HYMOS', 'IdHDSR_NSC', 'IdOPVLWATER_WQ', 'IdGrondwaterCAW']
+        returns:
+            [
+                ...,
+                {'externalLocation': '7612', 'externalParameter': 'HB1', 'internalLocation': 'OW761202', 'internalParameter': 'H.G.0'},  # noqa
+                {'externalLocation': '7612', 'externalParameter': 'HO1', 'internalLocation': 'OW761201', 'internalParameter': 'H.G.0'},  # noqa
+                ...,
+            ]
+        """
+        if not idmap_files:
+            idmap_files = constants.IDMAP_FILES
+        idmaps = [xml_to_dict(xml_filepath=self.fews_config.IdMapFiles[idmap])["idMap"]["map"] for idmap in idmap_files]
+        return [item for sublist in idmaps for item in sublist]
 
     def _create_hoofdloc_new(self, par_dict: Dict) -> None:
         """Create a new hoofdloc from sublocs in case no errors found during
@@ -233,10 +257,10 @@ class MptConfigChecker:
         mpt_df = mpt_df.sort_index()
         self.consistency[sheet_name] = mpt_df
 
-    def check_idmap_sections(self, sheet_name: str = "idmap section error") -> None:
+    def check_idmap_sections(self, sheet_name: str = "idmap section error") -> Tuple[str, pd.DataFrame]:
         """Check if all KW/OW locations are in the correct section."""
         logger.info(f"start {self.check_idmap_sections.__name__}")
-        self.consistency[sheet_name] = pd.DataFrame(
+        result_df = pd.DataFrame(
             columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
         for idmap, subsecs in constants.IDMAP_SECTIONS.items():
@@ -267,13 +291,13 @@ class MptConfigChecker:
                             f"in {idmap}."
                         )
                     )
-
                     df = pd.DataFrame(idmap_wrong_section)
                     df["sectie"] = section_start
                     df["bestand"] = idmap
-                    self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
+                    result_df = pd.concat(objs=[result_df, df], axis=0, join="outer")
+        return sheet_name, result_df
 
-    def check_missing_hist_tags(self, sheet_name: str = "histTags noMatch") -> None:
+    def check_missing_hist_tags(self, sheet_name: str = "histTags noMatch") -> Tuple[str, pd.DataFrame]:
         """Check if hisTags are missing in config."""
         logger.info(f"start {self.check_missing_hist_tags.__name__}")
 
@@ -291,16 +315,15 @@ class MptConfigChecker:
         hist_tags_no_match_df = hist_tags_no_match_df.drop("fews_locid", axis=1)
         hist_tags_no_match_df.columns = ["UNKNOWN_SERIE", "STARTDATE", "ENDDATE"]
         hist_tags_no_match_df = hist_tags_no_match_df.set_index("UNKNOWN_SERIE")
-        self.consistency[sheet_name] = hist_tags_no_match_df
-
-        if not self.consistency[sheet_name].empty:
-            logger.warning(f"{len(self.consistency[sheet_name])} histTags not in idMaps")
+        if not hist_tags_no_match_df.empty:
+            logger.warning(f"{len(hist_tags_no_match_df)} histTags not in idMaps")
         else:
             logger.info("all histTags in idMaps")
+        return sheet_name, hist_tags_no_match_df
 
     def check_ignored_hist_tags(
         self, sheet_name: str = "histTags ignore match", idmap_files: List[str] = None,
-    ) -> None:
+    ) -> Tuple[str, pd.DataFrame]:
         """Check if ignored histTags do match with idmap."""
         logger.info(f"start {self.check_ignored_hist_tags.__name__}")
         assert isinstance(idmap_files, List) if idmap_files else True, "idmap_files must be a List"
@@ -316,11 +339,11 @@ class MptConfigChecker:
             self.hist_tags_ignore["UNKNOWN_SERIE"].isin(values=hist_tags_opvlwater_df["serie"])
         ]
         hist_tag_ignore_match_df = hist_tag_ignore_match_df.set_index("UNKNOWN_SERIE")
-        self.consistency[sheet_name] = hist_tag_ignore_match_df
-        if not self.consistency[sheet_name].empty:
-            logger.warning(f"{len(self.consistency[sheet_name])} histTags should not be in histTags ignore")
+        if not hist_tag_ignore_match_df.empty:
+            logger.warning(f"{len(hist_tag_ignore_match_df)} histTags should not be in histTags ignore")
         else:
             logger.info("hisTags ignore list consistent with idmaps")
+        return sheet_name, hist_tag_ignore_match_df
 
     def check_double_idmaps(self, sheet_name: str = "idmaps double") -> None:
         """Check if identical idmaps are doubled."""
@@ -344,7 +367,7 @@ class MptConfigChecker:
             self.consistency[sheet_name] = pd.concat([self.consistency[sheet_name], df], axis=0)
 
     def check_missing_pars(self, sheet_name: str = "pars missing") -> None:
-        """Check if internal parameters in idmaps are missing in paramters.xml.
+        """Check if internal parameters in idmaps are missing in parameters.xml.
         alle id_mapping.xml inpars (bijv ‘H.R.0’) moeten voorkomen in RegionConfigFiles/parameters.xml
         """
         logger.info(f"start {self.check_missing_pars.__name__}")
@@ -558,7 +581,7 @@ class MptConfigChecker:
             logger.warning(f"{len(self.consistency[intloc_sheet])} Internal locations are not in locationSets")
 
     def check_expar_missing(self, sheet_name: str = "exPar missing") -> None:
-        """Check if external paramters are missing on locations."""
+        """Check if external parameters are missing on locations."""
         logger.info(f"start {self.check_expar_missing.__name__}")
         ex_par_missing = {
             "internalLocation": [],
@@ -1286,3 +1309,29 @@ class MptConfigChecker:
             if not csv_file_path.suffix:
                 csv_file_path = Path(f"{csv_file_path}.csv")
             df.to_csv(csv_file_path, index=False)
+
+    def run(self):
+        sheet_name, sheet_df = self.check_idmap_sections()
+        self.consistency[sheet_name] = sheet_df
+
+        sheet_name, sheet_df = self.check_ignored_hist_tags()
+        self.consistency[sheet_name] = sheet_df
+
+        self.check_missing_hist_tags()
+        self.check_double_idmaps()
+        self.hist_tags_to_mpt()
+        self.check_missing_pars()
+        self.check_hloc_consistency()
+        self.check_expar_errors_intloc_missing()
+        self.check_expar_missing()
+        self.check_exloc_intloc_consistency()
+        self.check_timeseries_logic()
+        self.check_validation_rules()
+        self.check_intpar_expar_consistency()
+        self.check_location_set_errors()
+
+        # write excel file
+        self.write_excel()
+
+        # write csv files
+        self.write_csvs()

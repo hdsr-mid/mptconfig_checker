@@ -283,11 +283,5 @@ def check_constants():
             assert path_namedtuple.path.is_dir(), f"dir does not exist with path={path_namedtuple.path}"
 
 
-def check_input_file_content():
-    # expected column names?
-    # expected dtype?
-    pass
-
-
 def clear_files_in_output_dirs():
     pass

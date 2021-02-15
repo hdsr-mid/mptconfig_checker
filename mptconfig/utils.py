@@ -55,7 +55,8 @@ def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = N
     result = []
     for rule in validation_rules:
         if "type" in rule.keys():
-            # TODO: @daniel, wat is loc_type? wordt in geen enkele call meegegeven. Dus loc_type is None, dus hieronder staat: if rule["type'] == None ?
+            # TODO: @daniel, wat is loc_type? wordt in geen enkele call meegegeven.
+            #  Dus loc_type is None, dus hieronder staat: if rule["type'] == None ?
             #  omdat rule een Dict[str:str] is, neem ik aan dat loc_type een string is. Klopt die aanname?
             if rule["type"] == loc_type:
                 if any(re.match(rule["parameter"], int_par) for int_par in int_pars):

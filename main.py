@@ -1,5 +1,4 @@
 from mptconfig.checker import MptConfigChecker
-from mptconfig.constants import check_constants
 
 import logging
 import sys
@@ -33,27 +32,7 @@ def setup_logging() -> None:
 if __name__ == "__main__":
     check_python_version()
     setup_logging()
-    check_constants()
 
     # run checks
     meetpunt_config = MptConfigChecker()
-    meetpunt_config.check_idmap_sections()
-    meetpunt_config.check_ignored_hist_tags()
-    meetpunt_config.check_missing_hist_tags()
-    meetpunt_config.check_double_idmaps()
-    meetpunt_config.hist_tags_to_mpt()
-    meetpunt_config.check_missing_pars()
-    meetpunt_config.check_hloc_consistency()
-    meetpunt_config.check_expar_errors_intloc_missing()
-    meetpunt_config.check_expar_missing()
-    meetpunt_config.check_exloc_intloc_consistency()
-    meetpunt_config.check_timeseries_logic()
-    meetpunt_config.check_validation_rules()
-    meetpunt_config.check_intpar_expar_consistency()
-    meetpunt_config.check_location_set_errors()
-
-    # write excel file
-    meetpunt_config.write_excel()
-
-    # write csv files
-    meetpunt_config.write_csvs()
+    meetpunt_config.run()
