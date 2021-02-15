@@ -4,7 +4,7 @@ from typing import Dict
 import logging
 
 
-# TODO: remove this complete file:
+# TODO: @renier: remove this complete file:
 #  integration test with two different configs: paths to different config and get_series_startenddate.csv
 
 logger = logging.getLogger(__name__)

@@ -20,10 +20,11 @@ def xml_to_etree(xml_filepath: Path) -> ET._Element:
 
 def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = None, section_end: str = None,) -> Dict:
     """ converts an etree to a dictionary """
-    # TODO: kan t alleen een ET._Element of ET._Comment zijn?
+    assert isinstance(etree, ET._Comment) or isinstance(
+        etree, ET._Element
+    ), "etree must be either be a ET._Comment or ET._Element"
     if isinstance(etree, ET._Comment):
-        # TODO: return of toch return {} ??
-        return
+        return {}
     _dict = {etree.tag.rpartition("}")[-1]: {} if etree.attrib else None}
     children = list(etree)
 
@@ -55,7 +56,7 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
     if children:
         dd = defaultdict(list)
         # for dc in map(etree_to_dict, children):
-        for dc in [etree_to_dict(child) for child in children]:
+        for dc in [etree_to_dict(etree=child) for child in children]:
             for k, v in dc.items():
                 dd[k].append(v)
 
@@ -74,7 +75,6 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
 
 def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
-    # TODO: xml_file type is a path
     etree = xml_to_etree(xml_filepath=xml_filepath)
     return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 

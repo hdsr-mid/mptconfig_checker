@@ -105,12 +105,12 @@ def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
     row['LOC_ID'] is e.g. 'OW100101'
     updated_histtag_str is e.g. '1001_HO1'
     """
-    # TODO:
-    #  @daniel, waarom generator? kunnen er meerdere updated_histtags per panda cel worden weggeschreven?
-    #  @daniel, is return value altijd str?
-    #  @daniel, kan len(updated_histtag) > 1 ??
-    #  @daniel, bij idmap2tags retourneer je ergens np.Nan of een [
+    # TODO: @daniel, waarom generator? kunnen er meerdere updated_histtags per panda cel worden weggeschreven?
+    # TODO: @daniel, is return value altijd str?
+    # TODO: @daniel, kan len(updated_histtag) > 1 ??
+    # TODO: @daniel, bij idmap2tags retourneer je ergens np.Nan of een [
 
+    # TODO: @renier: remove comment
     # renier zn code
     updated_histtag = [
         df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
@@ -123,6 +123,7 @@ def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
     updated_histtag_str = updated_histtag[0] if updated_histtag else ""
     return updated_histtag_str
 
+    # TODO: @renier: remove code below?
     # daniel zn code
     # return next(
     #     (

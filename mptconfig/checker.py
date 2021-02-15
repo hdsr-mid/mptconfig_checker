@@ -1199,7 +1199,7 @@ class MptConfigChecker:
             if key not in constants.FIXED_SHEETS + ["inhoudsopgave"]
         }
 
-        # TODO: @renier: remove this
+        # TODO: @renier: remove this integration test
         from mptconfig.tmp import validate_expected_summary
 
         validate_expected_summary(new_summary=summary)
