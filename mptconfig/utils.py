@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def idmap2tags(row: pd.Series, idmap: List[Dict]) -> List[str]:
-    """Add FEWS-locationIds to hist_tags in df.apply() method."""
+    """Add FEWS-locationIds to histtags in df.apply() method."""
     exloc, expar = row["serie"].split(sep="_", maxsplit=1)
     fews_locs = [
         col["internalLocation"]

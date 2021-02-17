@@ -12,73 +12,84 @@ GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
 PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 
 
-# class PathConstants:
-#     # all paths must exists
-#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
-#     hist_tags_csv = PathNamedTuple(
-#         is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
-#     )
-#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
-#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
-#
-#
-# EXPECTED_SUMMARY = {
-#     "idmap section error": 36,
-#     "histTags ignore match": 0,
-#     "histTags noMatch": 56,
-#     "idmaps double": 0,
-#     "mpt": 1770,
-#     "pars missing": 1,
-#     "hloc error": 0,
-#     "exPar error": 2,
-#     "intLoc missing": 2,
-#     "exPar missing": 338,
-#     "exLoc error": 8,
-#     "timeSeries error": 62,
-#     "validation error": 273,
-#     "par mismatch": 0,
-#     "locSet error": 319,
-# }
-
-# #
 class PathConstants:
     # all paths must exists
     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
-    hist_tags_csv = PathNamedTuple(
-        is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv"
+    histtags_csv = PathNamedTuple(
+        is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
     )
-    fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config")
+    fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
+    ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
+    ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
+    ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
+    ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
 
 
 EXPECTED_SUMMARY = {
-    "idmap section error": 34,
-    "histTags ignore match": 1,
-    "histTags noMatch": 15,
+    "idmap section error": 36,
+    "histTags ignore match": 0,
+    "histTags noMatch": 56,
     "idmaps double": 0,
-    "mpt": 1802,
-    "hloc error": 18,
+    "mpt": 1770,
+    "pars missing": 1,
+    "hloc error": 0,
     "exPar error": 2,
-    "intLoc missing": 0,
-    "exPar missing": 346,
-    "exLoc error": 5,
-    "timeSeries error": 7,
-    "validation error": 321,
+    "intLoc missing": 2,
+    "exPar missing": 338,
+    "exLoc error": 8,
+    "timeSeries error": 62,
+    "validation error": 273,
     "par mismatch": 0,
-    "locSet error": 337,
+    "locSet error": 319,
 }
 
-#
 # class PathConstants:
 #     # all paths must exists
 #     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
-#     hist_tags_csv = PathNamedTuple(
+#     histtags_csv = PathNamedTuple(
+#         is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv"
+#     )
+#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config")
+#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
+#     ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
+#     ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
+#     ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
+#     ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
+#
+#
+# EXPECTED_SUMMARY = {
+#     "idmap section error": 34,
+#     "histTags ignore match": 1,
+#     "histTags noMatch": 15,
+#     "idmaps double": 0,
+#     "mpt": 1802,
+#     "hloc error": 18,
+#     "exPar error": 2,
+#     "intLoc missing": 0,
+#     "exPar missing": 346,
+#     "exLoc error": 5,
+#     "timeSeries error": 7,
+#     "validation error": 321,
+#     "par mismatch": 0,
+#     "locSet error": 337,
+# }
+
+
+# class PathConstants:
+#     # all paths must exists
+#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
+#     histtags_csv = PathNamedTuple(
 #         is_file=True,
 #         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
 #     )
 #     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
 #     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
-#
+#     ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
+#     ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
+#     ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
+#     ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
+
 #
 # EXPECTED_SUMMARY = {
 #     "idmap section error": 36,
@@ -267,14 +278,27 @@ def check_constants():
 
     # check 2: PathConstants has exactly the following objects
     all_defined_paths = [key for key in PathConstants.__dict__ if not key.startswith("__")]
-    assert sorted(all_defined_paths) == sorted(["consistency_input_xlsx", "fews_config", "hist_tags_csv", "output_dir"])
+    assert sorted(all_defined_paths) == [
+        "consistency_input_xlsx",
+        "fews_config",
+        "histtags_csv",
+        "ignored_exloc",
+        "ignored_histtag",
+        "ignored_ts800",
+        "ignored_xy",
+        "output_dir",
+    ]
 
     # check 3: all PathConstants paths must exists (not only .exists(), but is_file() or is_dir())
     for path_namedtuple in [
         PathConstants.consistency_input_xlsx,
         PathConstants.fews_config,
-        PathConstants.hist_tags_csv,
+        PathConstants.histtags_csv,
         PathConstants.output_dir,
+        PathConstants.ignored_exloc,
+        PathConstants.ignored_histtag,
+        PathConstants.ignored_ts800,
+        PathConstants.ignored_xy,
     ]:
         assert isinstance(path_namedtuple.path, Path), f"path {path_namedtuple.path} is not of type pathlib.Path"
         if path_namedtuple.is_file:
