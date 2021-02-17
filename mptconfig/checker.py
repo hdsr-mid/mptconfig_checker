@@ -370,15 +370,15 @@ class MptConfigChecker:
         #  histtags_opvlwater_df.fews_locid.dtype is 'O' (is al string)
         histtags_opvlwater_df["fews_locid"] = self.histtags.apply(func=idmap2tags, args=[idmaps], axis=1)
         histtags_opvlwater_df = histtags_opvlwater_df[histtags_opvlwater_df["fews_locid"].notna()]
-        histtag_ignore_match_df = self.ignored_histtag[
+        ignored_histtag_match_df = self.ignored_histtag[
             self.ignored_histtag["UNKNOWN_SERIE"].isin(values=histtags_opvlwater_df["serie"])
         ]
-        histtag_ignore_match_df = histtag_ignore_match_df.set_index("UNKNOWN_SERIE")
-        if not histtag_ignore_match_df.empty:
-            logger.warning(f"{len(histtag_ignore_match_df)} histTags should not be in histTags ignore")
+        ignored_histtag_match_df = ignored_histtag_match_df.set_index("UNKNOWN_SERIE")
+        if not ignored_histtag_match_df.empty:
+            logger.warning(f"{len(ignored_histtag_match_df)} histTags should not be in ignored histtags")
         else:
             logger.info("hisTags ignore list consistent with idmaps")
-        return sheet_name, histtag_ignore_match_df
+        return sheet_name, ignored_histtag_match_df
 
     def check_double_idmaps(self, sheet_name: str = "idmaps double") -> Tuple[str, pd.DataFrame]:
         """Check if identical idmaps are doubled."""
@@ -422,7 +422,8 @@ class MptConfigChecker:
     def check_hloc_consistency(self, sheet_name: str = "hloc error") -> Tuple[str, pd.DataFrame]:
         """Check if all sublocs of same hloc have consistent parameters."""
         logger.info(f"start {self.check_hloc_consistency.__name__}")
-        xy_ignore_df = self.consistency.get("xy_ignore", pd.DataFrame({"internalLocation": [], "x": [], "y": []}))
+        # TODO: @renier: fix backup if no
+        # if not self.ignored_xy, dan ignored_xy = pd.DataFrame({"internalLocation": [], "x": [], "y": []}))
 
         hloc_errors = {
             "LOC_ID": [],
@@ -461,10 +462,10 @@ class MptConfigChecker:
             else:
                 fields["LOC_NAME"] = loc_names[0]
 
-            if any([re.match(pattern=loc, string=loc_id) for loc in xy_ignore_df["internalLocation"]]):
+            if any([re.match(pattern=loc, string=loc_id) for loc in self.ignored_xy["internalLocation"]]):
                 fields["X"], fields["Y"] = next(
                     [row["x"], row["y"]]
-                    for index, row in xy_ignore_df.iterrows()
+                    for index, row in self.ignored_xy.iterrows()
                     if re.match(pattern=row["internalLocation"], string=loc_id)
                 )
 
@@ -702,17 +703,18 @@ class MptConfigChecker:
                         ]
                         if len(np.unique([int_loc[:-1] for int_loc in int_locs_select])) > 1:
                             int_loc_error += list(int_locs_select)
-            # renier
-            if "exLoc_ignore" in self.consistency.keys():
-                if int(ex_loc) in self.consistency["exLoc_ignore"]["externalLocation"].values:
-                    int_loc_error = [
-                        int_loc
-                        for int_loc in int_loc_error
-                        if int_loc
-                        not in self.consistency["exLoc_ignore"][
-                            self.consistency["exLoc_ignore"]["externalLocation"] == int(ex_loc)
-                        ]["internalLocation"].values
-                    ]
+
+            # TODO: @renier: what is backup if no self.ignored_exloc?
+            assert self.ignored_exloc is not None
+            if int(ex_loc) in self.ignored_exloc["externalLocation"].values:
+                int_loc_error = [
+                    int_loc
+                    for int_loc in int_loc_error
+                    if int_loc
+                    not in self.ignored_exloc[self.ignored_exloc["externalLocation"] == int(ex_loc)][
+                        "internalLocation"
+                    ].values
+                ]
 
             for int_loc in int_loc_error:
                 ex_loc_errors["internalLocation"].append(int_loc)
@@ -730,10 +732,7 @@ class MptConfigChecker:
     def check_timeseries_logic(self, sheet_name: str = "timeSeries error") -> Tuple[str, pd.DataFrame]:
         """Check if timeseries are consistent with internal locations and parameters."""
         logger.info(f"start {self.check_timeseries_logic.__name__}")
-        if "TS800_ignore" in self.consistency.keys():
-            ts_ignore_df = self.consistency["TS800_ignore"]
-        else:
-            ts_ignore_df = pd.DataFrame({"internalLocation": [], "externalLocation": []})
+        # if not self.ignored_ts800, dan ignored_ts800 = pd.DataFrame({"internalLocation": [], "externalLocation": []})
 
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
@@ -765,14 +764,13 @@ class MptConfigChecker:
                 if any([regex.match(string=key) for regex in [re.compile(pattern=rex) for rex in ["8..", ".8.."]]])
             ]
 
-            ex_locs_skip = ts_ignore_df[ts_ignore_df["internalLocation"].isin(values=group_df["internalLocation"])][
-                "externalLocation"
-            ]
+            ex_locs_skip = self.ignored_ts800[
+                self.ignored_ts800["internalLocation"].isin(values=group_df["internalLocation"])
+            ]["externalLocation"]
 
             split_ts = [key for key in split_ts if str(key) not in ex_locs_skip.values.astype(np.str)]
 
-            # TODO: whuuuuaaatt happens here!? :)
-            # TODO: also use .get()
+            # TODO: use .get()
             ex_locs_dict = {
                 k: (ex_locs_dict[k[1:]] if (k[1:] in ex_locs_dict.keys()) and (k not in split_ts) else v)
                 for (k, v) in ex_locs_dict.items()
@@ -786,9 +784,7 @@ class MptConfigChecker:
 
             for int_loc, loc_df in group_df.groupby("internalLocation"):
                 sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
-
                 date_str = self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
-
                 end_time = None
                 try:
                     end_time = pd.to_datetime(date_str)
@@ -1078,8 +1074,6 @@ class MptConfigChecker:
     def check_location_set_errors(self, sheet_name: str = "locSet error") -> Tuple[str, pd.DataFrame]:
         """Check on errors in locationsets."""
         logger.info(f"start {self.check_location_set_errors.__name__}")
-        xy_ignore_df = self.consistency["xy_ignore"]
-        location_sets = self.location_sets
 
         loc_set_errors = {
             "locationId": [],
@@ -1110,7 +1104,7 @@ class MptConfigChecker:
 
         for set_name, section_name in sets.items():
             logger.info(set_name)
-            location_set = location_sets[set_name]
+            location_set = self.location_sets[set_name]
             location_gdf = location_set["gdf"]
             csv_file = self.fews_config.location_sets[location_set["id"]]["csvFile"]["file"]
             int_locs = []
@@ -1124,7 +1118,7 @@ class MptConfigChecker:
 
             if set_name == "sublocaties":
                 int_locs = [loc for loc in int_locs if loc[-1] != "0"]
-                par_gdf = location_sets["hoofdlocaties"]["gdf"]
+                par_gdf = self.location_sets["hoofdlocaties"]["gdf"]
 
             elif set_name == "hoofdlocaties":
                 int_locs = [loc for loc in int_locs if loc[-1] == "0"]
@@ -1181,23 +1175,25 @@ class MptConfigChecker:
                         ):
                             error["caw_name_inconsistent"] = True
 
-                    if row["HBOV"] not in location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
+                    if row["HBOV"] not in self.location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
                         error["missing_hbov"] = True
 
-                    if row["HBEN"] not in location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
+                    if row["HBEN"] not in self.location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
                         error["missing_hben"] = True
 
-                    if row["HBOVPS"] not in location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
+                    if row["HBOVPS"] not in self.location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
                         error["missing_hbovps"] = True
 
-                    if row["HBENPS"] not in location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
+                    if row["HBENPS"] not in self.location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
                         error["missing_hbenps"] = True
 
-                    if row["PAR_ID"] not in location_sets["hoofdlocaties"]["gdf"]["LOC_ID"].values:
+                    if row["PAR_ID"] not in self.location_sets["hoofdlocaties"]["gdf"]["LOC_ID"].values:
                         error["missing_hloc"] = True
 
                     else:
-                        if not any([re.match(pattern=loc, string=loc_id) for loc in xy_ignore_df["internalLocation"]]):
+                        if not any(
+                            [re.match(pattern=loc, string=loc_id) for loc in self.ignored_xy["internalLocation"]]
+                        ):
                             if (
                                 not par_gdf[par_gdf["LOC_ID"] == row["PAR_ID"]]["geometry"]
                                 .values[0]
@@ -1226,7 +1222,7 @@ class MptConfigChecker:
                         ):
                             error["caw_name_inconsistent"] = True
 
-                    if row["PEILSCHAAL"] not in location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
+                    if row["PEILSCHAAL"] not in self.location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
                         error["missing_peilschaal"] = True
 
                     if loc_id not in int_locs:

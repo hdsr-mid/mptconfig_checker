@@ -11,38 +11,38 @@ GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
 
 PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 
-
-class PathConstants:
-    # all paths must exists
-    consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
-    histtags_csv = PathNamedTuple(
-        is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
-    )
-    fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
-    output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
-    ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
-    ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
-    ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
-    ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
-
-
-EXPECTED_SUMMARY = {
-    "idmap section error": 36,
-    "histTags ignore match": 0,
-    "histTags noMatch": 56,
-    "idmaps double": 0,
-    "mpt": 1770,
-    "pars missing": 1,
-    "hloc error": 0,
-    "exPar error": 2,
-    "intLoc missing": 2,
-    "exPar missing": 338,
-    "exLoc error": 8,
-    "timeSeries error": 62,
-    "validation error": 273,
-    "par mismatch": 0,
-    "locSet error": 319,
-}
+#
+# class PathConstants:
+#     # all paths must exists
+#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
+#     histtags_csv = PathNamedTuple(
+#         is_file=True, path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
+#     )
+#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
+#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
+#     ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
+#     ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
+#     ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
+#     ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
+#
+#
+# EXPECTED_SUMMARY = {
+#     "idmap section error": 36,
+#     "histTags ignore match": 0,
+#     "histTags noMatch": 56,
+#     "idmaps double": 0,
+#     "mpt": 1770,
+#     "pars missing": 1,
+#     "hloc error": 0,
+#     "exPar error": 2,
+#     "intLoc missing": 2,
+#     "exPar missing": 338,
+#     "exLoc error": 8,
+#     "timeSeries error": 62,
+#     "validation error": 273,
+#     "par mismatch": 0,
+#     "locSet error": 319,
+# }
 
 # class PathConstants:
 #     # all paths must exists
@@ -76,46 +76,46 @@ EXPECTED_SUMMARY = {
 # }
 
 
-# class PathConstants:
-#     # all paths must exists
-#     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
-#     histtags_csv = PathNamedTuple(
-#         is_file=True,
-#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
-#     )
-#     fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
-#     output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
-#     ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
-#     ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
-#     ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
-#     ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
+class PathConstants:
+    # all paths must exists
+    consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
+    histtags_csv = PathNamedTuple(
+        is_file=True,
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+    )
+    fews_config = PathNamedTuple(is_file=False, path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config")
+    output_dir = PathNamedTuple(is_file=False, path=BASE_DIR / "data" / "output")
+    ignored_exloc = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_exloc.csv")
+    ignored_histtag = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_histtag.csv")
+    ignored_ts800 = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_ts800.csv")
+    ignored_xy = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "ignored_xy.csv")
 
-#
-# EXPECTED_SUMMARY = {
-#     "idmap section error": 36,
-#     "histTags ignore match": 0,
-#     "histTags noMatch": 69,
-#     "idmaps double": 0,
-#     "mpt": 1770,
-#     "pars missing": 1,
-#     "hloc error": 0,
-#     "exPar error": 2,
-#     "intLoc missing": 2,
-#     "exPar missing": 338,
-#     "exLoc error": 8,
-#     "timeSeries error": 62,
-#     "validation error": 273,
-#     "par mismatch": 0,
-#     "locSet error": 319,
-# }
+
+EXPECTED_SUMMARY = {
+    "idmap section error": 36,
+    "histTags ignore match": 0,
+    "histTags noMatch": 69,
+    "idmaps double": 0,
+    "mpt": 1770,
+    "pars missing": 1,
+    "hloc error": 0,
+    "exPar error": 2,
+    "intLoc missing": 2,
+    "exPar missing": 338,
+    "exLoc error": 8,
+    "timeSeries error": 62,
+    "validation error": 273,
+    "par mismatch": 0,
+    "locSet error": 319,
+}
 
 
 FIXED_SHEETS = [
-    "histTag_ignore",
     "inhoudsopgave",
-    "exLoc_ignore",
-    "TS800_ignore",
-    "xy_ignore",
+    "ignored_histTag",
+    "ignored_exLoc",
+    "ignored_ts800",
+    "ignored_xy",
 ]
 
 LOCATIONS_SETS = {
