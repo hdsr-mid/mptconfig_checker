@@ -102,13 +102,12 @@ class MptConfigChecker:
         for key, value in constants.LOCATIONS_SETS.items():
             if value not in self.fews_config.location_sets.keys():
                 raise AssertionError(f"locationSet {key} specified in constants.LOCATIONS_SETS not in fews-config")
-            elif "csvFile" in self.fews_config.location_sets[value].keys():
-                self._location_sets[key] = {
-                    "id": value,
-                    "gdf": self.fews_config.get_locations(location_set_key=value),
-                }
-            else:
+            if "csvFile" not in self.fews_config.location_sets[value].keys():
                 raise AssertionError(f"{key} not a csvFile location-set")
+            self._location_sets[key] = {
+                "id": value,
+                "gdf": self.fews_config.get_locations(location_set_key=value),
+            }
         return self._location_sets
 
     @property
@@ -174,6 +173,8 @@ class MptConfigChecker:
         idmaps = self._get_idmaps()
         histtags_df = self.histtags.copy()
         histtags_df["fews_locid"] = histtags_df.apply(func=idmap2tags, args=[idmaps], axis=1)
+        nr_rows_more_than_one_loc_id = len(histtags_df[histtags_df["fews_locid"].map(len) > 1])
+        logger.debug(f"found nr_rows_more_than_one_loc_id={nr_rows_more_than_one_loc_id } which is allowed")
         histtags_df = histtags_df[histtags_df["fews_locid"].notna()]
         self._mpthisttags = histtags_df.explode("fews_locid").reset_index(drop=True)
         return self._mpthisttags
@@ -335,18 +336,26 @@ class MptConfigChecker:
     def check_missing_histtags(self, sheet_name: str = "histTags noMatch") -> Tuple[str, pd.DataFrame]:
         """Check if hisTags are missing in config."""
         logger.info(f"start {self.check_missing_histtags.__name__}")
-
         histtags_df = self.histtags.copy()
-
         idmaps = self._get_idmaps()
-
         histtags_df["fews_locid"] = self.histtags.apply(func=idmap2tags, args=[idmaps], axis=1)
+
+        df_rows_more_than_one_loc_id = histtags_df[histtags_df["fews_locid"].map(len) > 1]
+        if len(df_rows_more_than_one_loc_id) > 0:
+            pass
+            # nr_wrong = len(df_rows_more_than_one_loc_id)
+            # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch?
+            #  hier nr_wrong = 30
+            # example = df_rows_more_than_one_loc_id.iloc[1]
+            # raise AssertionError(
+            #     f"unexpected: nr_rows_gte_one_loc_id={nr_wrong}, "
+            #     f"example: serie={example.serie}, fews_locid={example.fews_locid}"
+            # )
 
         histtags_no_match_df = histtags_df[histtags_df["fews_locid"].isna()]
         histtags_no_match_df = histtags_no_match_df[
             ~histtags_no_match_df["serie"].isin(values=self.ignored_histtag["UNKNOWN_SERIE"])
         ]
-
         histtags_no_match_df = histtags_no_match_df.drop("fews_locid", axis=1)
         histtags_no_match_df.columns = ["UNKNOWN_SERIE", "STARTDATE", "ENDDATE"]
         histtags_no_match_df = histtags_no_match_df.set_index("UNKNOWN_SERIE")
@@ -368,7 +377,22 @@ class MptConfigChecker:
         idmaps = self._get_idmaps(idmap_files=idmap_files)
         # TODO: @daniel kan fews_locid een lijst met meerdere loc_id's zijn?
         #  histtags_opvlwater_df.fews_locid.dtype is 'O' (is al string)
+        #  daniel: "Met uitzondering van de functie mpt_histtags niet. In
+        #  property 'mpt_histtags' wordt deze lijst geexplodeerd".
         histtags_opvlwater_df["fews_locid"] = self.histtags.apply(func=idmap2tags, args=[idmaps], axis=1)
+
+        df_rows_more_than_one_loc_id = histtags_opvlwater_df[histtags_opvlwater_df["fews_locid"].map(len) > 1]
+        if len(df_rows_more_than_one_loc_id) > 0:
+            pass
+            # nr_wrong = len(df_rows_more_than_one_loc_id)
+            # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch?
+            #  hier nr_wrong = 30
+            # example = df_rows_more_than_one_loc_id.iloc[1]
+            # raise AssertionError(
+            #     f"unexpected: nr_rows_gte_one_loc_id={nr_wrong}, "
+            #     f"example: serie={example.serie}, fews_locid={example.fews_locid}"
+            # )
+
         histtags_opvlwater_df = histtags_opvlwater_df[histtags_opvlwater_df["fews_locid"].notna()]
         ignored_histtag_match_df = self.ignored_histtag[
             self.ignored_histtag["UNKNOWN_SERIE"].isin(values=histtags_opvlwater_df["serie"])
@@ -403,8 +427,8 @@ class MptConfigChecker:
         return sheet_name, result_df
 
     def check_missing_pars(self, sheet_name: str = "pars missing") -> Tuple[str, pd.DataFrame]:
-        """Check if internal parameters in idmaps are missing in parameters.xml. """
-        # TODO: @renier: put in docstring: alle id_mapping.xml inpars (bijv ‘H.R.0’) moeten voorkomen in RegionConfigFiles/parameters.xml
+        """Check if internal parameters in idmaps are missing in parameters.xml.
+        All id_mapping.xml inpars (e.g. ‘H.R.0’) must exists in RegionConfigFiles/parameters.xml"""
         logger.info(f"start {self.check_missing_pars.__name__}")
         config_parameters = list(self.fews_config.get_parameters(dict_keys="parameters").keys())
 
@@ -860,8 +884,6 @@ class MptConfigChecker:
                             conflicting_pars = [par for par in int_par if par in other_int_pars]
 
                             if len(conflicting_pars) > 0:
-                                # TODO: @daniel comment kan weg?
-                                # 2 sp series coupled to the same fews parameter
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
                                 ts_errors["internalParameters"].append(",".join(int_pars))
@@ -1321,7 +1343,7 @@ class MptConfigChecker:
 
     def write_csvs(self) -> None:
         """Write locationSets to csv files."""
-        assert not self.consistency["mpt"].empty
+        assert self.consistency["mpt"] is not None
 
         date_threshold = self.consistency["mpt"]["ENDDATE"].max() - pd.Timedelta(weeks=26)
 

@@ -8,7 +8,11 @@ from typing import Optional
 from typing import Union
 
 import geopandas as gpd
+import logging
 import os
+
+
+logger = logging.getLogger(__name__)
 
 
 def xml_to_etree(xml_filepath: Path) -> ET._Element:
@@ -146,9 +150,9 @@ class FewsConfig:
         return self._location_sets
 
     def get_parameters(self, dict_keys: str = "groups") -> Dict:
-        """Extract a dictionary of parameter(groups) from a FEWS-config."""
-        # TODO: include parameters from CSV-files (support parametersCsvFile)
-        # TODO: @daniel: wat bedoel je met deze TODO?
+        """Extract a dictionary of parameter(groups) from a FEWS-config.
+        Some waterboards define parameters in a csv file that is read into a parameters.xml.
+        HDSR however directly defines it in a parameters.xml """
         assert dict_keys in ("groups", "parameters")
         parameters_dict = xml_to_dict(xml_filepath=self.RegionConfigFiles["Parameters"])
         parameters = parameters_dict["parameters"]
@@ -168,17 +172,59 @@ class FewsConfig:
                 result[parameter["id"]]["groupId"] = result[parameter["id"]].pop("id")
         return result
 
+    def add_geometry_column(
+        self, gdf: gpd.GeoDataFrame, filepath: Path, x_attrib: str, y_attrib: str, z_attrib: str = None,
+    ) -> gpd.GeoDataFrame:
+        """Add geometry column to geodataframe by merging geodataframe columns x, y, and z.
+        If column z_attrib exists, then we fill empty cells ('') with z_value_default.
+        If column z_attrib does not exists? then we use z_value_default -9999 for all rows.
+        """
+        z_value_default = -9999
+        assert (x_attrib and y_attrib) in gdf.columns, f"x={x_attrib} and y={y_attrib} must be in df"
+        if z_attrib:
+            nr_empty_rows_before = len(gdf[gdf[z_attrib] == ""])
+            gdf[z_attrib].replace("", z_value_default, inplace=True)
+            logger.debug(f"replaced {nr_empty_rows_before} gdf rows column {z_attrib} from '' to {z_value_default}")
+        try:
+            if z_attrib:
+                gdf["geometry"] = gdf.apply(
+                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(x[z_attrib]),)), axis=1,
+                )
+            else:
+                gdf["geometry"] = gdf.apply(
+                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(z_value_default))), axis=1,
+                )
+            return gdf
+        except ValueError:
+            # get rows where conversion error occurs (most likely because of empty cells)
+            if z_attrib:
+                # first make sure the problem is not in z column
+                assert gdf[z_attrib].astype(float), f"the xyz problem is within the {z_attrib} column"
+            # now search through x_attrib and y_attrib
+            empty_xy_rows = []
+            for column in [x_attrib, y_attrib]:
+                empty_xy_rows.extend(list(gdf[gdf[column] == ""].index))
+            assert empty_xy_rows, f"did not find expected empty_rows xy? file={filepath}"
+            raise AssertionError(f"found '' in xy for dataframe rows={empty_xy_rows} from file={filepath}")
+        except Exception as err:
+            raise AssertionError(f"unexpected error for xyz, err={err}, file={filepath}")
+
     def get_locations(self, location_set_key: str) -> Optional[gpd.GeoDataFrame]:
         """Convert fews locationSet locations into geopandas df
         args 'location_set_key' (str) is e.g. 'OPVLWATER_HOOFDLOC'.
         """
-        # TODO: support other than csvFile type locationSets
-        # TODO: concatenate attribute-files
-        # TODO: rename to internal attribute names
-        # TODO: @daniel: wat bedoel je met deze 3 TODO's?
+        # from initial creator (Daniel Tollenaar):
+        # 1. Ik kan nu alleen locationsets direct uit CSV-files lezen, maar een locatieset kan ook
+        #    onderdeel zijn van een subset (zie https://publicwiki.deltares.nl/display/FEWSDOC/02+LocationSets).
+        #    Dat begrijpt fews utilities nog niet, maar is dus niet relevant voor .
+        # 2. In eerste instantie had ik de ambitie om vanuit de FEWS-config te snappen wáár
+        #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
+        #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.
+        #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
             return
+
         file = location_set.get("csvFile", {}).get("file", None)
         if not file:
             return
@@ -188,24 +234,15 @@ class FewsConfig:
             file = file.parent / (file.name + ".csv")
         filepath = self.path / "MapLayerFiles" / file
         assert filepath.is_file(), f"file {filepath} does not exist"
+        gdf = gpd.read_file(filename=filepath)
 
         x_attrib = location_set["csvFile"]["x"].replace("%", "")
         y_attrib = location_set["csvFile"]["y"].replace("%", "")
-        z_attrib = None
-        if "z" in location_set["csvFile"].keys():
-            # use key 'y' for z_attrib
-            # TODO: @daniel: why use 'y' for z_attrib?
-            z_attrib = location_set["csvFile"]["y"].replace("%", "")
-
-        gdf = gpd.read_file(filename=filepath)
-
-        if z_attrib:
-            gdf["geometry"] = gdf.apply(
-                func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(x[z_attrib]),)), axis=1,
-            )
-        else:
-            gdf["geometry"] = gdf.apply(func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]))), axis=1,)
-
+        # z column does not always exist
+        z_attrib = location_set["csvFile"].get("z", "").replace("%", "")
+        gdf = self.add_geometry_column(
+            gdf=gdf, filepath=filepath, x_attrib=x_attrib, y_attrib=y_attrib, z_attrib=z_attrib
+        )
         geo_datum_found = location_set["csvFile"]["geoDatum"]
         crs = GEO_DATUM.get(geo_datum_found, None)
         gdf.crs = crs if crs else None

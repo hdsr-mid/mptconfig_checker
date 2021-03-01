@@ -44,6 +44,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "path"])
 #     "locSet error": 319,
 # }
 
+#
 # class PathConstants:
 #     # all paths must exists
 #     consistency_input_xlsx = PathNamedTuple(is_file=True, path=BASE_DIR / "data" / "input" / "consistency_input.xlsx")
