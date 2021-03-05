@@ -22,7 +22,11 @@ def xml_to_etree(xml_filepath: Path) -> ET._Element:
     return etree
 
 
-def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = None, section_end: str = None,) -> Dict:
+def etree_to_dict(
+    etree: Union[ET._Element, ET._Comment],
+    section_start: str = None,
+    section_end: str = None,
+) -> Dict:
     """ converts an etree to a dictionary """
     assert isinstance(etree, ET._Comment) or isinstance(
         etree, ET._Element
@@ -152,7 +156,7 @@ class FewsConfig:
     def get_parameters(self, dict_keys: str = "groups") -> Dict:
         """Extract a dictionary of parameter(groups) from a FEWS-config.
         Some waterboards define parameters in a csv file that is read into a parameters.xml.
-        HDSR however directly defines it in a parameters.xml """
+        HDSR however directly defines it in a parameters.xml"""
         assert dict_keys in ("groups", "parameters")
         parameters_dict = xml_to_dict(xml_filepath=self.RegionConfigFiles["Parameters"])
         parameters = parameters_dict["parameters"]
@@ -173,7 +177,12 @@ class FewsConfig:
         return result
 
     def add_geometry_column(
-        self, gdf: gpd.GeoDataFrame, filepath: Path, x_attrib: str, y_attrib: str, z_attrib: str = None,
+        self,
+        gdf: gpd.GeoDataFrame,
+        filepath: Path,
+        x_attrib: str,
+        y_attrib: str,
+        z_attrib: str = None,
     ) -> gpd.GeoDataFrame:
         """Add geometry column to geodataframe by merging geodataframe columns x, y, and z.
         If column z_attrib exists, then we fill empty cells ('') with z_value_default.
@@ -188,11 +197,19 @@ class FewsConfig:
         try:
             if z_attrib:
                 gdf["geometry"] = gdf.apply(
-                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(x[z_attrib]),)), axis=1,
+                    func=(
+                        lambda x: Point(
+                            float(x[x_attrib]),
+                            float(x[y_attrib]),
+                            float(x[z_attrib]),
+                        )
+                    ),
+                    axis=1,
                 )
             else:
                 gdf["geometry"] = gdf.apply(
-                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(z_value_default))), axis=1,
+                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(z_value_default))),
+                    axis=1,
                 )
             return gdf
         except ValueError:
@@ -223,10 +240,12 @@ class FewsConfig:
         #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
+            logger.info(f"no location_set found in fews_config for location_set_key: {location_set_key}")
             return
 
         file = location_set.get("csvFile", {}).get("file", None)
         if not file:
+            logger.info(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
             return
 
         file = Path(file)

@@ -24,7 +24,7 @@ def dict_compare(d1: Dict, d2: Dict):
 def validate_expected_summary(new_summary: Dict) -> None:
     added, removed, modified, same = dict_compare(d1=constants.EXPECTED_SUMMARY, d2=new_summary)
 
-    if same:
+    if len(same) == len(constants.EXPECTED_SUMMARY):
         logger.info("nice, summary is as expected")
         return
 
@@ -35,5 +35,6 @@ def validate_expected_summary(new_summary: Dict) -> None:
     for x in removed:
         logger.warning(f"removed={x}")
 
-    for x in modified:
-        logger.warning(f"modified={x}")
+    if not modified:
+        return
+    raise AssertionError(f"modified={modified}")

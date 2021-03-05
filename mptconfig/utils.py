@@ -22,7 +22,12 @@ def idmap2tags(row: pd.Series, idmap: List[Dict]) -> List[str]:
         for col in idmap
         if col["externalLocation"] == exloc and col["externalParameter"] == expar
     ]
-    return fews_locs if fews_locs else [""]
+    # return fews_locs if fews_locs else [""]
+
+    # TODO: komt summary wel goed als ik dit gebruik?
+    if len(fews_locs) == 0:
+        fews_locs = np.NaN
+    return fews_locs
 
 
 def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
