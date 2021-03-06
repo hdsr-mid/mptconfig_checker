@@ -48,7 +48,7 @@ class MptConfigChecker:
         self._waterstandloc = None
         self._mswloc = None
         self._mpt_histtags = None
-        self._mpt_histtags_selection = None
+        self._mpt_histtags_new = None
         self._fews_config = None
         self._ignored_exloc = None
         self._ignored_histtag = None
@@ -148,12 +148,12 @@ class MptConfigChecker:
         return self._mpt_histtags
 
     @property
-    def mpt_histtags_selection(self) -> pd.DataFrame:
+    def mpt_histtags_new(self) -> pd.DataFrame:
         """Convert histTag-ids to mpt-ids. Alle meetpunt ids uitgelezen uit de histTags.csv, die niet
         in de ignore staan en in de idmapping zijn opgenomen."""
-        # TODO: ask Roger what is the purpose of this selection? and why is it in excel output file (as separate tab 'mpt')?.
-        if self._mpt_histtags_selection is not None:
-            return self._mpt_histtags_selection
+        # TODO: ask Roger what is the purpose of this selection? and why is it in excel output file (as separate tab 'mpt_histtags_new')?.
+        if self._mpt_histtags_new is not None:
+            return self._mpt_histtags_new
         mpt_df = pd.concat(
             [
                 self.mpt_histtags.groupby(["fews_locid"], sort=False)["total_min_start_dt"].min(),
@@ -165,6 +165,7 @@ class MptConfigChecker:
         mpt_df = mpt_df.sort_index(axis=0)
         mpt_df.columns = ["STARTDATE", "ENDDATE"]
         mpt_df.index.name = "LOC_ID"
+        # TODO: remove this index? what are consequences?
         kw_locs = list(mpt_df[mpt_df.index.str.contains("KW", regex=False)].index)
         h_locs = np.unique([f"{loc[0:-1]}0" for loc in kw_locs])
         h_locs_missing = [loc for loc in h_locs if loc not in list(mpt_df.index)]
@@ -176,15 +177,15 @@ class MptConfigChecker:
             }
         )
 
-        # TODO: does this index matter?
+        # TODO: remove this index. It does however matter to update_hlocs below..
         h_locs_df = h_locs_df.set_index("LOC_ID")
 
         mpt_df = pd.concat([mpt_df, h_locs_df], axis=0)
         mpt_df[["STARTDATE", "ENDDATE"]] = mpt_df.apply(
             func=update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
-        self._mpt_histtags_selection = mpt_df.sort_index(inplace=False)
-        return self._mpt_histtags_selection
+        self._mpt_histtags_new = mpt_df.sort_index(inplace=False)
+        return self._mpt_histtags_new
 
     @property
     def ignored_exloc(self) -> pd.DataFrame:
@@ -237,12 +238,12 @@ class MptConfigChecker:
 
     def _update_start_end_new_csv(self, location_set_key: str) -> pd.DataFrame:
         assert location_set_key in constants.LOCATIONS_SETS.keys()
-        date_threshold = self.mpt_histtags_selection["ENDDATE"].max() - pd.Timedelta(weeks=26)
+        date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
         gdf = self.location_sets[location_set_key]
         assert gdf["id"] == constants.LOCATIONS_SETS[location_set_key]
         df = gdf.drop("geometry", axis=1)
         df[["START", "EIND"]] = df.apply(
-            func=update_date, args=(self.mpt_histtags_selection, date_threshold), axis=1, result_type="expand"
+            func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
         )
         return df
 
@@ -1430,8 +1431,8 @@ class MptConfigChecker:
 
     def add_new_mpt_histtags_to_results(self):
         excelsheet = ExcelSheet(
-            name="new_mpt",
-            data=self.mpt_histtags_selection,
+            name="mpt_histtags_new",
+            data=self.mpt_histtags_new,
             description="alle meetpunt ids uitgelezen uit de histTags.csv, die niet in de ignore "
             "staan en in de idmapping zijn opgenomen",
             sheet_type=ExcelSheetTypeChoices.output,

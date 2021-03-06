@@ -34,6 +34,22 @@ class ExcelSheet:
         self.validate_constructor()
         self.set_sheet_index()
 
+    def validate_constructor(self) -> None:
+        assert isinstance(self.name, str), f"sheet name {self.name} must be a str"
+        assert (
+            2 < len(self.name) < 25
+        ), f"sheet name '{self.name}' with length {len(self.name)} must be between 2 and 25 chars"
+        assert isinstance(self.description, str), f"sheet description {self.description} must be a str"
+        assert (
+            10 < len(self.description) < 200
+        ), f"sheet description with length {len(self.description)} must be between 10 and 200 chars"
+        assert isinstance(
+            self.data, pd.DataFrame
+        ), f"sheet name {self.name} data must be a pd.DataFrame and not a {type(self.data)}"
+        assert isinstance(
+            self.sheet_type, ExcelSheetTypeChoices
+        ), f"sheet name {self.name} type must be a ExcelSheetTypeChoices and not a {type(self.sheet_type)}"
+
     @property
     def column_names(self) -> pd.Index:
         return self.data.columns
@@ -52,27 +68,13 @@ class ExcelSheet:
     def nr_rows(self) -> int:
         return len(self.data)
 
-    def validate_constructor(self) -> None:
-        assert isinstance(self.name, str)
-        assert (
-            2 < len(self.name) < 25
-        ), f"sheet name '{self.name}' with length {len(self.name)} must be between 2 and 25 chars"
-        assert isinstance(self.description, str)
-        assert (
-            10 < len(self.description) < 200
-        ), f"sheet description with length {len(self.description)} must be between 10 and 200 chars"
-        assert isinstance(
-            self.data, pd.DataFrame
-        ), f"sheet name {self.name} data is no pd.DataFrame bu {type(self.data)}"
-        assert isinstance(self.sheet_type, ExcelSheetTypeChoices)
-
     def set_sheet_index(self) -> None:
         """Enforce uniform index type on all sheets, so that when creating excel we
         can do pd.to_excel(index=False) resulting in same first column"""
         if self.nr_rows == 0:
             return
-        # TODO: fix (reset_index()) index of new_mpt
-        if self.name == "new_mpt":
+        # TODO: fix (reset_index()) index of mpt_histtags_new
+        if self.name == "mpt_histtags_new":
             return
         if not isinstance(self.data.index, pd.Int64Index):
             raise AssertionError(f"sheet {self.name} index must be a Int64Index, not type {type(self.data.index)}")

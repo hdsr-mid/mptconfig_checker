@@ -9,7 +9,7 @@ GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
 
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 
-
+#
 # class PathConstants:
 #     result_xlsx = PathNamedTuple(
 #         is_file=True,
@@ -61,7 +61,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 #     "ignored histTags match": 0,
 #     "histTags noMatch": 56,
 #     "idmaps double": 0,
-#     "new_mpt": 1770,
+#     "mpt_histtags_new": 1770,
 #     "pars missing": 1,
 #     "hloc error": 0,
 #     "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
@@ -130,7 +130,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 #     "ignored histTags match": 1,
 #     "histTags noMatch": 15,
 #     "idmaps double": 0,
-#     "new_mpt": 1802,
+#     "mpt_histtags_new": 1802,
 #     "pars missing": 0,
 #     "hloc error": 18,
 #     "exPar error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
@@ -195,7 +195,7 @@ EXPECTED_SUMMARY = {
     "ignored histTags match": 0,
     "histTags noMatch": 69,
     "idmaps double": 0,
-    "new_mpt": 1770,
+    "mpt_histtags_new": 1770,
     "pars missing": 1,
     "hloc error": 0,
     "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
