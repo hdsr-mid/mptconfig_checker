@@ -161,12 +161,18 @@ class MptConfigChecker:
             ],
             axis=1,
         )
-        assert len(mpt_df.columns) == 2, f"expected two columns in mpt_df"
-        mpt_df = mpt_df.sort_index(axis=0)
-        mpt_df.columns = ["STARTDATE", "ENDDATE"]
-        mpt_df.index.name = "LOC_ID"
-        # TODO: remove this index? what are consequences?
-        kw_locs = list(mpt_df[mpt_df.index.str.contains("KW", regex=False)].index)
+        assert sorted(mpt_df.columns) == ["total_max_end_dt", "total_min_start_dt"], "unexpected columns in mpt_df"
+        mpt_df.sort_index(axis=0, inplace=True)
+        mpt_df.reset_index(drop=False, inplace=True)
+        assert sorted(mpt_df.columns) == [
+            "fews_locid",
+            "total_max_end_dt",
+            "total_min_start_dt",
+        ], "unexpected columns in mpt_df"
+        mpt_df.columns = ["LOC_ID", "STARTDATE", "ENDDATE"]
+        mpt_df["IS_KW_LOC"] = mpt_df["LOC_ID"].str.startswith("KW")
+        mpt_df["H_LOC"] = 111
+        # kw_locs = list(mpt_df[mpt_df["LOC_ID"].str.contains("KW", regex=False)])
         h_locs = np.unique([f"{loc[0:-1]}0" for loc in kw_locs])
         h_locs_missing = [loc for loc in h_locs if loc not in list(mpt_df.index)]
         h_locs_df = pd.DataFrame(
@@ -178,7 +184,7 @@ class MptConfigChecker:
         )
 
         # TODO: remove this index. It does however matter to update_hlocs below..
-        h_locs_df = h_locs_df.set_index("LOC_ID")
+        # h_locs_df = h_locs_df.set_index("LOC_ID")
 
         mpt_df = pd.concat([mpt_df, h_locs_df], axis=0)
         mpt_df[["STARTDATE", "ENDDATE"]] = mpt_df.apply(
@@ -269,7 +275,7 @@ class MptConfigChecker:
     def df_new_csv_waterstandlocaties(self) -> pd.DataFrame:
         df = self._update_start_end_new_csv(location_set_key="waterstandlocaties")
         grouper = self.mpt_histtags.groupby(["fews_locid"])
-        # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects..
+        # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
         return df
 
@@ -391,8 +397,6 @@ class MptConfigChecker:
         result_df = self.ignored_histtag[
             self.ignored_histtag["UNKNOWN_SERIE"].isin(values=histtags_opvlwater_df["serie"])
         ]
-        # TODO: does this index matter?
-        # result_df = result_df.set_index("UNKNOWN_SERIE")
         if not result_df.empty:
             logger.warning(f"{len(result_df)} histTags should not be in ignored histtags")
         else:
@@ -428,10 +432,6 @@ class MptConfigChecker:
         result_df = result_df[~result_df["serie"].isin(values=self.ignored_histtag["UNKNOWN_SERIE"])]
         result_df = result_df.drop("fews_locid", axis=1)
         result_df.columns = ["UNKNOWN_SERIE", "STARTDATE", "ENDDATE"]
-
-        # TODO: does this index matter?
-        # result_df = result_df.set_index("UNKNOWN_SERIE")
-
         if not result_df.empty:
             logger.warning(f"{len(result_df)} histTags not in idMaps")
         else:
@@ -907,7 +907,6 @@ class MptConfigChecker:
 
             split_ts = [key for key in split_ts if str(key) not in ex_locs_skip.values.astype(np.str)]
 
-            # TODO: use .get()
             ex_locs_dict = {
                 k: (ex_locs_dict[k[1:]] if (k[1:] in ex_locs_dict.keys()) and (k not in split_ts) else v)
                 for (k, v) in ex_locs_dict.items()
@@ -1083,23 +1082,22 @@ class MptConfigChecker:
             idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
             idmap_df = pd.DataFrame(data=idmaps)
 
+            data = {int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")}
             params_df = pd.DataFrame.from_dict(
-                data={
-                    int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")
-                },
-                orient="index",
+                data=data,
+                orient="index",  # 'index' as data.keys() should be df.rows (and not the df.columns)
                 columns=["internalParameters"],
             )
 
             for (idx, row) in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
                 row = row.dropna()
-                if int_loc in params_df.index:
+                if int_loc in params_df["internalParameters"]:
                     int_pars = np.unique(params_df.loc[int_loc]["internalParameters"])
                 else:
                     int_pars = []
 
-                attribs_required = get_validation_attribs(validation_rules, int_pars)
+                attribs_required = get_validation_attribs(validation_rules=validation_rules, int_pars=int_pars)
                 attribs_missing = [attrib for attrib in attribs_required if attrib not in row.keys()]
 
                 attribs_obsolete = [
@@ -1158,12 +1156,7 @@ class MptConfigChecker:
 
                     valid_errors["fout_beschrijving"] += errors["fout_beschrijving"]
 
-        # TODO: @renier: verify that
-        #  self.consistency[sheet_name] = pd.DataFrame(valid_errors)
-        #  self.consistency[sheet_name] = self.consistency[sheet_name].drop_duplicates()
-        # is the same as:
-        result_df = pd.DataFrame(data=valid_errors).drop_duplicates()
-
+        result_df = pd.DataFrame(data=valid_errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
             logger.info("no missing incorrect validation rules")
         else:

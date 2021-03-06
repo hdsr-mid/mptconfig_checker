@@ -2,6 +2,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import TypeVar
+from typing import Union
 
 import logging
 import numpy as np  # noqa numpy comes with geopandas
@@ -14,20 +15,16 @@ PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy"
 logger = logging.getLogger(__name__)
 
 
-def idmap2tags(row: pd.Series, idmap: List[Dict]) -> List[str]:
-    """Add FEWS-locationIds to histtags in df.apply() method."""
+def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
+    """Add FEWS-locationIds to histtags in df.apply() method.
+    Returns either np.NaN (= float type) or a list with strings (few_locs)."""
     exloc, expar = row["serie"].split(sep="_", maxsplit=1)
     fews_locs = [
         col["internalLocation"]
         for col in idmap
         if col["externalLocation"] == exloc and col["externalParameter"] == expar
     ]
-    # return fews_locs if fews_locs else [""]
-
-    # TODO: komt summary wel goed als ik dit gebruik?
-    if len(fews_locs) == 0:
-        fews_locs = np.NaN
-    return fews_locs
+    return fews_locs if fews_locs else np.NaN  # avoid "return fews_locs if fews_locs else [""]"
 
 
 def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
