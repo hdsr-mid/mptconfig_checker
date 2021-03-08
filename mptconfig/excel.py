@@ -51,10 +51,6 @@ class ExcelSheet:
         ), f"sheet name {self.name} type must be a ExcelSheetTypeChoices and not a {type(self.sheet_type)}"
 
     @property
-    def column_names(self) -> pd.Index:
-        return self.data.columns
-
-    @property
     def tab_color(self) -> ExcelTabColorChoices:
         if self.sheet_type == ExcelSheetTypeChoices.input:
             return ExcelTabColorChoices.blue
@@ -63,6 +59,17 @@ class ExcelSheet:
             # at least one row means at least one error found
             return ExcelTabColorChoices.red
         return ExcelTabColorChoices.green
+
+    @tab_color.setter
+    def tab_color(self, excelcolor: ExcelTabColorChoices):
+        assert self.name in (
+            "content",
+            "mpt_histtags_new",
+        ), "tab_color can only be set for sheets 'content' and 'mpt_histtags_new'"
+        assert isinstance(
+            excelcolor, ExcelTabColorChoices
+        ), f"excelcolor must be a ExcelTabColorChoices and not {type(excelcolor)}"
+        self.tab_color = excelcolor
 
     @property
     def nr_rows(self) -> int:
@@ -73,12 +80,8 @@ class ExcelSheet:
         can do pd.to_excel(index=False) resulting in same first column"""
         if self.nr_rows == 0:
             return
-        # TODO: fix (reset_index()) index of mpt_histtags_new
-        if self.name == "mpt_histtags_new":
-            return
         if not isinstance(self.data.index, pd.Int64Index):
             raise AssertionError(f"sheet {self.name} index must be a Int64Index, not type {type(self.data.index)}")
-        self.data.reset_index(inplace=True, drop=True)
 
     def to_content_dict(self) -> Dict:
         return {
@@ -178,21 +181,20 @@ class ExcelWriter:
         # create and load xlsx file
         result_xlsx_path = constants.PathConstants.result_xlsx.path
         logger.info(f"creating result file {result_xlsx_path}")
-        # TODO: activate this assert
-        # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
+        assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
 
         # add first sheet 'content'
         writer = pd.ExcelWriter(path=result_xlsx_path.as_posix(), mode="w", engine="openpyxl")
         content_sheet_name = "content"
         content_df = self._get_content_df()
-        content_df.to_excel(excel_writer=writer, sheet_name=content_sheet_name, index=True)
+        content_df.to_excel(excel_writer=writer, sheet_name=content_sheet_name, index=False)
         worksheet = writer.sheets[content_sheet_name]
-        self._set_sheet_style(worksheet=worksheet, tab_color=None)
+        self._set_sheet_style(worksheet=worksheet, tab_color=ExcelTabColorChoices.white)
 
         # add rest of sheets starting with input_sheets, then output_sheets
         for index, sheet in enumerate(self.results.input_sheets + self.results.output_sheets):
             assert isinstance(sheet, ExcelSheet)
-            sheet.data.to_excel(excel_writer=writer, sheet_name=sheet.name, index=True)
+            sheet.data.to_excel(excel_writer=writer, sheet_name=sheet.name, index=False)
             worksheet = writer.sheets[sheet.name]
             self._set_sheet_style(worksheet=worksheet, tab_color=sheet.tab_color)
 

@@ -78,14 +78,13 @@ def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = N
 
 def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
-    loc_id = row.name
-    start_date = row["STARTDATE"]
-    end_date = row["ENDDATE"]
-
-    if loc_id in h_locs:
-        start_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["STARTDATE"].dropna().min()
-        end_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["ENDDATE"].dropna().max()
-    return start_date, end_date
+    if bool(np.isin(row["LOC_ID"], h_locs)):
+        # get all locs at this location:
+        brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(row["LOC_ID"][0:-1])]
+        earliest_start_date = brothers_df["STARTDATE"].dropna().min()
+        latest_end_date = brothers_df["ENDDATE"].dropna().max()
+        return earliest_start_date, latest_end_date
+    return row["STARTDATE"], row["ENDDATE"]
 
 
 def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timestamp) -> Tuple[str, str]:

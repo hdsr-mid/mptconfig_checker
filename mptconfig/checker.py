@@ -2,6 +2,7 @@ from mptconfig import constants
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
 from mptconfig.excel import ExcelSheetTypeChoices
+from mptconfig.excel import ExcelTabColorChoices
 from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
@@ -162,19 +163,21 @@ class MptConfigChecker:
             axis=1,
         )
         assert sorted(mpt_df.columns) == ["total_max_end_dt", "total_min_start_dt"], "unexpected columns in mpt_df"
-        mpt_df.sort_index(axis=0, inplace=True)
+        assert mpt_df.index.name == "fews_locid"  # groupby() makes it the index column
         mpt_df.reset_index(drop=False, inplace=True)
         assert sorted(mpt_df.columns) == [
             "fews_locid",
             "total_max_end_dt",
             "total_min_start_dt",
         ], "unexpected columns in mpt_df"
-        mpt_df.columns = ["LOC_ID", "STARTDATE", "ENDDATE"]
-        mpt_df["IS_KW_LOC"] = mpt_df["LOC_ID"].str.startswith("KW")
-        mpt_df["H_LOC"] = 111
-        # kw_locs = list(mpt_df[mpt_df["LOC_ID"].str.contains("KW", regex=False)])
-        h_locs = np.unique([f"{loc[0:-1]}0" for loc in kw_locs])
-        h_locs_missing = [loc for loc in h_locs if loc not in list(mpt_df.index)]
+        mpt_df.rename(
+            columns={"fews_locid": "LOC_ID", "total_min_start_dt": "STARTDATE", "total_max_end_dt": "ENDDATE"},
+            inplace=True,
+        )
+        kw_locs = list(mpt_df[mpt_df["LOC_ID"].str.startswith("KW")]["LOC_ID"])
+        # H_LOC ends with a 0 (e.g if subloc = KW106013, then hloc becomes KW106010)
+        h_locs = np.unique([f"{kw_loc[0:-1]}0" for kw_loc in kw_locs])
+        h_locs_missing = [loc for loc in h_locs if loc not in mpt_df["LOC_ID"].to_list()]
         h_locs_df = pd.DataFrame(
             data={
                 "LOC_ID": h_locs_missing,
@@ -182,15 +185,17 @@ class MptConfigChecker:
                 "ENDDATE": [pd.NaT] * len(h_locs_missing),
             }
         )
-
-        # TODO: remove this index. It does however matter to update_hlocs below..
-        # h_locs_df = h_locs_df.set_index("LOC_ID")
-
         mpt_df = pd.concat([mpt_df, h_locs_df], axis=0)
+        assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after pd.concat"
         mpt_df[["STARTDATE", "ENDDATE"]] = mpt_df.apply(
             func=update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
+        assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after update_hlocs"
+        assert not mpt_df["STARTDATE"].hasnans
+        assert not mpt_df["ENDDATE"].hasnans
+        mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=True)
         self._mpt_histtags_new = mpt_df.sort_index(inplace=False)
+
         return self._mpt_histtags_new
 
     @property
@@ -385,13 +390,15 @@ class MptConfigChecker:
         # if len(df_rows_more_than_one_loc_id) > 0:
         #     pass
         # nr_wrong = len(df_rows_more_than_one_loc_id)
-        # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch?
-        #  hier nr_wrong = 30
+        # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch? hier nr_wrong = 30
+        #  @renier: Ik denk niet dat er iets niet klopt; óf de lijst wordt exploded, wanneer de fews_locid
+        #  zelf relevant is, óf er wordt alleen gekeken of de apply-method niet een nan terug geeft.
         # example = df_rows_more_than_one_loc_id.iloc[1]
         # raise AssertionError(
         #     f"unexpected: nr_rows_gte_one_loc_id={nr_wrong}, "
         #     f"example: serie={example.serie}, fews_locid={example.fews_locid}"
         # )
+        # T
 
         histtags_opvlwater_df = histtags_opvlwater_df[histtags_opvlwater_df["fews_locid"].notna()]
         result_df = self.ignored_histtag[
@@ -421,7 +428,8 @@ class MptConfigChecker:
         #     pass
         # nr_wrong = len(df_rows_more_than_one_loc_id)
         # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch?
-        #  hier nr_wrong = 30
+        #  @renier: Ik denk niet dat er iets niet klopt; óf de lijst wordt exploded, wanneer de fews_locid
+        #  zelf relevant is, óf er wordt alleen gekeken of de apply-method niet een nan terug geeft.
         # example = df_rows_more_than_one_loc_id.iloc[1]
         # raise AssertionError(
         #     f"unexpected: nr_rows_gte_one_loc_id={nr_wrong}, "
@@ -1242,7 +1250,6 @@ class MptConfigChecker:
         }
 
         for set_name, section_name in sets.items():
-            logger.info(set_name)
             location_set = self.location_sets[set_name]
             location_gdf = location_set["gdf"]
             csv_file = self.fews_config.location_sets[location_set["id"]]["csvFile"]["file"]
@@ -1430,6 +1437,7 @@ class MptConfigChecker:
             "staan en in de idmapping zijn opgenomen",
             sheet_type=ExcelSheetTypeChoices.output,
         )
+        excelsheet.tab_color = ExcelTabColorChoices.white
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
@@ -1453,6 +1461,7 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         self.add_new_mpt_histtags_to_results()
+
         # # TODO: @renier: remove this integration test
         summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
         from mptconfig.tmp import validate_expected_summary
