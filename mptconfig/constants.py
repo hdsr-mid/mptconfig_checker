@@ -1,27 +1,215 @@
+from collections import namedtuple
 from pathlib import Path
 
 
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
 
-PATHS = {
-    "files": {
-        "consistency_xlsx": BASE_DIR / "data" / "input" / "consistency.xlsx",
-        "mpt_ignore_csv": BASE_DIR / "data" / "input" / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
-        "hist_tags_csv": BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
-    },
-    "dirs": {
-        "fews_config": Path("D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config"),
-        "csv_out": BASE_DIR / "data" / "output",
-    },
+GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
+
+PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
+
+#
+# class PathConstants:
+#     result_xlsx = PathNamedTuple(
+#         is_file=True,
+#         should_exist=False,
+#         path=BASE_DIR / "data" / "output" / "result.xlsx",
+#         description="",
+#     )
+#     histtags_csv = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
+#         description="",
+#     )
+#     fews_config = PathNamedTuple(
+#         is_file=False,
+#         should_exist=True,
+#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+#         description="",
+#     )
+#     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+#     ignored_exloc = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+#         description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+#     )
+#     ignored_histtag = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+#         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+#     )
+#     ignored_ts800 = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+#         description="Locations die worden overgeslagen bij rapportage timeSeries error",
+#     )
+#     ignored_xy = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+#         description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+#     )
+#
+#
+# EXPECTED_SUMMARY = {
+#     "idmap section error": 36,
+#     "ignored histTags match": 0,
+#     "histTags noMatch": 56,
+#     "idmaps double": 0,
+#     "mpt_histtags_new": 1770,
+#     "pars missing": 1,
+#     "hloc error": 0,
+#     "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+#     "intLoc missing": 2,
+#     "exPar missing": 338,
+#     "exLoc error": 8,
+#     "timeSeries error": 62,
+#     "validation error": 273,
+#     "par mismatch": 0,
+#     "locSet error": 319,
+# }
+
+#
+# class PathConstants:
+#     result_xlsx = PathNamedTuple(
+#         is_file=True,
+#         should_exist=False,
+#         path=BASE_DIR / "data" / "output" / "result.xlsx",
+#         description="",
+#     )
+#     histtags_csv = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+#         description="",
+#     )
+#     fews_config = PathNamedTuple(
+#         is_file=False,
+#         should_exist=True,
+#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config",
+#         description="",
+#     )
+#     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+#     ignored_exloc = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+#         description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+#     )
+#     ignored_histtag = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+#         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+#     )
+#     ignored_ts800 = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+#         description="Locations die worden overgeslagen bij rapportage timeSeries error",
+#     )
+#     ignored_xy = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+#         description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+#     )
+#
+#
+# EXPECTED_SUMMARY = {
+#     "idmap section error": 34,
+#     "ignored histTags match": 1,
+#     "histTags noMatch": 15,
+#     "idmaps double": 0,
+#     "mpt_histtags_new": 1802,
+#     "pars missing": 0,
+#     "hloc error": 18,
+#     "exPar error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+#     "intLoc missing": 0,
+#     "exPar missing": 346,
+#     "exLoc error": 5,
+#     "timeSeries error": 7,
+#     "validation error": 321,
+#     "par mismatch": 0,
+#     "locSet error": 337,
+# }
+
+
+class PathConstants:
+    result_xlsx = PathNamedTuple(
+        is_file=True,
+        should_exist=False,
+        path=BASE_DIR / "data" / "output" / "result.xlsx",
+        description="",
+    )
+    histtags_csv = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        description="",
+    )
+    fews_config = PathNamedTuple(
+        is_file=False,
+        should_exist=True,
+        path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        description="",
+    )
+    output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+    ignored_exloc = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+    )
+    ignored_histtag = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+    )
+    ignored_ts800 = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+    )
+    ignored_xy = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+    )
+
+
+EXPECTED_SUMMARY = {
+    "idmap section error": 36,
+    "ignored histTags match": 0,
+    "histTags noMatch": 69,
+    "idmaps double": 0,
+    "mpt_histtags_new": 1770,
+    "pars missing": 1,
+    "hloc error": 0,
+    "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "intLoc missing": 2,
+    "exPar missing": 338,
+    "exLoc error": 8,
+    "timeSeries error": 62,
+    "validation error": 273,
+    "par mismatch": 0,
+    "locSet error": 319,
 }
 
+
 FIXED_SHEETS = [
-    "histTag_ignore",
-    "inhoudsopgave",
-    "exLoc_ignore",
-    "TS800_ignore",
-    "xy_ignore",
+    "ignored_histTag",
+    "ignored_exLoc",
+    "ignored_ts800",
+    "ignored_xy",
 ]
 
 LOCATIONS_SETS = {
@@ -41,6 +229,10 @@ IDMAP_FILES = [
 ]
 
 IDMAP_SECTIONS = {
+    "IdOPVLWATER_HYMOS": {
+        "KUNSTWERKEN": [{"section_end": "<!--WATERSTANDSLOCATIES-->"}],
+        "WATERSTANDLOCATIES": [{"section_start": "<!--WATERSTANDSLOCATIES-->", "section_end": "<!--OVERIG-->"}],
+    },
     "IdOPVLWATER": {
         "KUNSTWERKEN": [
             {
@@ -57,10 +249,6 @@ IDMAP_SECTIONS = {
             {"section_start": "<!--WATERSTANDSLOCATIES (new CAW id)-->", "section_end": "<!--MSW (new CAW id)-->"},
         ],
         "MSWLOCATIES": [{"section_start": "<!--MSW (new CAW id)-->"}],
-    },
-    "IdOPVLWATER_HYMOS": {
-        "KUNSTWERKEN": [{"section_end": "<!--WATERSTANDSLOCATIES-->"}],
-        "WATERSTANDLOCATIES": [{"section_start": "<!--WATERSTANDSLOCATIES-->", "section_end": "<!--OVERIG-->"}],
     },
 }
 
@@ -82,7 +270,6 @@ EXTERNAL_PARAMETERS_ALLOWED = {
     "krooshek": ["HB.$", "HO.$"],
     "waterstand": ["HB.$", "HO.$", "H$"],
 }
-
 
 PARAMETER_MAPPING = [
     {"internal": "DD.", "external": "I.B"},
@@ -177,20 +364,35 @@ VALIDATION_RULES = {
 
 
 def check_constants():
-    # check 1
+    # check 1: BASE_DIR's name
     assert (
         BASE_DIR.name == "mptconfig_checker"
     ), f"BASE_DIR name ={BASE_DIR.name} should be project's root 'mptconfig_checker'"
 
-    # check 2
-    files = "files"
-    dirs = "dirs"
-    assert (
-        len(PATHS.keys()) == 2 and files in PATHS.keys() and dirs in PATHS.keys()
-    ), f"PATHS keys {PATHS.keys()} must be exact {files} and {dirs}"
-    for _, path in PATHS[files].items():
-        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-        assert path.is_file(), f"file does not exist with path={path}"
-    for _, path in PATHS[dirs].items():
-        assert isinstance(path, Path), f"path {path} is not of type pathlib.Path"
-        assert path.is_dir(), f"dir does not exist with path={path}"
+    # check 2: PathConstants has exactly the following objects
+    all_defined_paths = {key: value for key, value in PathConstants.__dict__.items() if not key.startswith("__")}
+    expected_paths = {
+        "result_xlsx",
+        "fews_config",
+        "histtags_csv",
+        "ignored_exloc",
+        "ignored_histtag",
+        "ignored_ts800",
+        "ignored_xy",
+        "output_dir",
+    }
+    too_many = set(all_defined_paths.keys()).difference(expected_paths)
+    too_few = expected_paths.difference(set(all_defined_paths.keys()))
+    assert not too_many, f"too many paths {too_many}"
+    assert not too_few, f"too few paths {too_few}"
+
+    # check 3: check if files and dirs exist if the are expected to. And visa versa
+    for path_obj_name, path_namedtuple in all_defined_paths.items():
+        assert isinstance(path_namedtuple.path, Path), f"path {path_namedtuple.path} is not of type pathlib.Path"
+        if not path_namedtuple.should_exist:
+            assert not path_namedtuple.path.exists(), f"path {path_namedtuple.path} should not exist"
+            continue
+        if path_namedtuple.is_file:
+            assert path_namedtuple.path.is_file(), f"file should exist {path_namedtuple.path}"
+        else:
+            assert path_namedtuple.path.is_dir(), f"dir should exists {path_namedtuple.path}"

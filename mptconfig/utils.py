@@ -1,6 +1,8 @@
+from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Tuple
+from typing import TypeVar
+from typing import Union
 
 import logging
 import numpy as np  # noqa numpy comes with geopandas
@@ -8,30 +10,57 @@ import pandas as pd  # noqa pandas comes with geopandas
 import re
 
 
+PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")
+
 logger = logging.getLogger(__name__)
 
 
-def idmap2tags(row: pd.Series, idmap: Optional[List[str]]):
-    """Add FEWS-locationIds to hist_tags in df.apply() method."""
-    # TODO: fix typing args
-    # TODO: return type is np.NaN or a List[str]?
-    #  def idmap2tags(row: pd.Series, idmap: Optional[List[str]]) -> Union[np.NaN, List[str]]:
-    exloc, expar = row["serie"].split("_", 1)
+def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
+    """Add FEWS-locationIds to histtags in df.apply() method.
+    Returns either np.NaN (= float type) or a list with strings (few_locs)."""
+    exloc, expar = row["serie"].split(sep="_", maxsplit=1)
     fews_locs = [
         col["internalLocation"]
         for col in idmap
         if col["externalLocation"] == exloc and col["externalParameter"] == expar
     ]
-    return np.NaN if fews_locs == 0 else fews_locs
+    # !! avoid <return fews_locs if fews_locs else [""]> !!
+    return fews_locs if fews_locs else np.NaN
 
 
-def get_validation_attribs(validation_rules, int_pars=None, loc_type=None):
-    """Get attributes from validationRules."""
+def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
+    """Get attributes from validationRules.
+
+    Example:
+        get_validation_attribs(
+            validation_rules= [
+                {
+                    'parameter': 'H.R.',
+                    'extreme_values': {'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'}
+                },
+                {
+                    'parameter': 'H2.R.',
+                    'extreme_values': {'hmax': 'HR2_HMAX', 'hmin': 'HR2_HMIN'}
+                },
+                etc..
+            ]
+
+        returns:
+            [
+            'HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN', 'HR3_HMAX', 'HR3_HMIN', 'FRQ_HMAX',
+            'FRQ_HMIN', 'HEF_HMAX', 'HEF_HMIN', 'PERC_HMAX', 'PERC_SMAX', 'PERC_SMIN', 'PERC_HMIN',
+            'PERC2_HMAX', 'PERC2_SMAX', 'PERC2_SMIN', 'PERC2_HMIN', 'TT_HMAX', 'TT_HMIN'
+            ]
+
+    """
     if int_pars is None:
         int_pars = [rule["parameter"] for rule in validation_rules]
     result = []
     for rule in validation_rules:
         if "type" in rule.keys():
+            # TODO: @daniel, wat is loc_type? wordt in geen enkele call meegegeven.
+            #  Dus loc_type is None, dus hieronder staat: if rule["type'] == None ?
+            #  omdat rule een Dict[str:str] is, neem ik aan dat loc_type een string is. Klopt die aanname?
             if rule["type"] == loc_type:
                 if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
                     for key, attribute in rule["extreme_values"].items():
@@ -50,19 +79,19 @@ def get_validation_attribs(validation_rules, int_pars=None, loc_type=None):
 
 def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
-    loc_id = row.name
-    start_date = row["STARTDATE"]
-    end_date = row["ENDDATE"]
+    if not bool(np.isin(row["LOC_ID"], h_locs)):
+        return row["STARTDATE"], row["ENDDATE"]
+    # get all locs at this location:
+    brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(row["LOC_ID"][0:-1])]
+    earliest_start_date = brothers_df["STARTDATE"].dropna().min()
+    latest_end_date = brothers_df["ENDDATE"].dropna().max()
+    return earliest_start_date, latest_end_date
 
-    if loc_id in h_locs:
-        start_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["STARTDATE"].dropna().min()
-        end_date = mpt_df[mpt_df.index.str.contains(loc_id[0:-1])]["ENDDATE"].dropna().max()
-    return start_date, end_date
 
-
-def update_date(row, mpt_df, date_threshold):
-    """Return start and end-date in df.apply() method."""
+def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timestamp) -> Tuple[str, str]:
+    """Return start and end-date, e.g. ('19970101', '21000101'), in df.apply() method."""
     int_loc = row["LOC_ID"]
+    # TODO: fix index
     if int_loc in mpt_df.index:
         start_date = mpt_df.loc[int_loc]["STARTDATE"].strftime("%Y%m%d")
         end_date = mpt_df.loc[int_loc]["ENDDATE"]
@@ -75,19 +104,50 @@ def update_date(row, mpt_df, date_threshold):
     return start_date, end_date
 
 
-def update_histtag(row, grouper):
-    """Assign last histTag to waterstandsloc in df.apply method."""
-    return next(
-        (
-            df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
-            for loc_id, df in grouper
-            if loc_id == row["LOC_ID"]
-        ),
-        None,
+def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
+    """Assign last histTag to waterstandsloc in df.apply method.
+    row['LOC_ID'] is e.g. 'OW100101'
+    updated_histtag_str is e.g. '1001_HO1'
+    """
+    updated_histtag = [
+        df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
+        for loc_id, df in grouper
+        if loc_id == row["LOC_ID"]
+    ]
+    if len(updated_histtag) == 0:
+        return ""
+    elif len(updated_histtag) == 1:
+        return updated_histtag[0]
+    raise AssertionError(
+        f"this should not happen, length of updated_histtag should be 0 or 1. updated_histtag={updated_histtag}"
     )
 
 
-def _sort_validation_attribs(rule):
+def sort_validation_attribs(rule: Dict) -> Dict[str, list]:
+    """
+    Example:
+        rule = {
+            'hmax': 'HARDMAX',
+            'smax': [
+                {'period': 1, 'attribute': 'WIN_SMAX'},
+                {'period': 2, 'attribute': 'OV_SMAX'},
+                {'period': 3, 'attribute': 'ZOM_SMAX'}
+                ],
+            'smin': [
+                {'period': 1, 'attribute': 'WIN_SMIN'},
+                {'period': 2, 'attribute': 'OV_SMIN'},
+                {'period': 3, 'attribute': 'ZOM_SMIN'}
+                ],
+            'hmin': 'HARDMIN'
+            }
+        _sort_validation_attribs(rule) returns:
+        result = {
+            'hmax': ['HARDMAX'],
+            'smax': ['WIN_SMAX', 'OV_SMAX', 'ZOM_SMAX'],
+            'smin': ['WIN_SMIN', 'OV_SMIN', 'ZOM_SMIN'],
+            'hmin': ['HARDMIN']
+            }
+    """
     result = {}
     for key, value in rule.items():
         if isinstance(value, str):

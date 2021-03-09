@@ -1,5 +1,4 @@
-from mptconfig.config import MeetpuntConfig
-from mptconfig.constants import check_constants
+from mptconfig.checker import MptConfigChecker
 
 import logging
 import sys
@@ -17,7 +16,7 @@ def check_python_version():
 
 def setup_logging() -> None:
     """Adds a configured strearm handler to the root logger."""
-    log_level = logging.INFO
+    log_level = logging.DEBUG
     log_date_format = "%H:%M:%S"
     log_format = "%(asctime)s %(filename)s %(levelname)s %(message)s"
 
@@ -33,27 +32,7 @@ def setup_logging() -> None:
 if __name__ == "__main__":
     check_python_version()
     setup_logging()
-    check_constants()
 
     # run checks
-    meetpunt_config = MeetpuntConfig()
-    meetpunt_config.check_idmap_sections()
-    meetpunt_config.check_ignored_hist_tags()
-    meetpunt_config.check_missing_hist_tags()
-    meetpunt_config.check_double_idmaps()
-    meetpunt_config.hist_tags_to_mpt()
-    meetpunt_config.check_missing_pars()
-    meetpunt_config.check_hloc_consistency()
-    meetpunt_config.check_expar_errors_intloc_missing()
-    meetpunt_config.check_expar_missing()
-    meetpunt_config.check_exloc_intloc_consistency()
-    meetpunt_config.check_timeseries_logic()
-    meetpunt_config.check_validation_rules()
-    meetpunt_config.check_intpar_expar_consistency()
-    meetpunt_config.check_location_set_errors()
-
-    # write excel file
-    meetpunt_config.write_excel()
-
-    # write csv files
-    meetpunt_config.write_csvs()
+    meetpunt_config = MptConfigChecker()
+    meetpunt_config.run()

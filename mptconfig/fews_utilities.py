@@ -1,5 +1,6 @@
 from collections import defaultdict
 from lxml import etree as ET  # noqa
+from mptconfig.constants import GEO_DATUM
 from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
@@ -7,26 +8,31 @@ from typing import Optional
 from typing import Union
 
 import geopandas as gpd
+import logging
 import os
 
 
-# TODO: move to constants
-GEO_DATUM = {"Rijks Driehoekstelsel": "epsg:28992"}
+logger = logging.getLogger(__name__)
 
 
-def xml_to_etree(xml_file: str) -> ET._Element:
+def xml_to_etree(xml_filepath: Path) -> ET._Element:
     """ parses an xml-file to an etree. ETree can be used in function etree_to_dict """
-    # TODO: xml_file is a path, so make it type Path
-    etree = ET.parse(xml_file).getroot()
+    assert isinstance(xml_filepath, Path), f"path {xml_filepath} must be a pathlib.Path"
+    etree = ET.parse(source=xml_filepath.as_posix()).getroot()
     return etree
 
 
-def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = None, section_end: str = None,) -> Dict:
+def etree_to_dict(
+    etree: Union[ET._Element, ET._Comment],
+    section_start: str = None,
+    section_end: str = None,
+) -> Dict:
     """ converts an etree to a dictionary """
-    # TODO: kan t alleen een ET._Element of ET._Comment zijn?
+    assert isinstance(etree, ET._Comment) or isinstance(
+        etree, ET._Element
+    ), "etree must be either be a ET._Comment or ET._Element"
     if isinstance(etree, ET._Comment):
-        # TODO: return of toch return {} ??
-        return
+        return {}
     _dict = {etree.tag.rpartition("}")[-1]: {} if etree.attrib else None}
     children = list(etree)
 
@@ -58,7 +64,7 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
     if children:
         dd = defaultdict(list)
         # for dc in map(etree_to_dict, children):
-        for dc in [etree_to_dict(child) for child in children]:
+        for dc in [etree_to_dict(etree=child) for child in children]:
             for k, v in dc.items():
                 dd[k].append(v)
 
@@ -75,16 +81,16 @@ def etree_to_dict(etree: Union[ET._Element, ET._Comment], section_start: str = N
     return _dict
 
 
-def xml_to_dict(xml_file: str, section_start: str = None, section_end: str = None) -> Dict:
+def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
-    # TODO: xml_file type is a path
-    etree = xml_to_etree(xml_file)
-    return etree_to_dict(etree, section_start=section_start, section_end=section_end)
+    etree = xml_to_etree(xml_filepath=xml_filepath)
+    return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 
 
 class FewsConfig:
     def __init__(self, path):
         self.path = path
+        self._location_sets = None
 
         # FEWS config dir-structure
         self.CoefficientSetsFiles = dict()
@@ -104,52 +110,56 @@ class FewsConfig:
         self.WorkflowFiles = dict()
 
         # populate config dir-structure
+        self._validate_constructor()
         self._populate_files()
 
-        # get locationSets
-        # TODO: no camelcase. But leave it for now as a lot of location_sets exists
-        self.locationSets = self._get_location_sets()
+    def _validate_constructor(self):
+        assert isinstance(self.path, Path), f"path {self.path} must be a pathlib.Path"
+        assert self.path.is_dir(), f"path {self.path} must be an existing directory"
 
     def _populate_files(self) -> None:
-        """ Set all fews config filepaths (.xml, .shx, etc) on self.
+        """Set all fews config filepaths (.xml, .shx, etc) on self.
 
         Example result:
-            self.IdMapFiles = {
-                'IdAHN': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\IdMapFiles\\IdAHN.xml',
-                'IdArtDiver': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\IdMapFiles\\IdArtDiver.xml',
-                ..
+            self.CoefficientSetsFiles = {
+                'BovenkantBuis': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/CoefficientSetsFiles/BovenkantBuis.xml'),  # noqa
+                'DebietParameters': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/CoefficientSetsFiles/DebietParameters.xml')  # noqa
                 },
-            self.MapLayerFiles = {
-                'afvoergebieden': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\afvoergebieden.shx',  # noqa
-                'begroeiingsgraad_trajecten': 'D:\\WIS_6.0_ONTWIKKEL_201902\\FEWS_SA\\config\\MapLayerFiles\\begroeiingsgraad_trajecten.shx',  # noqa
+            self.DisplayConfigFiles = {
+                'GridDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/GridDisplay.xml'),  # noqa
+                'ManualForecastDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/ManualForecastDisplay.xml'),  # noqa
+                'SystemMonitorDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/SystemMonitorDisplay.xml'),  # noqa
+                etc..
                 },
-            etc
-
-        TODO: work with pathlib.Path
+            etc..
         """
         for dirpath, dirnames, filenames in os.walk(self.path):
-            if dirpath == self.path:
+            _dirpath = Path(dirpath)
+            if _dirpath == self.path:
                 continue
-            prop = next((key for key in self.__dict__.keys() if key in dirpath), None)
-            if not prop:
+            if _dirpath.name not in self.__dict__.keys():
                 continue
-            self.__dict__[prop].update(
-                {os.path.splitext(file_name)[0]: os.path.join(dirpath, file_name) for file_name in filenames}
-            )
+            self.__dict__[_dirpath.name].update({Path(filename).stem: _dirpath / filename for filename in filenames})
 
-    def _get_location_sets(self) -> Dict:
-        """build-in method to extract a dict of locationsets"""
-        location_sets = xml_to_dict(self.RegionConfigFiles["LocationSets"])["locationSets"]["locationSet"]
-        return {
+    @property
+    def location_sets(self) -> Dict:
+        if self._location_sets is not None:
+            return self._location_sets
+        location_dict = xml_to_dict(xml_filepath=self.RegionConfigFiles["LocationSets"])
+        location_sets = location_dict["locationSets"]["locationSet"]
+        self._location_sets = {
             location_set["id"]: {key: value for key, value in location_set.items() if key != "id"}
             for location_set in location_sets
         }
+        return self._location_sets
 
     def get_parameters(self, dict_keys: str = "groups") -> Dict:
-        """method to extract a dictionary of parameter(groups) from a FEWS-config"""
-        # TODO: include parameters from CSV-files (support parametersCsvFile)
+        """Extract a dictionary of parameter(groups) from a FEWS-config.
+        Some waterboards define parameters in a csv file that is read into a parameters.xml.
+        HDSR however directly defines it in a parameters.xml"""
         assert dict_keys in ("groups", "parameters")
-        parameters = xml_to_dict(self.RegionConfigFiles["Parameters"])["parameters"]
+        parameters_dict = xml_to_dict(xml_filepath=self.RegionConfigFiles["Parameters"])
+        parameters = parameters_dict["parameters"]
         if dict_keys == "groups":
             return {
                 group["id"]: {key: value for key, value in group.items() if key != "id"}
@@ -161,23 +171,81 @@ class FewsConfig:
                 group["parameter"] = [group["parameter"]]
             for parameter in group["parameter"]:
                 result.update({parameter["id"]: {}})
-                result[parameter["id"]] = {key: value for key, value in parameter.items() if not key == "id"}
-                result[parameter["id"]].update({key: value for key, value in group.items() if not key == "parameter"})
+                result[parameter["id"]] = {key: value for key, value in parameter.items() if key != "id"}
+                result[parameter["id"]].update({key: value for key, value in group.items() if key != "parameter"})
                 result[parameter["id"]]["groupId"] = result[parameter["id"]].pop("id")
         return result
 
+    @staticmethod
+    def add_geometry_column(
+        gdf: gpd.GeoDataFrame,
+        filepath: Path,
+        x_attrib: str,
+        y_attrib: str,
+        z_attrib: str = None,
+    ) -> gpd.GeoDataFrame:
+        """Add geometry column to geodataframe by merging geodataframe columns x, y, and z.
+        If column z_attrib exists, then we fill empty cells ('') with z_value_default.
+        If column z_attrib does not exists? then we use z_value_default -9999 for all rows.
+        """
+        z_value_default = -9999
+        assert (x_attrib and y_attrib) in gdf.columns, f"x={x_attrib} and y={y_attrib} must be in df"
+        if z_attrib:
+            nr_empty_rows_before = len(gdf[gdf[z_attrib] == ""])
+            gdf[z_attrib].replace("", z_value_default, inplace=True)
+            logger.debug(f"replaced {nr_empty_rows_before} gdf rows column {z_attrib} from '' to {z_value_default}")
+        try:
+            if z_attrib:
+                gdf["geometry"] = gdf.apply(
+                    func=(
+                        lambda x: Point(
+                            float(x[x_attrib]),
+                            float(x[y_attrib]),
+                            float(x[z_attrib]),
+                        )
+                    ),
+                    axis=1,
+                )
+            else:
+                gdf["geometry"] = gdf.apply(
+                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(z_value_default))),
+                    axis=1,
+                )
+            return gdf
+        except ValueError:
+            # get rows where conversion error occurs (most likely because of empty cells)
+            if z_attrib:
+                # first make sure the problem is not in z column
+                assert gdf[z_attrib].astype(float), f"the xyz problem is within the {z_attrib} column"
+            # now search through x_attrib and y_attrib
+            empty_xy_rows = []
+            for column in [x_attrib, y_attrib]:
+                empty_xy_rows.extend(list(gdf[gdf[column] == ""].index))
+            assert empty_xy_rows, f"did not find expected empty_rows xy? file={filepath}"
+            raise AssertionError(f"found '' in xy for dataframe rows={empty_xy_rows} from file={filepath}")
+        except Exception as err:
+            raise AssertionError(f"unexpected error for xyz, err={err}, file={filepath}")
+
     def get_locations(self, location_set_key: str) -> Optional[gpd.GeoDataFrame]:
         """Convert fews locationSet locations into geopandas df
-        args 'location_set_key' (str) is e.g. 'OPVLWATER_HOOFDLOC'
+        args 'location_set_key' (str) is e.g. 'OPVLWATER_HOOFDLOC'.
         """
-        # TODO: support other than csvFile type locationSets
-        # TODO: concatenate attribute-files
-        # TODO: rename to internal attribute names
-        location_set = self.locationSets.get(location_set_key, None)
+        # from initial creator (Daniel Tollenaar):
+        # 1. Ik kan nu alleen locationsets direct uit CSV-files lezen, maar een locatieset kan ook
+        #    onderdeel zijn van een subset (zie https://publicwiki.deltares.nl/display/FEWSDOC/02+LocationSets).
+        #    Dat begrijpt fews utilities nog niet, maar is dus niet relevant voor .
+        # 2. In eerste instantie had ik de ambitie om vanuit de FEWS-config te snappen wáár
+        #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
+        #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.
+        #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
+        location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
+            logger.info(f"no location_set found in fews_config for location_set_key: {location_set_key}")
             return
+
         file = location_set.get("csvFile", {}).get("file", None)
         if not file:
+            logger.info(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
             return
 
         file = Path(file)
@@ -185,26 +253,16 @@ class FewsConfig:
             file = file.parent / (file.name + ".csv")
         filepath = self.path / "MapLayerFiles" / file
         assert filepath.is_file(), f"file {filepath} does not exist"
+        gdf = gpd.read_file(filename=filepath)
 
         x_attrib = location_set["csvFile"]["x"].replace("%", "")
         y_attrib = location_set["csvFile"]["y"].replace("%", "")
-        z_attrib = None
-        if "z" in location_set["csvFile"].keys():
-            # use key 'y' for z_attrib
-            z_attrib = location_set["csvFile"]["y"].replace("%", "")
-
-        gdf = gpd.read_file(filepath)
-
-        if z_attrib:
-            gdf["geometry"] = gdf.apply(
-                (lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(x[z_attrib]),)), axis=1,
-            )
-        else:
-            gdf["geometry"] = gdf.apply((lambda x: Point(float(x[x_attrib]), float(x[y_attrib]))), axis=1,)
-
-        crs = None
-        if location_set["csvFile"]["geoDatum"] in GEO_DATUM.keys():
-            crs = GEO_DATUM[location_set["csvFile"]["geoDatum"]]
-        if crs:
-            gdf.crs = crs
+        # z column does not always exist
+        z_attrib = location_set["csvFile"].get("z", "").replace("%", "")
+        gdf = self.add_geometry_column(
+            gdf=gdf, filepath=filepath, x_attrib=x_attrib, y_attrib=y_attrib, z_attrib=z_attrib
+        )
+        geo_datum_found = location_set["csvFile"]["geoDatum"]
+        crs = GEO_DATUM.get(geo_datum_found, None)
+        gdf.crs = crs if crs else None
         return gdf
