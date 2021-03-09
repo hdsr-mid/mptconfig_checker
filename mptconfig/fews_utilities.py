@@ -176,8 +176,8 @@ class FewsConfig:
                 result[parameter["id"]]["groupId"] = result[parameter["id"]].pop("id")
         return result
 
+    @staticmethod
     def add_geometry_column(
-        self,
         gdf: gpd.GeoDataFrame,
         filepath: Path,
         x_attrib: str,

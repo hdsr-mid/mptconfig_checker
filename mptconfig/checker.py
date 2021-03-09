@@ -2,7 +2,6 @@ from mptconfig import constants
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
 from mptconfig.excel import ExcelSheetTypeChoices
-from mptconfig.excel import ExcelTabColorChoices
 from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
@@ -12,6 +11,7 @@ from mptconfig.utils import sort_validation_attribs
 from mptconfig.utils import update_date
 from mptconfig.utils import update_histtag
 from mptconfig.utils import update_hlocs
+from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
 from typing import List
@@ -33,7 +33,7 @@ constants.check_constants()
 
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
-    The main property of the class is 'self.consistency' which is:
+    The main property of the class is 'self.results' which is:
         - a dictionary of panda dataframes: each dataframe is one excel sheet.
         - updated throughout the whole class with check results
     """
@@ -152,9 +152,11 @@ class MptConfigChecker:
     def mpt_histtags_new(self) -> pd.DataFrame:
         """Convert histTag-ids to mpt-ids. Alle meetpunt ids uitgelezen uit de histTags.csv, die niet
         in de ignore staan en in de idmapping zijn opgenomen."""
-        # TODO: ask Roger what is the purpose of this selection? and why is it in excel output file (as separate tab 'mpt_histtags_new')?.
+        # TODO: ask Roger what is the purpose of this selection? and why is it in excel output
+        #  file (as separate tab 'mpt_histtags_new')?.
         if self._mpt_histtags_new is not None:
             return self._mpt_histtags_new
+        logger.debug("creating mpt_histtags_new")
         mpt_df = pd.concat(
             [
                 self.mpt_histtags.groupby(["fews_locid"], sort=False)["total_min_start_dt"].min(),
@@ -191,11 +193,9 @@ class MptConfigChecker:
             func=update_hlocs, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
         assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after update_hlocs"
-        assert not mpt_df["STARTDATE"].hasnans
-        assert not mpt_df["ENDDATE"].hasnans
-        mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=True)
-        self._mpt_histtags_new = mpt_df.sort_index(inplace=False)
-
+        assert not mpt_df["STARTDATE"].hasnans, "mpt_df column STARTDATE should not have nans"
+        assert not mpt_df["ENDDATE"].hasnans, "mpt_df column ENDDATE should not have nans"
+        self._mpt_histtags_new = mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=False)
         return self._mpt_histtags_new
 
     @property
@@ -248,25 +248,40 @@ class MptConfigChecker:
         return self._ignored_xy
 
     def _update_start_end_new_csv(self, location_set_key: str) -> pd.DataFrame:
-        assert location_set_key in constants.LOCATIONS_SETS.keys()
+        assert (
+            location_set_key in constants.LOCATIONS_SETS.keys()
+        ), f"location_set_key {location_set_key} must be in constants.LOCATIONS_SETS.keys"
         date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
-        gdf = self.location_sets[location_set_key]
-        assert gdf["id"] == constants.LOCATIONS_SETS[location_set_key]
+        location_set_fewsname = self.location_sets[location_set_key]["id"]
+        assert location_set_fewsname == constants.LOCATIONS_SETS[location_set_key]
+        gdf = self.location_sets[location_set_key]["gdf"]
         df = gdf.drop("geometry", axis=1)
         df[["START", "EIND"]] = df.apply(
             func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
         )
         return df
 
-    @property
-    def df_new_csv_opvlwater_hoofdloc(self) -> pd.DataFrame:
-        """ used to create net opvlwater_hoofdloc.csv"""
-        return self._update_start_end_new_csv(location_set_key="hoofdlocaties")
+    @staticmethod
+    def df_to_csv(df: pd.DataFrame, file_name: str) -> None:
+        csv_file_path = constants.PathConstants.output_dir.path / file_name
+        if csv_file_path.suffix == "":
+            csv_file_path = Path(f"{csv_file_path}.csv")
+        if csv_file_path.is_file():
+            f"overwriting existing file with path {csv_file_path}"
+        df.to_csv(path_or_buf=csv_file_path.as_posix(), index=False)
 
-    @property
-    def df_new_csv_opvlwater_subloc(self) -> pd.DataFrame:
-        """ used to create net opvlwater_hoofdloc.csv"""
-        df = self._update_start_end_new_csv(location_set_key="sublocaties")
+    def create_opvlwater_hoofdloc_csv_new(self) -> None:
+        location_set_key = "hoofdlocaties"
+        fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
+        df = self._update_start_end_new_csv(location_set_key)
+        # get existing fews config file name
+        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        self.df_to_csv(df=df, file_name=file_name)
+
+    def create_opvlwater_subloc_csv_new(self) -> None:
+        location_set_key = "sublocaties"
+        fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
+        df = self._update_start_end_new_csv(location_set_key)
         grouper = df.groupby(["PAR_ID"])
         par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
         # TODO: uitzoeken, gaat dit wel helemaal goed? want het was eerst
@@ -274,15 +289,20 @@ class MptConfigChecker:
         df["PAR_ID"] = df["LOC_ID"].str[0:-1] + "0"
         df["ALLE_TYPES"] = df["PAR_ID"].apply(func=lambda x: par_types_df.loc[x])
         df[["HBOVPS", "HBENPS"]] = df.apply(func=self._update_staff_gauge, axis=1, result_type="expand")
-        return df
+        # get existing fews config file name
+        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        self.df_to_csv(df=df, file_name=file_name)
 
-    @property
-    def df_new_csv_waterstandlocaties(self) -> pd.DataFrame:
-        df = self._update_start_end_new_csv(location_set_key="waterstandlocaties")
+    def create_waterstandlocaties_csv_new(self) -> None:
+        location_set_key = "waterstandlocaties"
+        fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
+        df = self._update_start_end_new_csv(location_set_key)
         grouper = self.mpt_histtags.groupby(["fews_locid"])
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
-        return df
+        # get existing fews config file name
+        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        self.df_to_csv(df=df, file_name=file_name)
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
         """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
@@ -363,7 +383,7 @@ class MptConfigChecker:
                     df["bestand"] = idmap  # e.g 'IdOPVLWATER'
                     result_df = pd.concat(objs=[result_df, df], axis=0, join="outer")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -390,7 +410,8 @@ class MptConfigChecker:
         # if len(df_rows_more_than_one_loc_id) > 0:
         #     pass
         # nr_wrong = len(df_rows_more_than_one_loc_id)
-        # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch? hier nr_wrong = 30
+        # TODO: @daniel2: alleen mpt_histtags kan meerdere fews_locid (lijst met >1 elementen) hebben toch?
+        #  hier nr_wrong = 30
         #  @renier: Ik denk niet dat er iets niet klopt; óf de lijst wordt exploded, wanneer de fews_locid
         #  zelf relevant is, óf er wordt alleen gekeken of de apply-method niet een nan terug geeft.
         # example = df_rows_more_than_one_loc_id.iloc[1]
@@ -409,7 +430,7 @@ class MptConfigChecker:
         else:
             logger.info("hisTags ignore list consistent with idmaps")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -445,7 +466,7 @@ class MptConfigChecker:
         else:
             logger.info("all histTags in idMaps")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -471,7 +492,7 @@ class MptConfigChecker:
             df["bestand"] = idmap_file
             result_df = pd.concat(objs=[result_df, df], axis=0, join="outer")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -492,7 +513,7 @@ class MptConfigChecker:
             logger.warning(f"{len(params_missing)} parameter(s) in idMaps are missing in config")
         result_df = pd.DataFrame(data={"parameters": params_missing})
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -587,7 +608,7 @@ class MptConfigChecker:
             logger.info("no consistency errors. Rewrite hlocs from sublocs")
             self._create_hoofdloc_new(par_dict=par_dict)
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -747,14 +768,14 @@ class MptConfigChecker:
         expar_sheet = ExcelSheet(
             name=expar_sheet_name,
             description=expar_description,
-            data=expar_result_df,
-            sheet_type=ExcelSheetTypeChoices.output,
+            df=expar_result_df,
+            sheet_type=ExcelSheetTypeChoices.output_check,
         )
         intloc_sheet = ExcelSheet(
             name=intloc_sheet_name,
             description=intloc_description,
-            data=intloc_result_df,
-            sheet_type=ExcelSheetTypeChoices.output,
+            df=intloc_result_df,
+            sheet_type=ExcelSheetTypeChoices.output_check,
         )
         return expar_sheet, intloc_sheet
 
@@ -805,7 +826,7 @@ class MptConfigChecker:
         else:
             logger.warning(f"{len(result_df)} locations with external parameter missing")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -869,7 +890,7 @@ class MptConfigChecker:
         else:
             logger.warning(f"{len(result_df)} external locations inconsistent with internal locations")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -884,11 +905,11 @@ class MptConfigChecker:
 
         idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(values=self.subloc["LOC_ID"].values)]
 
-        idmap_subloc_df.loc[:, "type"] = idmap_subloc_df["internalLocation"].apply(
+        idmap_subloc_df["type"] = idmap_subloc_df["internalLocation"].apply(
             func=(lambda x: self.subloc[self.subloc["LOC_ID"] == x]["TYPE"].values[0])
         )
 
-        idmap_subloc_df.loc[:, "loc_groep"] = idmap_subloc_df["internalLocation"].apply(func=(lambda x: x[0:-1]))
+        idmap_subloc_df["loc_group"] = idmap_subloc_df["internalLocation"].str[0:-1]
 
         ts_errors = {
             "internalLocation": [],
@@ -900,7 +921,7 @@ class MptConfigChecker:
             "fout": [],
         }
 
-        for loc_group, group_df in idmap_subloc_df.groupby("loc_groep"):
+        for loc_group, group_df in idmap_subloc_df.groupby("loc_group"):
             ex_locs = np.unique(group_df["externalLocation"].values)
             ex_locs_dict = {ex_loc: idx for idx, ex_loc in enumerate(ex_locs)}
             split_ts = [
@@ -987,13 +1008,8 @@ class MptConfigChecker:
 
                                 ts_errors["externalLocations"].append(",".join(ex_locs))
                                 ts_errors["type"].append(sub_type)
-                                ts_errors["fout"].append(
-                                    (
-                                        f'{",".join(int_par)} coupled to 1 sp-series ('
-                                        f"exPar: {ex_par}, exLoc(s)): "
-                                        f'{",".join(ex_locs)}'
-                                    )
-                                )
+                                fout_msg = f'{",".join(int_par)} coupled to 1 sp-series (exPar:{ex_par}, exLoc(s):{",".join(ex_locs)})'  # noqa
+                                ts_errors["fout"].append(fout_msg)
                             other_series = [series for idy, series in enumerate(sp_series) if idy != idx]
 
                             other_int_pars = [np.unique(series[1]["internalParameter"]) for series in other_series]
@@ -1012,21 +1028,15 @@ class MptConfigChecker:
 
                                 ts_errors["externalLocations"].append(",".join(ex_locs))
                                 ts_errors["type"].append(sub_type)
-                                ts_errors["fout"].append(
-                                    (
-                                        f'{",".join(conflicting_pars)} coupled to  '
-                                        f"sp-serie (exPar: {ex_par}, exLoc(s)):"
-                                        f'{",".join(ex_locs)}'
-                                    )
-                                )
-
+                                fout_msg = f'{",".join(conflicting_pars)} coupled to sp-serie (exPar:{ex_par}, exLoc(s):{",".join(ex_locs)})'  # noqa
+                                ts_errors["fout"].append(fout_msg)
         result_df = pd.DataFrame(data=ts_errors)
         if len(result_df) == 0:
             logger.info("logical coupling of all timeseries to internal locations/parameters")
         else:
             logger.warning(f"{len(result_df)} timeseries coupled illogical to internal locations/parameters")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -1170,7 +1180,7 @@ class MptConfigChecker:
         else:
             logger.warning(f"{len(result_df)} validation rules contain errors/are missing")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -1213,13 +1223,16 @@ class MptConfigChecker:
         else:
             logger.warning(f"{len(result_df)} regex errors for internal and external parameters")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
     def check_location_set_errors(self, sheet_name: str = "locSet error") -> ExcelSheet:
         """Check on errors in locationsets."""
-        description = "controle of alle locatiesets logisch zijn opgebouwd, de juiste attribuut-verwijzingen hebben én consistent zijn per CAW-locatie"
+        description = (
+            "controle of alle locatiesets logisch zijn opgebouwd, de juiste attribuut-verwijzingen"
+            " hebben én consistent zijn per CAW-locatie"
+        )
         logger.info(f"start {self.check_location_set_errors.__name__}")
 
         loc_set_errors = {
@@ -1389,7 +1402,7 @@ class MptConfigChecker:
         else:
             logger.warning(f"{len(result_df)} errors in locationSets")
         excel_sheet = ExcelSheet(
-            name=sheet_name, description=description, data=result_df, sheet_type=ExcelSheetTypeChoices.output
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
         )
         return excel_sheet
 
@@ -1400,7 +1413,7 @@ class MptConfigChecker:
             excelsheet=ExcelSheet(
                 name="ignored_exloc",
                 description=constants.PathConstants.ignored_exloc.description,
-                data=self.ignored_exloc,
+                df=self.ignored_exloc,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
         )
@@ -1408,7 +1421,7 @@ class MptConfigChecker:
             excelsheet=ExcelSheet(
                 name="ignored_histtag",
                 description=constants.PathConstants.ignored_histtag.description,
-                data=self.ignored_histtag,
+                df=self.ignored_histtag,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
         )
@@ -1416,7 +1429,7 @@ class MptConfigChecker:
             excelsheet=ExcelSheet(
                 name="ignored_ts800",
                 description=constants.PathConstants.ignored_ts800.description,
-                data=self.ignored_ts800,
+                df=self.ignored_ts800,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
         )
@@ -1424,20 +1437,19 @@ class MptConfigChecker:
             excelsheet=ExcelSheet(
                 name="ignored_xy",
                 description=constants.PathConstants.ignored_xy.description,
-                data=self.ignored_xy,
+                df=self.ignored_xy,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
         )
 
-    def add_new_mpt_histtags_to_results(self):
+    def add_mpt_histtags_new_to_results(self):
         excelsheet = ExcelSheet(
             name="mpt_histtags_new",
-            data=self.mpt_histtags_new,
+            df=self.mpt_histtags_new,
             description="alle meetpunt ids uitgelezen uit de histTags.csv, die niet in de ignore "
             "staan en in de idmapping zijn opgenomen",
-            sheet_type=ExcelSheetTypeChoices.output,
+            sheet_type=ExcelSheetTypeChoices.output_no_check,
         )
-        excelsheet.tab_color = ExcelTabColorChoices.white
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
@@ -1460,7 +1472,7 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=self.check_intpar_expar_consistency())
         self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
-        self.add_new_mpt_histtags_to_results()
+        self.add_mpt_histtags_new_to_results()
 
         # # TODO: @renier: remove this integration test
         summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
@@ -1470,10 +1482,11 @@ class MptConfigChecker:
 
         self.add_input_files_to_results()
 
-        # write excel file
+        # write excel file with check results
         excel_writer = ExcelWriter(results=self.results)
         excel_writer.write()
 
-        # # write csv files
-        # csv_writer = CsvWriter()
-        # csv_writer.write()
+        # write new csv files
+        self.create_waterstandlocaties_csv_new()
+        self.create_opvlwater_subloc_csv_new()
+        self.create_opvlwater_hoofdloc_csv_new()

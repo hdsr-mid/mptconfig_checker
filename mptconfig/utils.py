@@ -24,7 +24,8 @@ def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
         for col in idmap
         if col["externalLocation"] == exloc and col["externalParameter"] == expar
     ]
-    return fews_locs if fews_locs else np.NaN  # avoid "return fews_locs if fews_locs else [""]"
+    # !! avoid <return fews_locs if fews_locs else [""]> !!
+    return fews_locs if fews_locs else np.NaN
 
 
 def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
@@ -78,18 +79,19 @@ def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = N
 
 def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
-    if bool(np.isin(row["LOC_ID"], h_locs)):
-        # get all locs at this location:
-        brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(row["LOC_ID"][0:-1])]
-        earliest_start_date = brothers_df["STARTDATE"].dropna().min()
-        latest_end_date = brothers_df["ENDDATE"].dropna().max()
-        return earliest_start_date, latest_end_date
-    return row["STARTDATE"], row["ENDDATE"]
+    if not bool(np.isin(row["LOC_ID"], h_locs)):
+        return row["STARTDATE"], row["ENDDATE"]
+    # get all locs at this location:
+    brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(row["LOC_ID"][0:-1])]
+    earliest_start_date = brothers_df["STARTDATE"].dropna().min()
+    latest_end_date = brothers_df["ENDDATE"].dropna().max()
+    return earliest_start_date, latest_end_date
 
 
 def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timestamp) -> Tuple[str, str]:
     """Return start and end-date, e.g. ('19970101', '21000101'), in df.apply() method."""
     int_loc = row["LOC_ID"]
+    # TODO: fix index
     if int_loc in mpt_df.index:
         start_date = mpt_df.loc[int_loc]["STARTDATE"].strftime("%Y%m%d")
         end_date = mpt_df.loc[int_loc]["ENDDATE"]
@@ -107,34 +109,18 @@ def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
     row['LOC_ID'] is e.g. 'OW100101'
     updated_histtag_str is e.g. '1001_HO1'
     """
-    # TODO: @daniel, waarom generator? kunnen er meerdere updated_histtags per panda cel worden weggeschreven?
-    # TODO: @daniel, is return value altijd str?
-    # TODO: @daniel, kan len(updated_histtag) > 1 ??
-    # TODO: @daniel, bij idmap2tags retourneer je ergens np.Nan of een [
-
-    # TODO: @renier: remove comment
-    # renier zn code
     updated_histtag = [
         df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
         for loc_id, df in grouper
         if loc_id == row["LOC_ID"]
     ]
-    assert len(updated_histtag) in [0, 1], (
-        f"this should not happen, length of updated_histtag should be 0 or 1. " f"updated_histtag={updated_histtag}"
+    if len(updated_histtag) == 0:
+        return ""
+    elif len(updated_histtag) == 1:
+        return updated_histtag[0]
+    raise AssertionError(
+        f"this should not happen, length of updated_histtag should be 0 or 1. updated_histtag={updated_histtag}"
     )
-    updated_histtag_str = updated_histtag[0] if updated_histtag else ""
-    return updated_histtag_str
-
-    # TODO: @renier: remove code below?
-    # daniel zn code
-    # return next(
-    #     (
-    #         df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
-    #         for loc_id, df in grouper
-    #         if loc_id == row["LOC_ID"]
-    #     ),
-    #     None,
-    # )
 
 
 def sort_validation_attribs(rule: Dict) -> Dict[str, list]:
