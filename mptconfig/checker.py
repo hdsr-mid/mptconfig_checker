@@ -1047,9 +1047,9 @@ class MptConfigChecker:
 
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent."""
-        # Roger:
+        # Roger 'algemeen validatie csvs'
         # Inloc in validatie-CSV’s
-        # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs voor
+        # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs
         # - In Validatie csv staan validatie criteria per type tijdreeks
         # - Elke csv staat voor een type parameter
         # - Van een parameter zijn er meerdere locaties waar die voorkomt
@@ -1059,26 +1059,39 @@ class MptConfigChecker:
         # - ff zij-stapje: alle validatie csvs kunnen meerdere validatie perioden hebben per kunstwerk:
         #     - 1 meetpunt kan meerdere validatie periode hebben
         #     - Locatie.csv heeft start end: zegt iets over geldigheid van de locatie
-        #     - Oppvlwater_watervalidatie.csv heeft ook start endate: is start eind van validatie periode)
+        #     - Oppvlwater_watervalidatie.csv heeft ook start endate: is start eind van validatie periode
         #     - Per definitie zijn deze validatie periode aansluitend (nooit een gat of overlappend!)
-        #     - We hoeven deze Oppvlwater_watervalidatie.csv niet te relateren aan sublocaties (
-        #       die hebben we nu ontkoppelt)
+        #     - We hoeven deze Oppvlwater_watervalidatie.csv niet te relateren aan sublocaties (die hebben we nu ontkoppelt)  # noqa
 
-        # hoe op te lossen?
+        # Roger 'hoe validatie error regel oplossen?'
+        # ps: Inke Leunk (hieronder genoemd) = tijdreeks validatie persoon van CAW
         # "internalLocation  "start":  "eind":      "internalParameters":  "fout_type": [] fout_beschrijving
         # KW100412	        19960401	21000101	H.R.0,Hk.0,Q.G.0	    missend	        HR1_HMAX,HR1_HMIN
 
-        # kijk in ..kunstvalidatie..csv (niet validations.csv)
-        # HRO, dus dat is stuur, dus pak kunstvalidationstuur1.csv
-        # KW100412 staat niet in dat .csv
-        # id invullen, niet waarde (checker vult waarde dacht Roger, dit zou DT bouwen -->
-        # als het wel idmapping staat, en die loc
-        # komt niet voor in de validatie.csv, dan moet die validatie.csv ook weggeschreven worden.
-        # validatie.csv wordt niet weggeschreven, dat moet nog gebouwd worden
-        # doe maar 1x handmatig zelf ook waarde invullen (toekomst automatisch waarde invullen)
-        # waarde om in tevullen = KW nummer + start + end
+        # if fout_type == 'waarde': daar is Inke verantwoordleijk voor (alle validatie instellingen).
+        # if fout_type == 'missend' of 'overbodig': wij eerst zelf actie ondernemen (zie hieronder):
 
-        # fout type waarde, daar is Inke verantwoordleijk voor alle validatie instellingen.
+        # 1. edit betreffende validatie csv:
+        #       OW = MapLayerFiles/oppvlwater_watervalidatie.csv
+        #       KW = MapLayerFiles/oppvlwater_kunstvalidatie_<type>.csv
+        #   - HR1_MAX (voorbeeld hierboven) betreft dus stuurpeil1, dus pak oppvlwater_kunstvalidatie_stuur1.csv
+        #   - KW nummer + start- + einddatum invullen
+        #       start- en einddatum validatie csv is altijd 19000101 en 21000101, tenzij CAW validatie persoon (Inke)
+        #       vind dat ergens in de tijdreeks criteria in de tijd zijn veranderd: Dan maakt Inke een extra regel aan.
+        #   - andere kolommen in validatie csv leeglaten
+        # 2. wij maken mpt config klaar voor productie
+        # 3. Job Verkaik upload de nieuwe kunstvalidatie csv in config middels de ConfiguratieManager
+        #   - caw tijdreeksen worden van deze moment geimporteerd (niet met terugwerkende kracht)
+        # 4. voor alle tijdreeksen die nog nooit zijn geimporteerd in WIS:
+        #     - wij wij maken een extract van historie, die geven we aan Job Verkaik: "hier heb je 1 xml die al die
+        #       historosiche data nog een keer bevat
+        # 5. Nu kan Inke pas fatsoenlijk validatie regels vastellen (want WIS bevat nu de gehele tijdreeks)
+        #   - harde grenzen (bijv HMAX, HMIN):
+        #       - voor met name water- en stuwstanden vastellen obv CAW sensorbereik onderstation van een kunstwerk.
+        #       - voor streef en stuur: geen idee
+        #   - zachte grenzen (bijv SMAX, SMIN):
+        #       - vaststellen obv tijdreeks zelf
+        # 6. WIS gebruikt deze bandbreedtes om tijdseries te vlaggen.
 
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
@@ -1102,11 +1115,14 @@ class MptConfigChecker:
         location_sets = locations_dict["locationSets"]["locationSet"]
 
         for set_name in constants.VALIDATION_RULES.keys():
-            location_set_meta = next(
+            _location_set = [
                 loc_set for loc_set in location_sets if loc_set["id"] == self.location_sets[set_name]["id"]
-            )["csvFile"]
-
-            location_set_gdf = getattr(self, locs_mapping[set_name])
+            ]
+            assert len(_location_set) == 1
+            location_set_meta = _location_set[0]["csvFile"]
+            property_name = locs_mapping[set_name]
+            assert hasattr(self, property_name), f"property {property_name} must exist. Daniel's dynamic mapping legacy"
+            location_set_gdf = getattr(self, property_name)
             attrib_files = location_set_meta["attributeFile"]
             if not isinstance(attrib_files, list):
                 attrib_files = [attrib_files]
@@ -1119,21 +1135,20 @@ class MptConfigChecker:
                 if not isinstance(attrib_file["attribute"], list):
                     attribs = [attribs]
                 attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
-
+                csv_file_name = Path(attrib_file["csvFile"])
+                csv_file_path = self.fews_config.MapLayerFiles[csv_file_name.stem]
                 attrib_df = pd.read_csv(
-                    self.fews_config.MapLayerFiles[attrib_file["csvFile"].replace(".csv", "")],
+                    filepath_or_buffer=csv_file_path,
                     sep=None,
                     engine="python",
                 )
-
                 attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
                 drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
-
                 attrib_df = attrib_df.drop(columns=drop_cols, axis=1)
                 location_set_gdf = location_set_gdf.merge(attrib_df, on="LOC_ID", how="outer")
 
             validation_rules = constants.VALIDATION_RULES[set_name]
-            validaton_attributes = get_validation_attribs(validation_rules)
+            validaton_attributes = get_validation_attribs(validation_rules=validation_rules)
 
             idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
             idmap_df = pd.DataFrame(data=idmaps)
