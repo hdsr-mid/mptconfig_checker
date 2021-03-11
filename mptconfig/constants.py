@@ -1,4 +1,5 @@
 from collections import namedtuple
+from enum import Enum
 from pathlib import Path
 
 
@@ -205,24 +206,17 @@ EXPECTED_SUMMARY3 = {
 }
 
 
-PathConstants = PathConstants1
-EXPECTED_SUMMARY = EXPECTED_SUMMARY1
+PathConstants = PathConstants3
+EXPECTED_SUMMARY = EXPECTED_SUMMARY3
 
 
-FIXED_SHEETS = [
-    "ignored_histTag",
-    "ignored_exLoc",
-    "ignored_ts800",
-    "ignored_xy",
-]
+class LocationSetChoices(Enum):
+    hoofdlocaties = "OPVLWATER_HOOFDLOC"
+    sublocaties = "OPVLWATER_SUBLOC"
+    waterstandlocaties = "OPVLWATER_WATERSTANDEN_AUTO"
+    mswlocaties = "MSW_STATIONS"
+    peilschalen = "OPVLWATER_PEILSCHALEN"
 
-LOCATIONS_SETS = {
-    "hoofdlocaties": "OPVLWATER_HOOFDLOC",
-    "sublocaties": "OPVLWATER_SUBLOC",
-    "waterstandlocaties": "OPVLWATER_WATERSTANDEN_AUTO",
-    "mswlocaties": "MSW_STATIONS",
-    "peilschalen": "OPVLWATER_PEILSCHALEN",
-}
 
 IDMAP_FILES = [
     "IdOPVLWATER",
@@ -272,7 +266,7 @@ EXTERNAL_PARAMETERS_ALLOWED = {
     "debietmeter": ["Q.$"],
     "vispassage": ["ES.$", "SP.$", "SS.$", "Q.$"],
     "krooshek": ["HB.$", "HO.$"],
-    "waterstand": ["HB.$", "HO.$", "H$"],
+    "waterstand": ["HB.$", "HO.$", "H$"],  # TODO: @Roger: moet deze laatste niet H.$ zijn ?!?
 }
 
 PARAMETER_MAPPING = [

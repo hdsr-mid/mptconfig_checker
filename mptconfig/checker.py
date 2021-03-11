@@ -5,6 +5,7 @@ from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
+from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import get_validation_attribs
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import sort_validation_attribs
@@ -68,14 +69,14 @@ class MptConfigChecker:
         if self._location_sets is not None:
             return self._location_sets
         self._location_sets = {}
-        for key, value in constants.LOCATIONS_SETS.items():
-            if value not in self.fews_config.location_sets.keys():
-                raise AssertionError(f"locationSet {key} specified in constants.LOCATIONS_SETS not in fews-config")
-            if "csvFile" not in self.fews_config.location_sets[value].keys():
-                raise AssertionError(f"{key} not a csvFile location-set")
-            self._location_sets[key] = {
-                "id": value,
-                "gdf": self.fews_config.get_locations(location_set_key=value),
+        for choice in constants.LocationSetChoices:
+            if choice.value not in self.fews_config.location_sets.keys():
+                raise AssertionError(f"constants.LocationSetChoices choice {choice.name} not in fews-config")
+            if "csvFile" not in self.fews_config.location_sets[choice.value].keys():
+                raise AssertionError(f"{choice.name} not a csvFile location-set")
+            self._location_sets[choice.name] = {
+                "id": choice.value,
+                "gdf": self.fews_config.get_locations(location_set_key=choice.value),
             }
         return self._location_sets
 
@@ -245,16 +246,15 @@ class MptConfigChecker:
             sep=",",
             engine="python",
         )
+        assert sorted(self._ignored_xy.columns) == ["internalLocation", "x", "y"]
         return self._ignored_xy
 
-    def _update_start_end_new_csv(self, location_set_key: str) -> pd.DataFrame:
-        assert (
-            location_set_key in constants.LOCATIONS_SETS.keys()
-        ), f"location_set_key {location_set_key} must be in constants.LOCATIONS_SETS.keys"
+    def _update_start_end_new_csv(self, location_set: constants.LocationSetChoices) -> pd.DataFrame:
+        assert isinstance(
+            location_set, constants.LocationSetChoices
+        ), f"location_set {location_set} is not a LocationSetChoices"
         date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
-        location_set_fewsname = self.location_sets[location_set_key]["id"]
-        assert location_set_fewsname == constants.LOCATIONS_SETS[location_set_key]
-        gdf = self.location_sets[location_set_key]["gdf"]
+        gdf = self.location_sets[location_set.name]["gdf"]
         df = gdf.drop("geometry", axis=1)
         df[["START", "EIND"]] = df.apply(
             func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
@@ -271,21 +271,29 @@ class MptConfigChecker:
         df.to_csv(path_or_buf=csv_file_path.as_posix(), index=False)
         logger.debug(f"created {file_name}")
 
+    def __get_location_set_file_name(self, location_set: constants.LocationSetChoices) -> str:
+        assert isinstance(
+            location_set, constants.LocationSetChoices
+        ), f"location_set {location_set} is not a LocationSetChoices"
+        location_set_dict = self.fews_config.location_sets[location_set.value]
+        # get the existing file name used in the fews config
+        file_name = location_set_dict["csvFile"]["file"]
+        assert file_name and isinstance(file_name, str)
+        return file_name
+
     def create_opvlwater_hoofdloc_csv_new(self) -> None:
-        location_set_key = "hoofdlocaties"
-        fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
-        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
-        logger.info(f"creating new csv  {file_name}")
-        df = self._update_start_end_new_csv(location_set_key)
+        location_set = constants.LocationSetChoices.hoofdlocaties
+        file_name = self.__get_location_set_file_name(location_set)
+        logger.info(f"creating new csv {file_name}")
+        df = self._update_start_end_new_csv(location_set=location_set)
         # get existing fews config file name
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_opvlwater_subloc_csv_new(self) -> None:
-        location_set_key = "sublocaties"
-        fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
-        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        location_set = constants.LocationSetChoices.sublocaties
+        file_name = self.__get_location_set_file_name(location_set)
         logger.info(f"creating new csv {file_name}")
-        df = self._update_start_end_new_csv(location_set_key)
+        df = self._update_start_end_new_csv(location_set=location_set)
         grouper = df.groupby(["PAR_ID"])
         par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
         # TODO: uitzoeken, gaat dit wel helemaal goed? want het was eerst
@@ -297,16 +305,13 @@ class MptConfigChecker:
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_waterstandlocaties_csv_new(self) -> None:
-        location_set_key = "waterstandlocaties"
-        fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
-        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        location_set = constants.LocationSetChoices.waterstandlocaties
+        file_name = self.__get_location_set_file_name(location_set)
         logger.info(f"creating new csv {file_name}")
-        df = self._update_start_end_new_csv(location_set_key)
+        df = self._update_start_end_new_csv(location_set=location_set)
         grouper = self.mpt_histtags.groupby(["fews_locid"])
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
-        # get existing fews config file name
-        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
         self.df_to_csv(df=df, file_name=file_name)
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
@@ -641,6 +646,7 @@ class MptConfigChecker:
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
         for int_loc, loc_group in idmap_df.groupby("internalLocation"):
+            regexes = []
             errors = dict.fromkeys(["I.X", "IX.", "FQ", "SS./SM."], False)
             ex_pars = np.unique(loc_group["externalParameter"].values)
             ex_pars_gen = [re.sub(r"\d", ".", ex_par) for ex_par in ex_pars]
@@ -663,18 +669,17 @@ class MptConfigChecker:
                 all_types = [item.lower() for item in all_types]
             elif loc_type == "waterstandloc":
                 all_types = ["waterstandloc"]
+
             if loc_type == "subloc":
                 sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
 
-                regexes += [
-                    j
-                    for i in [
-                        values for keys, values in constants.EXTERNAL_PARAMETERS_ALLOWED.items() if keys in all_types
-                    ]
-                    for j in i
+                allowed_parameters = [
+                    parameters
+                    for _type, parameters in constants.EXTERNAL_PARAMETERS_ALLOWED.items()
+                    if _type in all_types
                 ]
+                regexes += flatten_nested_list(_list=allowed_parameters)
 
-                regexes += list(dict.fromkeys(regexes))
                 ex_par_error = [
                     ex_par
                     for ex_par in ex_pars
@@ -903,7 +908,6 @@ class MptConfigChecker:
         """Check if timeseries are consistent with internal locations and parameters."""
         description = "tijdseries die niet logisch zijn gekoppeld aan interne locaties en parameters"
         logger.info(f"start {self.check_timeseries_logic.__name__}")
-        # if not self.ignored_ts800, dan ignored_ts800 = pd.DataFrame({"internalLocation": [], "externalLocation": []})
 
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
@@ -1361,7 +1365,11 @@ class MptConfigChecker:
                 }
 
                 loc_id = row["LOC_ID"]
+                assert loc_id.startswith("OW") or loc_id.startswith(
+                    "KW"
+                ), f"expected loc_id {loc_id} to start with OW or KW "
                 caw_code = loc_id[2:-2]
+                assert caw_code.isdigit(), f"expected caw_code {caw_code} to be a digit"
                 loc_name = row["LOC_NAME"]
                 caw_name = ""
 
@@ -1535,12 +1543,11 @@ class MptConfigChecker:
 
         self.add_mpt_histtags_new_to_results()
 
-        # # # TODO: @renier: remove this integration test
+        # # TODO: @renier: remove this integration test
         summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
         from mptconfig.tmp import validate_expected_summary
 
         validate_expected_summary(new_summary=summary)
-
         self.add_input_files_to_results()
 
         # TODO: write all used paths to 1 excel sheet
@@ -1550,6 +1557,6 @@ class MptConfigChecker:
         excel_writer.write()
 
         # write new csv files
-        self.create_waterstandlocaties_csv_new()
-        self.create_opvlwater_subloc_csv_new()
         self.create_opvlwater_hoofdloc_csv_new()
+        self.create_opvlwater_subloc_csv_new()
+        self.create_waterstandlocaties_csv_new()

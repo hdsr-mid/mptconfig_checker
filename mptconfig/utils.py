@@ -15,6 +15,10 @@ PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy"
 logger = logging.getLogger(__name__)
 
 
+def flatten_nested_list(_list: List[List]) -> List:
+    return [item for sublist in _list for item in sublist]
+
+
 def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
     """Add FEWS-locationIds to histtags in df.apply() method.
     Returns either np.NaN (= float type) or a list with strings (few_locs)."""
