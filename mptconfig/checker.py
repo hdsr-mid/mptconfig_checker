@@ -1045,6 +1045,32 @@ class MptConfigChecker:
         )
         return excel_sheet
 
+    def __create_location_set_df(self, property_name: str, attrib_files: List[Dict]) -> pd.DataFrame:
+        # getattr is daniel's dynamic mapping legacy..
+        assert hasattr(self, property_name), (
+            f"property {property_name} must exist (e.g. 'self.subloc'). Please look at naming of the "
+            f"MptConfigChecker properties and values in locs_mapping"
+        )
+        location_set_df = getattr(self, property_name).copy()
+        for attrib_file in attrib_files:
+            attribs = attrib_file["attribute"]
+            if not isinstance(attrib_file["attribute"], list):
+                attribs = [attribs]
+            attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
+            csv_file_name = Path(attrib_file["csvFile"])
+            csv_file_path = self.fews_config.MapLayerFiles[csv_file_name.stem]
+            attrib_df = pd.read_csv(
+                filepath_or_buffer=csv_file_path,
+                sep=None,
+                engine="python",
+            )
+            join_id = attrib_file["id"].replace("%", "")
+            attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
+            drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
+            attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
+            location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
+        return location_set_df
+
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent."""
         # Roger 'algemeen validatie csvs'
@@ -1120,32 +1146,11 @@ class MptConfigChecker:
             ]
             assert len(_location_set) == 1
             location_set_meta = _location_set[0]["csvFile"]
-            property_name = locs_mapping[set_name]
-            assert hasattr(self, property_name), f"property {property_name} must exist. Daniel's dynamic mapping legacy"
-            location_set_gdf = getattr(self, property_name)
             attrib_files = location_set_meta["attributeFile"]
             if not isinstance(attrib_files, list):
                 attrib_files = [attrib_files]
 
             attrib_files = [attrib_file for attrib_file in attrib_files if "attribute" in attrib_file.keys()]
-
-            for attrib_file in attrib_files:
-                attribs = attrib_file["attribute"]
-                join_id = attrib_file["id"].replace("%", "")
-                if not isinstance(attrib_file["attribute"], list):
-                    attribs = [attribs]
-                attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
-                csv_file_name = Path(attrib_file["csvFile"])
-                csv_file_path = self.fews_config.MapLayerFiles[csv_file_name.stem]
-                attrib_df = pd.read_csv(
-                    filepath_or_buffer=csv_file_path,
-                    sep=None,
-                    engine="python",
-                )
-                attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
-                drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
-                attrib_df = attrib_df.drop(columns=drop_cols, axis=1)
-                location_set_gdf = location_set_gdf.merge(attrib_df, on="LOC_ID", how="outer")
 
             validation_rules = constants.VALIDATION_RULES[set_name]
             validaton_attributes = get_validation_attribs(validation_rules=validation_rules)
@@ -1159,6 +1164,9 @@ class MptConfigChecker:
                 orient="index",  # 'index' as data.keys() should be df.rows (and not the df.columns)
                 columns=["internalParameters"],
             )
+
+            property_name = locs_mapping[set_name]
+            location_set_gdf = self.__create_location_set_df(property_name, attrib_files)
 
             for (idx, row) in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
@@ -1528,10 +1536,10 @@ class MptConfigChecker:
         self.add_mpt_histtags_new_to_results()
 
         # # # TODO: @renier: remove this integration test
-        # summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
-        # from mptconfig.tmp import validate_expected_summary
-        #
-        # validate_expected_summary(new_summary=summary)
+        summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
+        from mptconfig.tmp import validate_expected_summary
+
+        validate_expected_summary(new_summary=summary)
 
         self.add_input_files_to_results()
 

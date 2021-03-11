@@ -123,6 +123,7 @@ class ExcelSheetCollector(dict):
         """Create panda dataframe based on all ExcelSheet objects included in ExcelSheetCollector (self.results).
         This content df has columns (ExcelSheet objects): "name", "type", "nr_rows", "description"."""
         assert self.has_sheets and not self.has_content_sheet, "can not create content sheet"
+        logger.info("creating automatic content sheet")
         content_columns = self.input_sheets[0].to_content_dict().keys()
         data = []
         for sheet in self.content_sheet_input:
@@ -150,7 +151,6 @@ class ExcelSheetCollector(dict):
         content_sheet = [sheet for sheet in self.values() if sheet.sheet_type == ExcelSheetTypeChoices.content]
         if content_sheet:
             return content_sheet[0]
-        logger.debug("no content sheet exists")
         return None
 
     @property
