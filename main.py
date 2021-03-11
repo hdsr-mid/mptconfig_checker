@@ -32,7 +32,10 @@ def setup_logging() -> None:
 if __name__ == "__main__":
     check_python_version()
     setup_logging()
+    logger = logging.getLogger(__name__)
 
     # run checks
+    logger.info("starting mpt config checker")
     meetpunt_config = MptConfigChecker()
     meetpunt_config.run()
+    logger.info("shutting down mpt config checker")

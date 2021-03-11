@@ -140,6 +140,71 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 # }
 
 
+# class PathConstants:
+#     result_xlsx = PathNamedTuple(
+#         is_file=True,
+#         should_exist=False,
+#         path=BASE_DIR / "data" / "output" / "result.xlsx",
+#         description="",
+#     )
+#     histtags_csv = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+#         description="",
+#     )
+#     fews_config = PathNamedTuple(
+#         is_file=False,
+#         should_exist=True,
+#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+#         description="",
+#     )
+#     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+#     ignored_exloc = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+#         description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+#     )
+#     ignored_histtag = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+#         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+#     )
+#     ignored_ts800 = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+#         description="Locations die worden overgeslagen bij rapportage timeSeries error",
+#     )
+#     ignored_xy = PathNamedTuple(
+#         is_file=True,
+#         should_exist=True,
+#         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+#         description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+#     )
+#
+#
+# EXPECTED_SUMMARY = {
+#     "idmap section error": 36,
+#     "ignored histTags match": 0,
+#     "histTags noMatch": 69,
+#     "idmaps double": 0,
+#     "mpt_histtags_new": 1770,
+#     "pars missing": 1,
+#     "hloc error": 0,
+#     "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+#     "intLoc missing": 2,
+#     "exPar missing": 338,
+#     "exLoc error": 8,
+#     "timeSeries error": 62,
+#     "validation error": 273,
+#     "par mismatch": 0,
+#     "locSet error": 319,
+# }
+
+
 class PathConstants:
     result_xlsx = PathNamedTuple(
         is_file=True,
@@ -156,7 +221,7 @@ class PathConstants:
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,
-        path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902" / "FEWS_SA" / "config",
+        path=Path("D:") / "WIS_6.0_ONTWIKKEL_202101" / "FEWS_SA" / "config",
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -184,25 +249,6 @@ class PathConstants:
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
         description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
     )
-
-
-EXPECTED_SUMMARY = {
-    "idmap section error": 36,
-    "ignored histTags match": 0,
-    "histTags noMatch": 69,
-    "idmaps double": 0,
-    "mpt_histtags_new": 1770,
-    "pars missing": 1,
-    "hloc error": 0,
-    "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "intLoc missing": 2,
-    "exPar missing": 338,
-    "exLoc error": 8,
-    "timeSeries error": 62,
-    "validation error": 273,
-    "par mismatch": 0,
-    "locSet error": 319,
-}
 
 
 FIXED_SHEETS = [
@@ -390,7 +436,8 @@ def check_constants():
     for path_obj_name, path_namedtuple in all_defined_paths.items():
         assert isinstance(path_namedtuple.path, Path), f"path {path_namedtuple.path} is not of type pathlib.Path"
         if not path_namedtuple.should_exist:
-            assert not path_namedtuple.path.exists(), f"path {path_namedtuple.path} should not exist"
+            # TODO: activate this check
+            # assert not path_namedtuple.path.exists(), f"path {path_namedtuple.path} should not exist"
             continue
         if path_namedtuple.is_file:
             assert path_namedtuple.path.is_file(), f"file should exist {path_namedtuple.path}"

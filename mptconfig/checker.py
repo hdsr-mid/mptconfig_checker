@@ -269,18 +269,22 @@ class MptConfigChecker:
         if csv_file_path.is_file():
             f"overwriting existing file with path {csv_file_path}"
         df.to_csv(path_or_buf=csv_file_path.as_posix(), index=False)
+        logger.debug(f"created {file_name}")
 
     def create_opvlwater_hoofdloc_csv_new(self) -> None:
         location_set_key = "hoofdlocaties"
         fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
+        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        logger.info(f"creating new csv  {file_name}")
         df = self._update_start_end_new_csv(location_set_key)
         # get existing fews config file name
-        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_opvlwater_subloc_csv_new(self) -> None:
         location_set_key = "sublocaties"
         fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
+        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set_key)
         grouper = df.groupby(["PAR_ID"])
         par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
@@ -290,12 +294,13 @@ class MptConfigChecker:
         df["ALLE_TYPES"] = df["PAR_ID"].apply(func=lambda x: par_types_df.loc[x])
         df[["HBOVPS", "HBENPS"]] = df.apply(func=self._update_staff_gauge, axis=1, result_type="expand")
         # get existing fews config file name
-        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_waterstandlocaties_csv_new(self) -> None:
         location_set_key = "waterstandlocaties"
         fews_location_set_key = constants.LOCATIONS_SETS[location_set_key]
+        file_name = self.fews_config.location_sets[fews_location_set_key]["csvFile"]["file"]
+        logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set_key)
         grouper = self.mpt_histtags.groupby(["fews_locid"])
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
@@ -1042,7 +1047,40 @@ class MptConfigChecker:
 
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent."""
-        description = "controle of attributen van validatieregels overbodig zijn/ missen óf verkeerde waarden bevatten"
+        # Roger:
+        # Inloc in validatie-CSV’s
+        # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs voor
+        # - In Validatie csv staan validatie criteria per type tijdreeks
+        # - Elke csv staat voor een type parameter
+        # - Van een parameter zijn er meerdere locaties waar die voorkomt
+        # - Per locatie (bijv KWxxxx) staat er een regel in zo'n csv:
+        #     - Streef 1 H.S.0
+        #     - streef 2 H2.S.0
+        # - ff zij-stapje: alle validatie csvs kunnen meerdere validatie perioden hebben per kunstwerk:
+        #     - 1 meetpunt kan meerdere validatie periode hebben
+        #     - Locatie.csv heeft start end: zegt iets over geldigheid van de locatie
+        #     - Oppvlwater_watervalidatie.csv heeft ook start endate: is start eind van validatie periode)
+        #     - Per definitie zijn deze validatie periode aansluitend (nooit een gat of overlappend!)
+        #     - We hoeven deze Oppvlwater_watervalidatie.csv niet te relateren aan sublocaties (
+        #       die hebben we nu ontkoppelt)
+
+        # hoe op te lossen?
+        # "internalLocation  "start":  "eind":      "internalParameters":  "fout_type": [] fout_beschrijving
+        # KW100412	        19960401	21000101	H.R.0,Hk.0,Q.G.0	    missend	        HR1_HMAX,HR1_HMIN
+
+        # kijk in ..kunstvalidatie..csv (niet validations.csv)
+        # HRO, dus dat is stuur, dus pak kunstvalidationstuur1.csv
+        # KW100412 staat niet in dat .csv
+        # id invullen, niet waarde (checker vult waarde dacht Roger, dit zou DT bouwen -->
+        # als het wel idmapping staat, en die loc
+        # komt niet voor in de validatie.csv, dan moet die validatie.csv ook weggeschreven worden.
+        # validatie.csv wordt niet weggeschreven, dat moet nog gebouwd worden
+        # doe maar 1x handmatig zelf ook waarde invullen (toekomst automatisch waarde invullen)
+        # waarde om in tevullen = KW nummer + start + end
+
+        # fout type waarde, daar is Inke verantwoordleijk voor alle validatie instellingen.
+
+        description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
         valid_errors = {
             "internalLocation": [],
@@ -1474,13 +1512,15 @@ class MptConfigChecker:
 
         self.add_mpt_histtags_new_to_results()
 
-        # # TODO: @renier: remove this integration test
-        summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
-        from mptconfig.tmp import validate_expected_summary
-
-        validate_expected_summary(new_summary=summary)
+        # # # TODO: @renier: remove this integration test
+        # summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
+        # from mptconfig.tmp import validate_expected_summary
+        #
+        # validate_expected_summary(new_summary=summary)
 
         self.add_input_files_to_results()
+
+        # TODO: write all used paths to 1 excel sheet
 
         # write excel file with check results
         excel_writer = ExcelWriter(results=self.results)
