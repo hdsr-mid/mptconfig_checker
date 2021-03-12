@@ -2,6 +2,7 @@ from mptconfig import constants
 from typing import Dict
 
 import logging
+import mptconfig.constants_paths
 
 
 # TODO: @renier: remove this complete file:
@@ -22,9 +23,9 @@ def dict_compare(d1: Dict, d2: Dict):
 
 
 def validate_expected_summary(new_summary: Dict) -> None:
-    added, removed, modified, same = dict_compare(d1=constants.EXPECTED_SUMMARY, d2=new_summary)
+    added, removed, modified, same = dict_compare(d1=mptconfig.constants_paths.EXPECTED_SUMMARY, d2=new_summary)
 
-    if len(same) == len(constants.EXPECTED_SUMMARY):
+    if len(same) == len(mptconfig.constants_paths.EXPECTED_SUMMARY):
         logger.info("nice, summary is as expected")
         return
 

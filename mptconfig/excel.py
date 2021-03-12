@@ -1,5 +1,4 @@
 from enum import Enum
-from mptconfig import constants
 from openpyxl import worksheet as openpyxl_worksheet
 from openpyxl.utils import get_column_letter
 from pandas.api.types import is_datetime64_any_dtype as is_datetime  # noqa pandas comes with geopandas
@@ -8,6 +7,7 @@ from typing import List
 from typing import Optional
 
 import logging
+import mptconfig.constants_paths
 import pandas as pd  # noqa pandas comes with geopandas
 
 
@@ -124,7 +124,7 @@ class ExcelSheetCollector(dict):
         This content df has columns (ExcelSheet objects): "name", "type", "nr_rows", "description"."""
         assert self.has_sheets and not self.has_content_sheet, "can not create content sheet"
         logger.info("creating automatic content sheet")
-        content_columns = self.input_sheets[0].to_content_dict().keys()
+        content_columns = self.output_check_sheets[0].to_content_dict().keys()
         data = []
         for sheet in self.content_sheet_input:
             assert isinstance(sheet, ExcelSheet)
@@ -220,7 +220,7 @@ class ExcelWriter:
         # TODO: added jinja2 as dependency, but it does not work on excel, so remove it from env
 
         # create and load xlsx file
-        result_xlsx_path = constants.PathConstants.result_xlsx.path
+        result_xlsx_path = mptconfig.constants_paths.PathConstants.result_xlsx.path
         logger.info(f"creating result file {result_xlsx_path}")
         # TODO: activate this check
         # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"

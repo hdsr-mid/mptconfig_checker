@@ -1,6 +1,5 @@
 from collections import defaultdict
 from lxml import etree as ET  # noqa
-from mptconfig.constants import GEO_DATUM
 from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
@@ -87,8 +86,36 @@ def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str 
     return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 
 
+class EnsureOneFewsConfig:
+    _instance_with_path = None
+
+    def __new__(cls, *args, **kwargs):
+        assert kwargs["path"]
+        if cls._instance_with_path:
+            # Please instantiate FewsConfig one time
+            logger.warning(f"watch out! FewsConfig was already instanciate with path {cls._instance_with_path}")
+        else:
+            cls._instance_with_path = kwargs["path"]
+            a = super(EnsureOneFewsConfig, cls).__new__(cls, **kwargs)
+        return a
+
+
 class FewsConfig:
-    def __init__(self, path):
+
+    _instance = None
+
+    geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
+
+    def __new__(cls, path: Path):
+        if cls._instance:
+            logger.warning(
+                f"watch out! FewsConfig was already instantiated with path {path}. Returning that instance now!"
+            )
+        else:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, path: Path):
         self.path = path
         self._location_sets = None
 
@@ -139,7 +166,11 @@ class FewsConfig:
                 continue
             if _dirpath.name not in self.__dict__.keys():
                 continue
-            self.__dict__[_dirpath.name].update({Path(filename).stem: _dirpath / filename for filename in filenames})
+            for filename in filenames:
+                filename_no_suffix = Path(filename).stem
+                full_path = _dirpath / filename
+                logger.debug(f"populate FewsConfig with property {_dirpath.name} for file {filename_no_suffix}")
+                self.__dict__[_dirpath.name].update({filename_no_suffix: full_path})
 
     @property
     def location_sets(self) -> Dict:
@@ -263,6 +294,12 @@ class FewsConfig:
             gdf=gdf, filepath=filepath, x_attrib=x_attrib, y_attrib=y_attrib, z_attrib=z_attrib
         )
         geo_datum_found = location_set["csvFile"]["geoDatum"]
-        crs = GEO_DATUM.get(geo_datum_found, None)
+        crs = self.geo_datum.get(geo_datum_found, None)
         gdf.crs = crs if crs else None
         return gdf
+
+
+def test_ensure_fews_config_singleton():
+    a = FewsConfig(path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config")
+    b = FewsConfig(path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config")
+    assert a.path == b.path
