@@ -162,8 +162,8 @@ def check_constants():
     ), f"BASE_DIR name ={BASE_DIR.name} should be project's root 'mptconfig_checker'"
 
     # check 2: PathConstants has exactly the following objects
-    all_defined_paths = {key: value for key, value in PathConstants.__dict__.items() if not key.startswith("__")}
-    expected_paths = {
+    all_defined_paths = [constant.name for constant in PathConstants]
+    expected_paths = [
         "result_xlsx",
         "fews_config",
         "histtags_csv",
@@ -172,20 +172,22 @@ def check_constants():
         "ignored_ts800",
         "ignored_xy",
         "output_dir",
-    }
-    too_many = set(all_defined_paths.keys()).difference(expected_paths)
-    too_few = expected_paths.difference(set(all_defined_paths.keys()))
+    ]
+    assert len(all_defined_paths) == len(expected_paths) == len(set(expected_paths))
+    too_many = set(all_defined_paths).difference(expected_paths)
+    too_few = set(expected_paths).difference(all_defined_paths)
     assert not too_many, f"too many paths {too_many}"
     assert not too_few, f"too few paths {too_few}"
 
     # check 3: check if files and dirs exist if the are expected to. And visa versa
-    for path_obj_name, path_namedtuple in all_defined_paths.items():
-        assert isinstance(path_namedtuple.path, Path), f"path {path_namedtuple.path} is not of type pathlib.Path"
-        if not path_namedtuple.should_exist:
+    for path_namedtuple in PathConstants:
+        if not isinstance(path_namedtuple.value.path, Path):
+            raise AssertionError(f"{path_namedtuple.name}'s path is not of type pathlib.Path")
+        if not path_namedtuple.value.should_exist:
             # TODO: activate this check
             # assert not path_namedtuple.path.exists(), f"path {path_namedtuple.path} should not exist"
             continue
-        if path_namedtuple.is_file:
-            assert path_namedtuple.path.is_file(), f"file should exist {path_namedtuple.path}"
+        if path_namedtuple.value.is_file:
+            assert path_namedtuple.value.path.is_file(), f"file should exist {path_namedtuple.value.path}"
         else:
-            assert path_namedtuple.path.is_dir(), f"dir should exists {path_namedtuple.path}"
+            assert path_namedtuple.value.path.is_dir(), f"dir should exists {path_namedtuple.value.path}"

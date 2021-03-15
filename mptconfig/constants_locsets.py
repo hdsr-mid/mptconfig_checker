@@ -18,7 +18,7 @@ class LocationSet:
     def fews_config(self) -> FewsConfig:
         if self._fews_config is not None:
             return self._fews_config
-        self._fews_config = FewsConfig(path=mptconfig.constants_paths.PathConstants.fews_config.path)
+        self._fews_config = FewsConfig(path=mptconfig.constants_paths.PathConstants.fews_config.value.path)
         return self._fews_config
 
     @property

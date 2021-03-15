@@ -1,5 +1,6 @@
 from mptconfig import constants
 from mptconfig import constants_locsets
+from mptconfig import constants_paths
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
 from mptconfig.excel import ExcelSheetTypeChoices
@@ -21,7 +22,6 @@ from typing import Optional
 from typing import Tuple
 
 import logging
-import mptconfig.constants_paths
 import numpy as np  # noqa numpy comes with geopandas
 import pandas as pd  # noqa pandas comes with geopandas
 import re
@@ -70,7 +70,7 @@ class MptConfigChecker:
     def fews_config(self):
         if self._fews_config is not None:
             return self._fews_config
-        self._fews_config = FewsConfig(path=mptconfig.constants_paths.PathConstants.fews_config.path)
+        self._fews_config = FewsConfig(path=constants_paths.PathConstants.fews_config.value.path)
         return self._fews_config
 
     @property
@@ -94,20 +94,19 @@ class MptConfigChecker:
     def histtags(self) -> pd.DataFrame:
         if self._histtags is not None:
             return self._histtags
-        logger.info(f"reading histags: {mptconfig.constants_paths.PathConstants.histtags_csv.path}")
+        logger.info(f"reading histags: {constants_paths.PathConstants.histtags_csv.value.path}")
         dtype_columns = ["total_min_start_dt", "total_max_end_dt"]
         self._histtags = pd.read_csv(
-            filepath_or_buffer=mptconfig.constants_paths.PathConstants.histtags_csv.path,
+            filepath_or_buffer=constants_paths.PathConstants.histtags_csv.value.path,
             parse_dates=dtype_columns,
             sep=None,
             engine="python",
         )
-
         for dtype_column in dtype_columns:
             if not pd.api.types.is_datetime64_dtype(self.histtags[dtype_column]):
                 raise AssertionError(
-                    f"dtype_column {dtype_column} in {mptconfig.constants_paths.PathConstants.histtags_csv.path} can not be converted "
-                    f"to np.datetime64. Check if values are dates."
+                    f"dtype_column {dtype_column} in {constants_paths.PathConstants.histtags_csv.value.path} "
+                    f"can not be converted to np.datetime64. Check if values are dates."
                 )
         return self._histtags
 
@@ -213,9 +212,9 @@ class MptConfigChecker:
     def ignored_exloc(self) -> pd.DataFrame:
         if self._ignored_exloc is not None:
             return self._ignored_exloc
-        logger.info(f"reading {mptconfig.constants_paths.PathConstants.ignored_exloc.path}")
+        logger.info(f"reading {constants_paths.PathConstants.ignored_exloc.value.path}")
         self._ignored_exloc = pd.read_csv(
-            filepath_or_buffer=mptconfig.constants_paths.PathConstants.ignored_exloc.path,
+            filepath_or_buffer=constants_paths.PathConstants.ignored_exloc.value.path,
             sep=",",
             engine="python",
         )
@@ -225,9 +224,9 @@ class MptConfigChecker:
     def ignored_histtag(self) -> pd.DataFrame:
         if self._ignored_histtag is not None:
             return self._ignored_histtag
-        logger.info(f"reading {mptconfig.constants_paths.PathConstants.ignored_histtag.path}")
+        logger.info(f"reading {constants_paths.PathConstants.ignored_histtag.value.path}")
         self._ignored_histtag = pd.read_csv(
-            filepath_or_buffer=mptconfig.constants_paths.PathConstants.ignored_histtag.path,
+            filepath_or_buffer=constants_paths.PathConstants.ignored_histtag.value.path,
             sep=",",
             engine="python",
         )
@@ -238,9 +237,9 @@ class MptConfigChecker:
     def ignored_ts800(self) -> pd.DataFrame:
         if self._ignored_ts800 is not None:
             return self._ignored_ts800
-        logger.info(f"reading {mptconfig.constants_paths.PathConstants.ignored_ts800.path}")
+        logger.info(f"reading {constants_paths.PathConstants.ignored_ts800.value.path}")
         self._ignored_ts800 = pd.read_csv(
-            filepath_or_buffer=mptconfig.constants_paths.PathConstants.ignored_ts800.path,
+            filepath_or_buffer=constants_paths.PathConstants.ignored_ts800.value.path,
             sep=",",
             engine="python",
         )
@@ -250,9 +249,9 @@ class MptConfigChecker:
     def ignored_xy(self) -> pd.DataFrame:
         if self._ignored_xy is not None:
             return self._ignored_xy
-        logger.info(f"reading {mptconfig.constants_paths.PathConstants.ignored_xy.path}")
+        logger.info(f"reading {constants_paths.PathConstants.ignored_xy.value.path}")
         self._ignored_xy = pd.read_csv(
-            filepath_or_buffer=mptconfig.constants_paths.PathConstants.ignored_xy.path,
+            filepath_or_buffer=constants_paths.PathConstants.ignored_xy.value.path,
             sep=",",
             engine="python",
         )
@@ -273,7 +272,7 @@ class MptConfigChecker:
 
     @staticmethod
     def df_to_csv(df: pd.DataFrame, file_name: str) -> None:
-        csv_file_path = mptconfig.constants_paths.PathConstants.output_dir.path / file_name
+        csv_file_path = constants_paths.PathConstants.output_dir.value.path / file_name
         if csv_file_path.suffix == "":
             csv_file_path = Path(f"{csv_file_path}.csv")
         if csv_file_path.is_file():
@@ -959,13 +958,7 @@ class MptConfigChecker:
             for int_loc, loc_df in group_df.groupby("internalLocation"):
                 sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
                 date_str = self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
-                end_time = None
-                try:
-                    end_time = pd.to_datetime(date_str)
-                except pd.errors.OutOfBoundsDatetime as err:
-                    # TODO: @renier: handle out of bounds in case date_str is e.g. '32000101'
-                    logger.error(err)
-
+                end_time = pd.to_datetime(date_str)
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
                 ex_locs = np.unique(loc_df["externalLocation"].values)
@@ -1050,7 +1043,6 @@ class MptConfigChecker:
         return excel_sheet
 
     def __create_location_set_df(self, set_name: str, attrib_files: List[Dict]) -> pd.DataFrame:
-
         property_name = LOCS_MAPPING[set_name]
         # getattr is daniel's dynamic mapping legacy..
         assert hasattr(self, property_name), (
@@ -1072,6 +1064,18 @@ class MptConfigChecker:
             )
             join_id = attrib_file["id"].replace("%", "")
             attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
+
+            # TODO: ask roger which validation csvs must have unique LOC_ID? None right?
+            #  Moreover, unique_together is {LOC_ID, STARTDATE, ENDDATE} right?
+            # if not attrib_df["LOC_ID"].is_unique:
+            #     logger.warning(f"LOC_ID is not unique in {csv_file_name}")
+            # TODO: check dates somewhere else (separate check?): validation_rules may eg not overlap (1 KW can have
+            #  >1 validation_rule with own period.
+            assert "END" not in attrib_df.columns, f"expected EIND, not END... {csv_file_path}"
+            if ("START" and "EIND") in attrib_df.columns:
+                not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
+                assert len(not_okay) == 0, f"EIND must be > START, {len(not_okay)} wrong rows in {csv_file_name}"
+
             drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
             attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
             location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
@@ -1184,15 +1188,15 @@ class MptConfigChecker:
                     int_pars = []
 
                 attribs_required = get_validation_attribs(validation_rules=validation_rules, int_pars=int_pars)
-                attribs_missing = [attrib for attrib in attribs_required if attrib not in row.keys()]
+                attribs_too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
 
-                attribs_obsolete = [
+                attribs_too_many = [
                     attrib
                     for attrib in validaton_attributes
                     if (attrib not in attribs_required) and (attrib in row.keys())
                 ]
 
-                for key, value in {"missend": attribs_missing, "overbodig": attribs_obsolete}.items():
+                for key, value in {"missend": attribs_too_few, "overbodig": attribs_too_many}.items():
                     if len(value) > 0:
                         valid_errors["internalLocation"] += [int_loc]
                         valid_errors["start"] += [row["START"]]
@@ -1222,6 +1226,8 @@ class MptConfigChecker:
                                         errors["fout_type"] = "waarde"
                                         errors["fout_beschrijving"] += [f"{smax} <= {smin}"]
 
+                                    # TODO: hiervoor al ergens checken of alle waarden in row zijn ingevuld,
+                                    #  want anders keyerror...
                                     if row[hmax] < row[smax]:
                                         errors["fout_type"] = "waarde"
                                         errors["fout_beschrijving"] += [f"{'hmax'} < {smax}"]
@@ -1235,6 +1241,12 @@ class MptConfigChecker:
                     valid_errors["start"] += [row["START"]] * len(errors["fout_beschrijving"])
 
                     valid_errors["eind"] += [row["EIND"]] * len(errors["fout_beschrijving"])
+
+                    # TODO: ask roger/daniel: geen idee wat hier allemaal gebeurt en waarom..
+                    #  stel, int_pars = ['DD.15,F.0,H.R.0,IB.0,Q.G.0']
+                    #  dan is ",".join(int_pars) --> 'DD.15,F.0,H.R.0,IB.0,Q.G.0'
+                    #  dan is [",".join(int_pars)] * len(errors["fout_beschrijving"]) --> []
+                    #  vraag: whuuaaat?! waarom?
 
                     valid_errors["internalParameters"] += [",".join(int_pars)] * len(errors["fout_beschrijving"])
 
@@ -1484,7 +1496,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_exloc",
-                description=mptconfig.constants_paths.PathConstants.ignored_exloc.description,
+                description=constants_paths.PathConstants.ignored_exloc.value.description,
                 df=self.ignored_exloc,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1492,7 +1504,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_histtag",
-                description=mptconfig.constants_paths.PathConstants.ignored_histtag.description,
+                description=constants_paths.PathConstants.ignored_histtag.value.description,
                 df=self.ignored_histtag,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1500,7 +1512,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_ts800",
-                description=mptconfig.constants_paths.PathConstants.ignored_ts800.description,
+                description=constants_paths.PathConstants.ignored_ts800.value.description,
                 df=self.ignored_ts800,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1508,11 +1520,26 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_xy",
-                description=mptconfig.constants_paths.PathConstants.ignored_xy.description,
+                description=constants_paths.PathConstants.ignored_xy.value.description,
                 df=self.ignored_xy,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
         )
+
+    def add_paths_to_results(self):
+        columns = ["name", "path", "description"]
+        data = [
+            (path_constant.name, path_constant.value.path.as_posix(), path_constant.value.description)
+            for path_constant in constants_paths.PathConstants
+        ]
+        path_df = pd.DataFrame(data=data, columns=columns)
+        excelsheet = ExcelSheet(
+            name="used_paths",
+            df=path_df,
+            description="beschrijving van en absoluut pad naar gebruikte bestanden",
+            sheet_type=ExcelSheetTypeChoices.output_no_check,
+        )
+        self.results.add_sheet(excelsheet=excelsheet)
 
     def add_mpt_histtags_new_to_results(self):
         excelsheet = ExcelSheet(
@@ -1552,6 +1579,7 @@ class MptConfigChecker:
 
         validate_expected_summary(new_summary=summary)
         self.add_input_files_to_results()
+        self.add_paths_to_results()
 
         # TODO: write all used paths to 1 excel sheet
 

@@ -220,7 +220,7 @@ class ExcelWriter:
         # TODO: added jinja2 as dependency, but it does not work on excel, so remove it from env
 
         # create and load xlsx file
-        result_xlsx_path = mptconfig.constants_paths.PathConstants.result_xlsx.path
+        result_xlsx_path = mptconfig.constants_paths.PathConstants.result_xlsx.value.path
         logger.info(f"creating result file {result_xlsx_path}")
         # TODO: activate this check
         # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
