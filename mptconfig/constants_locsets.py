@@ -12,6 +12,7 @@ class LocationSet:
         self.checker_property_name = checker_property_name
         self.validation_rules = validation_rules
         self._fews_config = None
+        self._data = None
 
     @property
     def fews_config(self) -> FewsConfig:
@@ -19,6 +20,15 @@ class LocationSet:
             return self._fews_config
         self._fews_config = FewsConfig(path=mptconfig.constants_paths.PathConstants.fews_config.path)
         return self._fews_config
+
+    @property
+    def data(self):
+        if self._data is not None:
+            return self._data
+        location_set = self.fews_config.location_sets[self.fews_name]
+        assert location_set["csvFile"], f"{self.name} data must have csvFile"
+        self._data = self.fews_config.get_locations(location_set_key=self.fews_name)
+        return self._data
 
 
 hoofdloc = LocationSet(
@@ -97,7 +107,7 @@ mswloc = LocationSet(
 )
 
 psloc = LocationSet(
-    name="",  # TODO
+    name="peilschalen",
     fews_name="OPVLWATER_PEILSCHALEN",
     checker_property_name="",  # TODO
     validation_rules=[],

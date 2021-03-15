@@ -86,20 +86,6 @@ def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str 
     return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 
 
-class EnsureOneFewsConfig:
-    _instance_with_path = None
-
-    def __new__(cls, *args, **kwargs):
-        assert kwargs["path"]
-        if cls._instance_with_path:
-            # Please instantiate FewsConfig one time
-            logger.warning(f"watch out! FewsConfig was already instanciate with path {cls._instance_with_path}")
-        else:
-            cls._instance_with_path = kwargs["path"]
-            a = super(EnsureOneFewsConfig, cls).__new__(cls, **kwargs)
-        return a
-
-
 class FewsConfig:
 
     _instance = None
@@ -107,13 +93,14 @@ class FewsConfig:
     geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
 
     def __new__(cls, path: Path):
+        """Singleton: ensure only one instance of FewsConfig throughout whole mptconfig_checker"""
         if cls._instance:
-            logger.warning(
-                f"watch out! FewsConfig was already instantiated with path {path}. Returning that instance now!"
-            )
+            already_used_path = cls._instance[0]
+            logger.warning(f"FewsConfig already instantiated with {already_used_path}. Returning that instance now!")
         else:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+            new_instance = super().__new__(cls)
+            cls._instance = (path, new_instance)
+        return cls._instance[1]
 
     def __init__(self, path: Path):
         self.path = path

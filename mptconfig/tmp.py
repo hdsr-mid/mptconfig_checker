@@ -1,4 +1,3 @@
-from mptconfig import constants
 from typing import Dict
 
 import logging

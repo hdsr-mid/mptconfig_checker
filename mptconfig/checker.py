@@ -1139,14 +1139,14 @@ class MptConfigChecker:
         locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
         location_sets = locations_dict["locationSets"]["locationSet"]
 
-        raise AssertionError(
-            "hier gebleven: property location_sets moet nog naar constants_locsets. "
-            "Ik heb FewsConfig al Singleton class gemaakt"
-        )
+        # raise AssertionError(
+        #     "hier gebleven: property location_sets moet nog naar constants_locsets. "
+        #     "Ik heb FewsConfig al Singleton class gemaakt"
+        # )
 
-        # for set_name, validation_rules in constants.VALIDATION_RULES.items():
-        for loc_set in constants.LOCATION_SET:
-            validation_rules = loc_set.validation_rules
+        for set_name, validation_rules in constants.VALIDATION_RULES.items():
+            # for loc_set in constants.LOCATION_SET:
+            # validation_rules = loc_set.validation_rules
             if not validation_rules:
                 continue
             # TODO:
@@ -1525,24 +1525,24 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        # self.results.add_sheet(excelsheet=self.check_missing_histtags())
-        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        # self.results.add_sheet(excelsheet=self.check_missing_pars())
-        # self.results.add_sheet(excelsheet=self.check_hloc_consistency())
-        #
-        # # check returns two results
-        # sheet1, sheet2 = self.check_expar_errors_intloc_missing()
-        # self.results.add_sheet(excelsheet=sheet1)
-        # self.results.add_sheet(excelsheet=sheet2)
-        #
-        # self.results.add_sheet(excelsheet=self.check_expar_missing())
-        # self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
-        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        self.results.add_sheet(excelsheet=self.check_missing_histtags())
+        self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        self.results.add_sheet(excelsheet=self.check_missing_pars())
+        self.results.add_sheet(excelsheet=self.check_hloc_consistency())
+
+        # check returns two results
+        sheet1, sheet2 = self.check_expar_errors_intloc_missing()
+        self.results.add_sheet(excelsheet=sheet1)
+        self.results.add_sheet(excelsheet=sheet2)
+
+        self.results.add_sheet(excelsheet=self.check_expar_missing())
+        self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
+        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
-        # self.results.add_sheet(excelsheet=self.check_intpar_expar_consistency())
-        # self.results.add_sheet(excelsheet=self.check_location_set_errors())
+        self.results.add_sheet(excelsheet=self.check_intpar_expar_consistency())
+        self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         self.add_mpt_histtags_new_to_results()
 
@@ -1551,7 +1551,7 @@ class MptConfigChecker:
         from mptconfig.tmp import validate_expected_summary
 
         validate_expected_summary(new_summary=summary)
-        # self.add_input_files_to_results()
+        self.add_input_files_to_results()
 
         # TODO: write all used paths to 1 excel sheet
 
@@ -1560,6 +1560,6 @@ class MptConfigChecker:
         excel_writer.write()
 
         # write new csv files
-        # self.create_opvlwater_hoofdloc_csv_new()
-        # self.create_opvlwater_subloc_csv_new()
-        # self.create_waterstandlocaties_csv_new()
+        self.create_opvlwater_hoofdloc_csv_new()
+        self.create_opvlwater_subloc_csv_new()
+        self.create_waterstandlocaties_csv_new()
