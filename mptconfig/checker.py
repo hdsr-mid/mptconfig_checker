@@ -1,6 +1,4 @@
 from mptconfig import constants
-from mptconfig import constants_locsets
-from mptconfig import constants_paths
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
 from mptconfig.excel import ExcelSheetTypeChoices
@@ -31,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
-constants.check_constants()
 
 LOCS_MAPPING = {
     "hoofdlocaties": "hoofdloc",
@@ -70,7 +67,7 @@ class MptConfigChecker:
     def fews_config(self):
         if self._fews_config is not None:
             return self._fews_config
-        self._fews_config = FewsConfig(path=constants_paths.PathConstants.fews_config.value.path)
+        self._fews_config = FewsConfig(path=constants.PathConstants.fews_config.value.path)
         return self._fews_config
 
     @property
@@ -79,14 +76,14 @@ class MptConfigChecker:
         if self._location_sets is not None:
             return self._location_sets
         self._location_sets = {}
-        for location_set in constants.LOCATION_SET:
-            fews_location_set = self.fews_config.location_sets.get(location_set.fews_name, None)
+        for location_set in constants.LocationSetChoices:
+            fews_location_set = self.fews_config.location_sets.get(location_set.value.fews_name, None)
             if not fews_location_set:
-                raise AssertionError(f"location_set {location_set.fews_name} not in fews-config")
+                raise AssertionError(f"location_set {location_set.value.fews_name} not in fews-config")
             assert fews_location_set["csvFile"], f"{location_set.name} not a csvFile location-set"
             self._location_sets[location_set.name] = {
-                "id": location_set.fews_name,
-                "gdf": self.fews_config.get_locations(location_set_key=location_set.fews_name),
+                "id": location_set.value.fews_name,
+                "gdf": self.fews_config.get_locations(location_set_key=location_set.value.fews_name),
             }
         return self._location_sets
 
@@ -94,10 +91,10 @@ class MptConfigChecker:
     def histtags(self) -> pd.DataFrame:
         if self._histtags is not None:
             return self._histtags
-        logger.info(f"reading histags: {constants_paths.PathConstants.histtags_csv.value.path}")
+        logger.info(f"reading histags: {constants.PathConstants.histtags_csv.value.path}")
         dtype_columns = ["total_min_start_dt", "total_max_end_dt"]
         self._histtags = pd.read_csv(
-            filepath_or_buffer=constants_paths.PathConstants.histtags_csv.value.path,
+            filepath_or_buffer=constants.PathConstants.histtags_csv.value.path,
             parse_dates=dtype_columns,
             sep=None,
             engine="python",
@@ -105,7 +102,7 @@ class MptConfigChecker:
         for dtype_column in dtype_columns:
             if not pd.api.types.is_datetime64_dtype(self.histtags[dtype_column]):
                 raise AssertionError(
-                    f"dtype_column {dtype_column} in {constants_paths.PathConstants.histtags_csv.value.path} "
+                    f"dtype_column {dtype_column} in {constants.PathConstants.histtags_csv.value.path} "
                     f"can not be converted to np.datetime64. Check if values are dates."
                 )
         return self._histtags
@@ -212,9 +209,9 @@ class MptConfigChecker:
     def ignored_exloc(self) -> pd.DataFrame:
         if self._ignored_exloc is not None:
             return self._ignored_exloc
-        logger.info(f"reading {constants_paths.PathConstants.ignored_exloc.value.path}")
+        logger.info(f"reading {constants.PathConstants.ignored_exloc.value.path}")
         self._ignored_exloc = pd.read_csv(
-            filepath_or_buffer=constants_paths.PathConstants.ignored_exloc.value.path,
+            filepath_or_buffer=constants.PathConstants.ignored_exloc.value.path,
             sep=",",
             engine="python",
         )
@@ -224,9 +221,9 @@ class MptConfigChecker:
     def ignored_histtag(self) -> pd.DataFrame:
         if self._ignored_histtag is not None:
             return self._ignored_histtag
-        logger.info(f"reading {constants_paths.PathConstants.ignored_histtag.value.path}")
+        logger.info(f"reading {constants.PathConstants.ignored_histtag.value.path}")
         self._ignored_histtag = pd.read_csv(
-            filepath_or_buffer=constants_paths.PathConstants.ignored_histtag.value.path,
+            filepath_or_buffer=constants.PathConstants.ignored_histtag.value.path,
             sep=",",
             engine="python",
         )
@@ -237,9 +234,9 @@ class MptConfigChecker:
     def ignored_ts800(self) -> pd.DataFrame:
         if self._ignored_ts800 is not None:
             return self._ignored_ts800
-        logger.info(f"reading {constants_paths.PathConstants.ignored_ts800.value.path}")
+        logger.info(f"reading {constants.PathConstants.ignored_ts800.value.path}")
         self._ignored_ts800 = pd.read_csv(
-            filepath_or_buffer=constants_paths.PathConstants.ignored_ts800.value.path,
+            filepath_or_buffer=constants.PathConstants.ignored_ts800.value.path,
             sep=",",
             engine="python",
         )
@@ -249,18 +246,18 @@ class MptConfigChecker:
     def ignored_xy(self) -> pd.DataFrame:
         if self._ignored_xy is not None:
             return self._ignored_xy
-        logger.info(f"reading {constants_paths.PathConstants.ignored_xy.value.path}")
+        logger.info(f"reading {constants.PathConstants.ignored_xy.value.path}")
         self._ignored_xy = pd.read_csv(
-            filepath_or_buffer=constants_paths.PathConstants.ignored_xy.value.path,
+            filepath_or_buffer=constants.PathConstants.ignored_xy.value.path,
             sep=",",
             engine="python",
         )
         assert sorted(self._ignored_xy.columns) == ["internalLocation", "x", "y"]
         return self._ignored_xy
 
-    def _update_start_end_new_csv(self, location_set: constants_locsets.LocationSet) -> pd.DataFrame:
+    def _update_start_end_new_csv(self, location_set: constants.LocationSet) -> pd.DataFrame:
         assert isinstance(
-            location_set, constants_locsets.LocationSet
+            location_set, constants.LocationSet
         ), f"location_set {location_set} is not a constants_locsets.LocationSet"
         date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
         gdf = self.location_sets[location_set.name]["gdf"]
@@ -272,7 +269,7 @@ class MptConfigChecker:
 
     @staticmethod
     def df_to_csv(df: pd.DataFrame, file_name: str) -> None:
-        csv_file_path = constants_paths.PathConstants.output_dir.value.path / file_name
+        csv_file_path = constants.PathConstants.output_dir.value.path / file_name
         if csv_file_path.suffix == "":
             csv_file_path = Path(f"{csv_file_path}.csv")
         if csv_file_path.is_file():
@@ -281,7 +278,7 @@ class MptConfigChecker:
         logger.debug(f"created {file_name}")
 
     def create_opvlwater_hoofdloc_csv_new(self) -> None:
-        location_set = constants_locsets.hoofdloc
+        location_set = constants.LocationSet.hoofdloc
         file_name = location_set.fews_name
         logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set=location_set)
@@ -289,7 +286,7 @@ class MptConfigChecker:
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_opvlwater_subloc_csv_new(self) -> None:
-        location_set = constants_locsets.subloc
+        location_set = location_sets.sublocationset
         file_name = location_set.fews_name
         logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set=location_set)
@@ -304,7 +301,7 @@ class MptConfigChecker:
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_waterstandlocaties_csv_new(self) -> None:
-        location_set = constants_locsets.waterstandloc
+        location_set = location_sets.waterstandlocationset
         file_name = location_set.fews_name
         logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set=location_set)
@@ -958,7 +955,10 @@ class MptConfigChecker:
             for int_loc, loc_df in group_df.groupby("internalLocation"):
                 sub_type = self.subloc[self.subloc["LOC_ID"] == int_loc]["TYPE"].values[0]
                 date_str = self.subloc[self.subloc["LOC_ID"] == int_loc]["EIND"].values[0]
-                end_time = pd.to_datetime(date_str)
+                try:
+                    end_time = pd.to_datetime(date_str)
+                except pd.errors.OutOfBoundsDatetime as err:
+                    logger.warning(f"subloc contains out of bound date '{date_str}' cannot be converted, err={err}")
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
                 ex_locs = np.unique(loc_df["externalLocation"].values)
@@ -1143,19 +1143,14 @@ class MptConfigChecker:
         locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
         location_sets = locations_dict["locationSets"]["locationSet"]
 
-        # raise AssertionError(
-        #     "hier gebleven: property location_sets moet nog naar constants_locsets. "
-        #     "Ik heb FewsConfig al Singleton class gemaakt"
-        # )
+        for loc_set in constants.LocationSetChoices:
+            location_set_meta = loc_set.value.csvfile_meta
 
-        for set_name, validation_rules in constants.VALIDATION_RULES.items():
-            # for loc_set in constants.LOCATION_SET:
-            # validation_rules = loc_set.validation_rules
-            if not validation_rules:
+            if not loc_set.value.validation_rules:
                 continue
             # TODO:
             _location_set = [
-                loc_set for loc_set in location_sets if loc_set["id"] == self.location_sets[set_name]["id"]
+                loc_set for loc_set in location_sets if loc_set["id"] == self.location_sets[loc_set.name]["id"]
             ]
             assert len(_location_set) == 1
             location_set_meta = _location_set[0]["csvFile"]
@@ -1496,7 +1491,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_exloc",
-                description=constants_paths.PathConstants.ignored_exloc.value.description,
+                description=constants.PathConstants.ignored_exloc.value.description,
                 df=self.ignored_exloc,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1504,7 +1499,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_histtag",
-                description=constants_paths.PathConstants.ignored_histtag.value.description,
+                description=constants.PathConstants.ignored_histtag.value.description,
                 df=self.ignored_histtag,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1512,7 +1507,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_ts800",
-                description=constants_paths.PathConstants.ignored_ts800.value.description,
+                description=constants.PathConstants.ignored_ts800.value.description,
                 df=self.ignored_ts800,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1520,7 +1515,7 @@ class MptConfigChecker:
         self.results.add_sheet(
             excelsheet=ExcelSheet(
                 name="ignored_xy",
-                description=constants_paths.PathConstants.ignored_xy.value.description,
+                description=constants.PathConstants.ignored_xy.value.description,
                 df=self.ignored_xy,
                 sheet_type=ExcelSheetTypeChoices.input,
             )
@@ -1530,7 +1525,7 @@ class MptConfigChecker:
         columns = ["name", "path", "description"]
         data = [
             (path_constant.name, path_constant.value.path.as_posix(), path_constant.value.description)
-            for path_constant in constants_paths.PathConstants
+            for path_constant in constants.PathConstants
         ]
         path_df = pd.DataFrame(data=data, columns=columns)
         excelsheet = ExcelSheet(
@@ -1552,23 +1547,23 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        self.results.add_sheet(excelsheet=self.check_missing_histtags())
-        self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        self.results.add_sheet(excelsheet=self.check_missing_pars())
-        self.results.add_sheet(excelsheet=self.check_hloc_consistency())
-
-        # check returns two results
-        sheet1, sheet2 = self.check_expar_errors_intloc_missing()
-        self.results.add_sheet(excelsheet=sheet1)
-        self.results.add_sheet(excelsheet=sheet2)
-
-        self.results.add_sheet(excelsheet=self.check_expar_missing())
-        self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
-        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        # self.results.add_sheet(excelsheet=self.check_missing_histtags())
+        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        # self.results.add_sheet(excelsheet=self.check_missing_pars())
+        # self.results.add_sheet(excelsheet=self.check_hloc_consistency())
+        #
+        # # check returns two results
+        # sheet1, sheet2 = self.check_expar_errors_intloc_missing()
+        # self.results.add_sheet(excelsheet=sheet1)
+        # self.results.add_sheet(excelsheet=sheet2)
+        #
+        # self.results.add_sheet(excelsheet=self.check_expar_missing())
+        # self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
+        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
-        self.results.add_sheet(excelsheet=self.check_intpar_expar_consistency())
+        self.results.add_sheet(epxcelsheet=self.check_intpar_expar_consistency())
         self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         self.add_mpt_histtags_new_to_results()

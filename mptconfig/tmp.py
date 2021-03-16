@@ -1,7 +1,7 @@
 from typing import Dict
 
 import logging
-import mptconfig.constants_paths
+import mptconfig.constants.paths
 
 
 # TODO: @renier: remove this complete file:
@@ -22,9 +22,11 @@ def dict_compare(d1: Dict, d2: Dict):
 
 
 def validate_expected_summary(new_summary: Dict) -> None:
-    added, removed, modified, same = dict_compare(d1=mptconfig.constants_paths.EXPECTED_SUMMARY, d2=new_summary)
+    added, removed, modified, same = dict_compare(
+        d1=mptconfig.constants.constants.constants_paths.EXPECTED_SUMMARY, d2=new_summary
+    )
 
-    if len(same) == len(mptconfig.constants_paths.EXPECTED_SUMMARY):
+    if len(same) == len(mptconfig.constants.constants.constants_paths.EXPECTED_SUMMARY):
         logger.info("nice, summary is as expected")
         return
 
@@ -37,6 +39,9 @@ def validate_expected_summary(new_summary: Dict) -> None:
 
     if not modified:
         return
-    # raise AssertionError(f"modified={modified}")
+
     for check, result in modified.items():
-        logger.warning(f"{result} {check}")
+        expected = result[0]
+        reality = result[1]
+        logger.warning(f"expected={expected}, reality={reality} {check}")
+    raise AssertionError(f"modified={modified}")

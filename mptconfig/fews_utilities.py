@@ -251,7 +251,7 @@ class FewsConfig:
         # from initial creator (Daniel Tollenaar):
         # 1. Ik kan nu alleen locationsets direct uit CSV-files lezen, maar een locatieset kan ook
         #    onderdeel zijn van een subset (zie https://publicwiki.deltares.nl/display/FEWSDOC/02+LocationSets).
-        #    Dat begrijpt fews utilities nog niet, maar is dus niet relevant voor .
+        #    Dat begrijpt fews utilities nog niet, maar dat is dus nu niet relevant voor jullie.
         # 2. In eerste instantie had ik de ambitie om vanuit de FEWS-config te snappen wáár
         #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
         #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.

@@ -1,18 +1,414 @@
-from mptconfig import constants_locsets
+from collections import namedtuple
+from enum import Enum
+from mptconfig.fews_utilities import FewsConfig
+from mptconfig.fews_utilities import xml_to_dict
+from pathlib import Path
+from typing import Dict
+from typing import List
+
 
 # Handy constant for building relative paths
-from mptconfig.constants_paths import BASE_DIR
-from mptconfig.constants_paths import PathConstants
-from pathlib import Path
+BASE_DIR = Path(__file__).parent.parent
+PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 
 
-LOCATION_SET = [
-    constants_locsets.hoofdloc,
-    constants_locsets.subloc,
-    constants_locsets.waterstandloc,
-    constants_locsets.mswloc,
-    constants_locsets.psloc,
-]
+class PathConstants1(Enum):
+    result_xlsx = PathNamedTuple(
+        is_file=True,
+        should_exist=False,
+        path=BASE_DIR / "data" / "output" / "result.xlsx",
+        description="",
+    )
+    histtags_csv = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
+        description="",
+    )
+    fews_config = PathNamedTuple(
+        is_file=False,
+        should_exist=True,
+        path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
+        description="",
+    )
+    output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+    ignored_exloc = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+    )
+    ignored_histtag = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+    )
+    ignored_ts800 = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+    )
+    ignored_xy = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+    )
+
+
+EXPECTED_SUMMARY1 = {
+    "idmap section error": 36,
+    "ignored histTags match": 0,
+    "histTags noMatch": 56,
+    "idmaps double": 0,
+    "mpt_histtags_new": 1770,
+    "pars missing": 1,
+    "hloc error": 0,
+    "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "intLoc missing": 2,
+    "exPar missing": 338,
+    "exLoc error": 8,
+    "timeSeries error": 62,
+    "validation error": 273,
+    "par mismatch": 0,
+    "locSet error": 319,
+}
+
+
+class PathConstants2(Enum):
+    result_xlsx = PathNamedTuple(
+        is_file=True,
+        should_exist=False,
+        path=BASE_DIR / "data" / "output" / "result.xlsx",
+        description="",
+    )
+    histtags_csv = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        description="",
+    )
+    fews_config = PathNamedTuple(
+        is_file=False,
+        should_exist=True,
+        path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
+        description="",
+    )
+    output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+    ignored_exloc = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+    )
+    ignored_histtag = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+    )
+    ignored_ts800 = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+    )
+    ignored_xy = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+    )
+
+
+EXPECTED_SUMMARY2 = {
+    "idmap section error": 34,
+    "ignored histTags match": 1,
+    "histTags noMatch": 15,
+    "idmaps double": 0,
+    "mpt_histtags_new": 1802,
+    "pars missing": 0,
+    "hloc error": 18,
+    "exPar error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "intLoc missing": 0,
+    "exPar missing": 346,
+    "exLoc error": 5,
+    "timeSeries error": 7,
+    "validation error": 321,
+    "par mismatch": 0,
+    "locSet error": 335,
+}
+
+
+class PathConstants3(Enum):
+    result_xlsx = PathNamedTuple(
+        is_file=True,
+        should_exist=False,
+        path=BASE_DIR / "data" / "output" / "result.xlsx",
+        description="",
+    )
+    histtags_csv = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        description="",
+    )
+    fews_config = PathNamedTuple(
+        is_file=False,
+        should_exist=True,
+        path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
+        description="",
+    )
+    output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+    ignored_exloc = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+    )
+    ignored_histtag = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+    )
+    ignored_ts800 = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+    )
+    ignored_xy = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+    )
+
+
+EXPECTED_SUMMARY3 = {
+    "idmap section error": 36,
+    "ignored histTags match": 0,
+    "histTags noMatch": 69,
+    "idmaps double": 0,
+    "mpt_histtags_new": 1770,
+    "pars missing": 1,
+    "hloc error": 0,
+    "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "intLoc missing": 2,
+    "exPar missing": 338,
+    "exLoc error": 8,
+    "timeSeries error": 62,
+    "validation error": 273,
+    "par mismatch": 0,
+    "locSet error": 319,
+}
+
+
+class PathConstants4(Enum):
+    result_xlsx = PathNamedTuple(
+        is_file=True,
+        should_exist=False,
+        path=BASE_DIR / "data" / "output" / "result.xlsx",
+        description="",
+    )
+    histtags_csv = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
+        description="",
+    )
+    fews_config = PathNamedTuple(
+        is_file=False,
+        should_exist=True,
+        path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_RK" / "FEWS_SA" / "config",
+        description="",
+    )
+    output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
+    ignored_exloc = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+    )
+    ignored_histtag = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+    )
+    ignored_ts800 = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
+        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+    )
+    ignored_xy = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
+        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+    )
+
+
+EXPECTED_SUMMARY4 = {
+    "idmap section error": 34,
+    "ignored histTags match": 1,
+    "histTags noMatch": 15,
+    "idmaps double": 0,
+    "mpt_histtags_new": 1802,
+    "pars missing": 0,
+    "hloc error": 18,
+    "exPar error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "intLoc missing": 0,
+    "exPar missing": 346,
+    "exLoc error": 5,
+    "timeSeries error": 7,
+    "validation error": 955,
+    "par mismatch": 0,
+    "locSet error": 335,
+}
+
+PathConstants = PathConstants2
+EXPECTED_SUMMARY = EXPECTED_SUMMARY2
+
+
+class LocationSet:
+    def __init__(self, name: str, fews_name: str, checker_property_name: str, validation_rules: List[Dict]):
+        self.name = name
+        self.fews_name = fews_name
+        self.checker_property_name = checker_property_name
+        self.validation_rules = validation_rules
+        self.fews_config = FewsConfig(path=PathConstants.fews_config.value.path)
+        self._locations = None
+        self._csvfile_meta = None
+        self._attrib_files = None
+
+    @property
+    def locations(self):
+        if self._locations is not None:
+            return self._locations
+        location_set = self.fews_config.location_sets[self.fews_name]
+        assert location_set["csvFile"], f"location_set {self.name} must have csvFile"
+        self._locations = self.fews_config.get_locations(location_set_key=self.fews_name)
+        return self._locations
+
+    @property
+    def csvfile_meta(self):
+        if self._csvfile_meta is not None:
+            return self._csvfile_meta
+        locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
+        location_sets = locations_dict["locationSets"]["locationSet"]
+        csvfile_meta = [locset for locset in location_sets if locset["id"] == self.fews_name]
+        assert len(csvfile_meta) == 1
+        self._csvfile_meta = csvfile_meta[0]["csvFile"]
+        return self._csvfile_meta
+
+    @property
+    def attrib_files(self):
+        if self._attrib_files is not None:
+            return self._attrib_files
+        attribute_files = self.csvfile_meta["attributeFile"]
+        if not isinstance(attribute_files, list):
+            attribute_files = [attribute_files]
+        self._attrib_files = [attrib_file for attrib_file in attribute_files if "attribute" in attrib_file.keys()]
+        return self._attrib_files
+
+
+hoofdlocationset = LocationSet(
+    name="hoofdlocaties",
+    fews_name="OPVLWATER_HOOFDLOC",
+    checker_property_name="hoofdloc",
+    validation_rules=[
+        {"parameter": "H.S.", "extreme_values": {"hmax": "HS1_HMAX", "hmin": "HS1_HMIN"}},
+        {"parameter": "H2.S.", "extreme_values": {"hmax": "HS2_HMAX", "hmin": "HS2_HMIN"}},
+        {"parameter": "H3.S.", "extreme_values": {"hmax": "HS3_HMAX", "hmin": "HS3_HMIN"}},
+    ],
+)
+
+sublocationset = LocationSet(
+    name="sublocaties",
+    fews_name="OPVLWATER_SUBLOC",
+    checker_property_name="subloc",
+    validation_rules=[
+        {"parameter": "H.R.", "extreme_values": {"hmax": "HR1_HMAX", "hmin": "HR1_HMIN"}},
+        {"parameter": "H2.R.", "extreme_values": {"hmax": "HR2_HMAX", "hmin": "HR2_HMIN"}},
+        {"parameter": "H3.R.", "extreme_values": {"hmax": "HR3_HMAX", "hmin": "HR3_HMIN"}},
+        {
+            "parameter": "Q.B.",
+            "type": "debietmeter",
+            "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
+        },
+        {
+            "parameter": "Q.G.",
+            "type": "debietmeter",
+            "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
+        },
+        {"parameter": "F.", "extreme_values": {"hmax": "FRQ_HMAX", "hmin": "FRQ_HMIN"}},
+        {"parameter": "Hh.", "extreme_values": {"hmax": "HEF_HMAX", "hmin": "HEF_HMIN"}},
+        {
+            "parameter": "POS.",
+            "extreme_values": {"hmax": "PERC_HMAX", "smax": "PERC_SMAX", "smin": "PERC_SMIN", "hmin": "PERC_HMIN"},
+        },
+        {
+            "parameter": "POS2.",
+            "extreme_values": {"hmax": "PERC2_HMAX", "smax": "PERC2_SMAX", "smin": "PERC2_SMIN", "hmin": "PERC2_HMIN"},
+        },
+        {"parameter": "TT.", "extreme_values": {"hmax": "TT_HMAX", "hmin": "TT_HMIN"}},
+    ],
+)
+
+waterstandlocationset = LocationSet(
+    name="waterstandlocaties",
+    fews_name="OPVLWATER_WATERSTANDEN_AUTO",
+    checker_property_name="waterstandloc",
+    validation_rules=[
+        {
+            "parameter": "H.G.",
+            "extreme_values": {
+                "hmax": "HARDMAX",
+                "smax": [
+                    {"period": 1, "attribute": "WIN_SMAX"},
+                    {"period": 2, "attribute": "OV_SMAX"},
+                    {"period": 3, "attribute": "ZOM_SMAX"},
+                ],
+                "smin": [
+                    {"period": 1, "attribute": "WIN_SMIN"},
+                    {"period": 2, "attribute": "OV_SMIN"},
+                    {"period": 3, "attribute": "ZOM_SMIN"},
+                ],
+                "hmin": "HARDMIN",
+            },
+        }
+    ],
+)
+
+
+mswlocationset = LocationSet(
+    name="mswlocaties",
+    fews_name="MSW_STATIONS",
+    checker_property_name="mswloc",
+    validation_rules=[],
+)
+
+pslocationset = LocationSet(
+    name="peilschalen",
+    fews_name="OPVLWATER_PEILSCHALEN",
+    checker_property_name="",  # TODO
+    validation_rules=[],
+)
+
+
+class LocationSetChoices(Enum):
+    #
+    hoofdloc = hoofdlocationset
+    subloc = sublocationset
+    waterstandloc = waterstandlocationset
+    mswloc = mswlocationset
+    psloc = pslocationset
+
 
 IDMAP_FILES = [
     "IdOPVLWATER",
@@ -191,3 +587,6 @@ def check_constants():
             assert path_namedtuple.value.path.is_file(), f"file should exist {path_namedtuple.value.path}"
         else:
             assert path_namedtuple.value.path.is_dir(), f"dir should exists {path_namedtuple.value.path}"
+
+
+check_constants()

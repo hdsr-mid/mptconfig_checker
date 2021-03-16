@@ -1,4 +1,5 @@
 from enum import Enum
+from mptconfig.constants import PathConstants
 from openpyxl import worksheet as openpyxl_worksheet
 from openpyxl.utils import get_column_letter
 from pandas.api.types import is_datetime64_any_dtype as is_datetime  # noqa pandas comes with geopandas
@@ -7,7 +8,6 @@ from typing import List
 from typing import Optional
 
 import logging
-import mptconfig.constants_paths
 import pandas as pd  # noqa pandas comes with geopandas
 
 
@@ -220,7 +220,7 @@ class ExcelWriter:
         # TODO: added jinja2 as dependency, but it does not work on excel, so remove it from env
 
         # create and load xlsx file
-        result_xlsx_path = mptconfig.constants_paths.PathConstants.result_xlsx.value.path
+        result_xlsx_path = PathConstants.result_xlsx.value.path
         logger.info(f"creating result file {result_xlsx_path}")
         # TODO: activate this check
         # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
