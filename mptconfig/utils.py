@@ -7,7 +7,6 @@ from typing import Union
 import logging
 import numpy as np  # noqa numpy comes with geopandas
 import pandas as pd  # noqa pandas comes with geopandas
-import re
 
 
 PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")
@@ -30,55 +29,6 @@ def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
     ]
     # !! avoid <return fews_locs if fews_locs else [""]> !!
     return fews_locs if fews_locs else np.NaN
-
-
-def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
-    """Get attributes from validationRules.
-
-    Example:
-        get_validation_attribs(
-            validation_rules= [
-                {
-                    'parameter': 'H.R.',
-                    'extreme_values': {'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'}
-                },
-                {
-                    'parameter': 'H2.R.',
-                    'extreme_values': {'hmax': 'HR2_HMAX', 'hmin': 'HR2_HMIN'}
-                },
-                etc..
-            ]
-
-        returns:
-            [
-            'HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN', 'HR3_HMAX', 'HR3_HMIN', 'FRQ_HMAX',
-            'FRQ_HMIN', 'HEF_HMAX', 'HEF_HMIN', 'PERC_HMAX', 'PERC_SMAX', 'PERC_SMIN', 'PERC_HMIN',
-            'PERC2_HMAX', 'PERC2_SMAX', 'PERC2_SMIN', 'PERC2_HMIN', 'TT_HMAX', 'TT_HMIN'
-            ]
-
-    """
-    if int_pars is None:
-        int_pars = [rule["parameter"] for rule in validation_rules]
-    result = []
-    for rule in validation_rules:
-        if "type" in rule.keys():
-            # TODO: @daniel, wat is loc_type? wordt in geen enkele call meegegeven.
-            #  Dus loc_type is None, dus hieronder staat: if rule["type'] == None ?
-            #  omdat rule een Dict[str:str] is, neem ik aan dat loc_type een string is. Klopt die aanname?
-            if rule["type"] == loc_type:
-                if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-                    for key, attribute in rule["extreme_values"].items():
-                        if isinstance(attribute, list):
-                            result += [value["attribute"] for value in attribute]
-                        else:
-                            result += [attribute]
-        elif any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-            for key, attribute in rule["extreme_values"].items():
-                if isinstance(attribute, list):
-                    result += [value["attribute"] for value in attribute]
-                else:
-                    result += [attribute]
-    return result
 
 
 def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:

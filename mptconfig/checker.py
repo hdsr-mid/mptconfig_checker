@@ -6,7 +6,6 @@ from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
 from mptconfig.utils import flatten_nested_list
-from mptconfig.utils import get_validation_attribs
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import sort_validation_attribs
 from mptconfig.utils import update_date
@@ -71,23 +70,6 @@ class MptConfigChecker:
         return self._fews_config
 
     @property
-    # TODO: move these to constants_locsets
-    def location_sets(self) -> Dict:
-        if self._location_sets is not None:
-            return self._location_sets
-        self._location_sets = {}
-        for location_set in constants.LocationSetChoices:
-            fews_location_set = self.fews_config.location_sets.get(location_set.value.fews_name, None)
-            if not fews_location_set:
-                raise AssertionError(f"location_set {location_set.value.fews_name} not in fews-config")
-            assert fews_location_set["csvFile"], f"{location_set.name} not a csvFile location-set"
-            self._location_sets[location_set.name] = {
-                "id": location_set.value.fews_name,
-                "gdf": self.fews_config.get_locations(location_set_key=location_set.value.fews_name),
-            }
-        return self._location_sets
-
-    @property
     def histtags(self) -> pd.DataFrame:
         if self._histtags is not None:
             return self._histtags
@@ -109,24 +91,15 @@ class MptConfigChecker:
 
     @property
     def mswloc(self) -> pd.DataFrame:
-        if self._mswloc is not None:
-            return self._mswloc
-        self._mswloc = self.fews_config.get_locations(location_set_key="MSW_STATIONS")
-        return self._mswloc
+        return constants.LocationSetChoices.mswloc.value.geo_df
 
     @property
     def waterstandloc(self) -> pd.DataFrame:
-        if self._waterstandloc is not None:
-            return self._waterstandloc
-        self._waterstandloc = self.fews_config.get_locations(location_set_key="OPVLWATER_WATERSTANDEN_AUTO")
-        return self._waterstandloc
+        return constants.LocationSetChoices.waterstandloc.value.geo_df
 
     @property
     def subloc(self) -> pd.DataFrame:
-        if self._subloc is not None:
-            return self._subloc
-        self._subloc = self.fews_config.get_locations(location_set_key="OPVLWATER_SUBLOC")
-        return self._subloc
+        return constants.LocationSetChoices.subloc.value.geo_df
 
     @property
     def hoofdloc(self) -> pd.DataFrame:
@@ -135,7 +108,7 @@ class MptConfigChecker:
             return self.hoofdloc_new
         if self._hoofdloc is not None:
             return self._hoofdloc
-        self._hoofdloc = self.fews_config.get_locations(location_set_key="OPVLWATER_HOOFDLOC")
+        self._hoofdloc = constants.LocationSetChoices.hoofdloc.value.geo_df
         return self._hoofdloc
 
     @property
@@ -255,12 +228,12 @@ class MptConfigChecker:
         assert sorted(self._ignored_xy.columns) == ["internalLocation", "x", "y"]
         return self._ignored_xy
 
-    def _update_start_end_new_csv(self, location_set: constants.LocationSet) -> pd.DataFrame:
+    def _update_start_end_new_csv(self, location_set: constants.LocationSetChoices) -> pd.DataFrame:
         assert isinstance(
-            location_set, constants.LocationSet
-        ), f"location_set {location_set} is not a constants_locsets.LocationSet"
+            location_set, constants.LocationSetChoices
+        ), f"location_set {location_set} is not a LocationSetChoices"
         date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
-        gdf = self.location_sets[location_set.name]["gdf"]
+        gdf = location_set.value.geo_df
         df = gdf.drop("geometry", axis=1)
         df[["START", "EIND"]] = df.apply(
             func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
@@ -278,16 +251,16 @@ class MptConfigChecker:
         logger.debug(f"created {file_name}")
 
     def create_opvlwater_hoofdloc_csv_new(self) -> None:
-        location_set = constants.LocationSet.hoofdloc
-        file_name = location_set.fews_name
+        location_set = constants.LocationSetChoices.hoofdloc
+        file_name = location_set.value.fews_name
         logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set=location_set)
         # get existing fews config file name
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_opvlwater_subloc_csv_new(self) -> None:
-        location_set = location_sets.sublocationset
-        file_name = location_set.fews_name
+        location_set = constants.LocationSetChoices.subloc
+        file_name = location_set.value.fews_name
         logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set=location_set)
         grouper = df.groupby(["PAR_ID"])
@@ -301,8 +274,8 @@ class MptConfigChecker:
         self.df_to_csv(df=df, file_name=file_name)
 
     def create_waterstandlocaties_csv_new(self) -> None:
-        location_set = location_sets.waterstandlocationset
-        file_name = location_set.fews_name
+        location_set = constants.LocationSetChoices.waterstandloc
+        file_name = location_set.value.fews_name
         logger.info(f"creating new csv {file_name}")
         df = self._update_start_end_new_csv(location_set=location_set)
         grouper = self.mpt_histtags.groupby(["fews_locid"])
@@ -1042,21 +1015,17 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def __create_location_set_df(self, set_name: str, attrib_files: List[Dict]) -> pd.DataFrame:
-        property_name = LOCS_MAPPING[set_name]
-        # getattr is daniel's dynamic mapping legacy..
-        assert hasattr(self, property_name), (
-            f"property {property_name} must exist (e.g. 'self.subloc'). Please look at naming of the "
-            f"MptConfigChecker properties and values in locs_mapping"
-        )
-        location_set_df = getattr(self, property_name).copy()
-        for attrib_file in attrib_files:
+    def __create_location_set_df(self, loc_set: constants.LocationSetChoices) -> pd.DataFrame:
+        assert isinstance(loc_set, constants.LocationSetChoices)
+        location_set_df = loc_set.value.geo_df
+        for attrib_file in loc_set.value.attrib_files:
             attribs = attrib_file["attribute"]
             if not isinstance(attrib_file["attribute"], list):
                 attribs = [attribs]
             attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
-            csv_file_name = Path(attrib_file["csvFile"])
-            csv_file_path = self.fews_config.MapLayerFiles[csv_file_name.stem]
+            # watch out: attrib_file_name != loc_set.value.csvfile !!!
+            attrib_file_name = Path(attrib_file["csvFile"])
+            csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name.stem]
             attrib_df = pd.read_csv(
                 filepath_or_buffer=csv_file_path,
                 sep=None,
@@ -1065,16 +1034,16 @@ class MptConfigChecker:
             join_id = attrib_file["id"].replace("%", "")
             attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
 
-            # TODO: ask roger which validation csvs must have unique LOC_ID? None right?
+            # TODO: ask roger which validation csvs must have unique LOC_ID? No csv at all right?
             #  Moreover, unique_together is {LOC_ID, STARTDATE, ENDDATE} right?
             # if not attrib_df["LOC_ID"].is_unique:
-            #     logger.warning(f"LOC_ID is not unique in {csv_file_name}")
+            #     logger.warning(f"LOC_ID is not unique in {attrib_file_name}")
             # TODO: check dates somewhere else (separate check?): validation_rules may eg not overlap (1 KW can have
             #  >1 validation_rule with own period.
             assert "END" not in attrib_df.columns, f"expected EIND, not END... {csv_file_path}"
             if ("START" and "EIND") in attrib_df.columns:
                 not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
-                assert len(not_okay) == 0, f"EIND must be > START, {len(not_okay)} wrong rows in {csv_file_name}"
+                assert len(not_okay) == 0, f"EIND must be > START, {len(not_okay)} wrong rows in {attrib_file_name}"
 
             drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
             attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
@@ -1083,6 +1052,7 @@ class MptConfigChecker:
 
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent."""
+        raise AssertionError(f"modified={'validation error': (955, 1501)}")
         # Roger 'algemeen validatie csvs'
         # Inloc in validatie-CSV’s
         # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs
@@ -1140,28 +1110,10 @@ class MptConfigChecker:
             "fout_beschrijving": [],
         }
 
-        locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
-        location_sets = locations_dict["locationSets"]["locationSet"]
-
         for loc_set in constants.LocationSetChoices:
-            location_set_meta = loc_set.value.csvfile_meta
-
             if not loc_set.value.validation_rules:
                 continue
-            # TODO:
-            _location_set = [
-                loc_set for loc_set in location_sets if loc_set["id"] == self.location_sets[loc_set.name]["id"]
-            ]
-            assert len(_location_set) == 1
-            location_set_meta = _location_set[0]["csvFile"]
-            attrib_files = location_set_meta["attributeFile"]
-            if not isinstance(attrib_files, list):
-                attrib_files = [attrib_files]
-
-            attrib_files = [attrib_file for attrib_file in attrib_files if "attribute" in attrib_file.keys()]
-
-            validaton_attributes = get_validation_attribs(validation_rules=validation_rules)
-
+            validaton_attributes = loc_set.value.get_validation_attributes(int_pars=None)
             idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
             idmap_df = pd.DataFrame(data=idmaps)
 
@@ -1172,7 +1124,7 @@ class MptConfigChecker:
                 columns=["internalParameters"],
             )
 
-            location_set_gdf = self.__create_location_set_df(set_name=set_name, attrib_files=attrib_files)
+            location_set_gdf = self.__create_location_set_df(loc_set)
 
             for idx, row in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
@@ -1182,9 +1134,8 @@ class MptConfigChecker:
                 else:
                     int_pars = []
 
-                attribs_required = get_validation_attribs(validation_rules=validation_rules, int_pars=int_pars)
+                attribs_required = loc_set.value.get_validation_attributes(int_pars=int_pars)
                 attribs_too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
-
                 attribs_too_many = [
                     attrib
                     for attrib in validaton_attributes
@@ -1199,7 +1150,7 @@ class MptConfigChecker:
                         valid_errors["internalParameters"] += [",".join(int_pars)]
                         valid_errors["fout_type"] += [key]
                         valid_errors["fout_beschrijving"] += [",".join(value)]
-                for validation_rule in validation_rules:
+                for validation_rule in loc_set.value.validation_rules:
                     errors = {"fout_type": None, "fout_beschrijving": []}
                     param = validation_rule["parameter"]
                     if any(re.match(pattern=param, string=int_par) for int_par in int_pars):
@@ -1331,31 +1282,24 @@ class MptConfigChecker:
             "xy_not_same": [],
         }
 
-        sets = {
-            "waterstandlocaties": "WATERSTANDLOCATIES",
-            "sublocaties": "KUNSTWERKEN",
-            "hoofdlocaties": "KUNSTWERKEN",
-        }
+        for loc_set in constants.LocationSetChoices:
+            if loc_set.skip_check_location_set_error:
+                continue
 
-        for set_name, section_name in sets.items():
-            location_set = self.location_sets[set_name]
-            location_gdf = location_set["gdf"]
-            csv_file = self.fews_config.location_sets[location_set["id"]]["csvFile"]["file"]
+            csv_file = loc_set.value.csvfile
+            location_gdf = loc_set.value.geo_df
             int_locs = []
 
             for idmap in ["IdOPVLWATER", "IdOPVLWATER_HYMOS"]:
-                for section in constants.IDMAP_SECTIONS[idmap][section_name]:
+                section_start_end_list = constants.IDMAP_SECTIONS[idmap][loc_set.value.idmap_section_name]
+                for section in section_start_end_list:
                     int_locs += [
                         item["internalLocation"]
                         for item in xml_to_dict(self.fews_config.IdMapFiles[idmap], **section)["idMap"]["map"]
                     ]
 
-            if set_name == "sublocaties":
+            if loc_set in (constants.LocationSetChoices.subloc, constants.LocationSetChoices.hoofdloc):
                 int_locs = [loc for loc in int_locs if loc[-1] != "0"]
-                par_gdf = self.location_sets["hoofdlocaties"]["gdf"]
-
-            elif set_name == "hoofdlocaties":
-                int_locs = [loc for loc in int_locs if loc[-1] == "0"]
 
             for idx, row in list(location_gdf.iterrows()):
                 error = {
@@ -1383,8 +1327,11 @@ class MptConfigChecker:
                 loc_name = row["LOC_NAME"]
                 caw_name = ""
 
-                if set_name == "sublocaties":
+                if loc_set == constants.LocationSetChoices.subloc:
 
+                    # TODO: moet dit wel hoofdlocaties zijn?
+                    #  par_gdf = self.location_sets["hoofdlocaties"]["gdf"]
+                    par_gdf = constants.LocationSetChoices.hoofdloc.value.geo_df
                     loc_functie = row["FUNCTIE"]
                     sub_type = row["TYPE"]
 
@@ -1413,41 +1360,40 @@ class MptConfigChecker:
                         ):
                             error["caw_name_inconsistent"] = True
 
-                    if row["HBOV"] not in self.location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
+                    if row["HBOV"] not in constants.LocationSetChoices.waterstandloc.value.geo_df["LOC_ID"].values:
                         error["missing_hbov"] = True
 
-                    if row["HBEN"] not in self.location_sets["waterstandlocaties"]["gdf"]["LOC_ID"].values:
+                    if row["HBEN"] not in constants.LocationSetChoices.waterstandloc.value.geo_df["LOC_ID"].values:
                         error["missing_hben"] = True
 
-                    if row["HBOVPS"] not in self.location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
+                    if row["HBOVPS"] not in constants.LocationSetChoices.psloc.value.geo_df["LOC_ID"].values:
                         error["missing_hbovps"] = True
 
-                    if row["HBENPS"] not in self.location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
+                    if row["HBENPS"] not in constants.LocationSetChoices.psloc.value.geo_df["LOC_ID"].values:
                         error["missing_hbenps"] = True
 
-                    if row["PAR_ID"] not in self.location_sets["hoofdlocaties"]["gdf"]["LOC_ID"].values:
+                    if row["PAR_ID"] not in constants.LocationSetChoices.hoofdloc.value.geo_df["LOC_ID"].values:
                         error["missing_hloc"] = True
 
                     else:
                         if not any(
                             [re.match(pattern=loc, string=loc_id) for loc in self.ignored_xy["internalLocation"]]
                         ):
-                            if (
-                                not par_gdf[par_gdf["LOC_ID"] == row["PAR_ID"]]["geometry"]
-                                .values[0]
-                                .equals(row["geometry"])
-                            ):
+                            par_gdf_row = par_gdf[par_gdf["LOC_ID"] == row["PAR_ID"]]
+                            par_gdf_xy = par_gdf_row["geometry"].values[0]
+                            row_xy = row["geometry"]
+                            if not par_gdf_xy.equals(row_xy):
                                 error["xy_not_same"] = True
 
                     if any(error.values()):
                         error["type"] = sub_type
                         error["functie"] = loc_functie
 
-                elif set_name == "hoofdlocaties":
+                if loc_set == constants.LocationSetChoices.hoofdloc:
                     if not re.match(pattern=f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*", string=loc_name):
                         error["name_error"] = True
 
-                elif set_name == "waterstandlocaties":
+                elif loc_set == constants.LocationSetChoices.waterstandloc:
                     if not re.match(pattern=f"[A-Z0-9 ]*_{caw_code}-w_.*", string=loc_name):
                         error["name_error"] = True
 
@@ -1460,7 +1406,7 @@ class MptConfigChecker:
                         ):
                             error["caw_name_inconsistent"] = True
 
-                    if row["PEILSCHAAL"] not in self.location_sets["peilschalen"]["gdf"]["LOC_ID"].values:
+                    if row["PEILSCHAAL"] not in constants.LocationSetChoices.psloc.value.geo_df["LOC_ID"].values:
                         error["missing_peilschaal"] = True
 
                     if loc_id not in int_locs:
@@ -1563,7 +1509,7 @@ class MptConfigChecker:
         # self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
         # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
-        self.results.add_sheet(epxcelsheet=self.check_intpar_expar_consistency())
+        self.results.add_sheet(excelsheet=self.check_intpar_expar_consistency())
         self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         self.add_mpt_histtags_new_to_results()
@@ -1575,8 +1521,6 @@ class MptConfigChecker:
         validate_expected_summary(new_summary=summary)
         self.add_input_files_to_results()
         self.add_paths_to_results()
-
-        # TODO: write all used paths to 1 excel sheet
 
         # write excel file with check results
         excel_writer = ExcelWriter(results=self.results)

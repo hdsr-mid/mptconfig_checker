@@ -258,12 +258,12 @@ class FewsConfig:
         #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
-            logger.info(f"no location_set found in fews_config for location_set_key: {location_set_key}")
+            logger.warning(f"no location_set found in fews_config for location_set_key: {location_set_key}")
             return
 
         file = location_set.get("csvFile", {}).get("file", None)
         if not file:
-            logger.info(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
+            logger.warning(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
             return
 
         file = Path(file)

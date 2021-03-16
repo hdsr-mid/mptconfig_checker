@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Dict
 from typing import List
 
+import geopandas as gpd
+import re
+
 
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
@@ -136,7 +139,7 @@ EXPECTED_SUMMARY2 = {
     "exPar missing": 346,
     "exLoc error": 5,
     "timeSeries error": 7,
-    "validation error": 321,
+    "validation error": 708,
     "par mismatch": 0,
     "locSet error": 335,
 }
@@ -271,32 +274,49 @@ EXPECTED_SUMMARY4 = {
     "locSet error": 335,
 }
 
-PathConstants = PathConstants2
-EXPECTED_SUMMARY = EXPECTED_SUMMARY2
+PathConstants = PathConstants4
+EXPECTED_SUMMARY = EXPECTED_SUMMARY4
 
 
 class LocationSet:
-    def __init__(self, name: str, fews_name: str, checker_property_name: str, validation_rules: List[Dict]):
+    def __init__(
+        self,
+        name: str,
+        fews_name: str,
+        checker_property_name: str,
+        idmap_section_name: str,
+        validation_rules: List[Dict],
+    ):
         self.name = name
         self.fews_name = fews_name
         self.checker_property_name = checker_property_name
+        self.idmap_section_name = idmap_section_name
         self.validation_rules = validation_rules
         self.fews_config = FewsConfig(path=PathConstants.fews_config.value.path)
-        self._locations = None
+        self._data = None
         self._csvfile_meta = None
         self._attrib_files = None
+        self._fews_location_set = None
 
     @property
-    def locations(self):
-        if self._locations is not None:
-            return self._locations
-        location_set = self.fews_config.location_sets[self.fews_name]
-        assert location_set["csvFile"], f"location_set {self.name} must have csvFile"
-        self._locations = self.fews_config.get_locations(location_set_key=self.fews_name)
-        return self._locations
+    def geo_df(self) -> gpd.GeoDataFrame:
+        if self._data is not None:
+            return self._data
+        self._data = self.fews_config.get_locations(location_set_key=self.fews_name)
+        return self._data
 
     @property
-    def csvfile_meta(self):
+    def csvfile_meta(self) -> Dict[str, str]:
+        """
+        e.g. {
+                'file': 'oppvlwater_hoofdloc',
+                'geoDatum': 'Rijks Driehoekstelsel',
+                'id': '%LOC_ID%',
+                'name': '%LOC_NAME%',
+                'description': 'Hoofdlocaties oppervlaktewater',
+                etc..
+            }
+        """
         if self._csvfile_meta is not None:
             return self._csvfile_meta
         locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
@@ -305,6 +325,11 @@ class LocationSet:
         assert len(csvfile_meta) == 1
         self._csvfile_meta = csvfile_meta[0]["csvFile"]
         return self._csvfile_meta
+
+    @property
+    def csvfile(self) -> str:
+        """ e.g. 'oppvlwater_hoofdloc' """
+        return self.csvfile_meta["file"]
 
     @property
     def attrib_files(self):
@@ -316,11 +341,43 @@ class LocationSet:
         self._attrib_files = [attrib_file for attrib_file in attribute_files if "attribute" in attrib_file.keys()]
         return self._attrib_files
 
+    def get_validation_attributes(self, int_pars: List[str] = None) -> List[str]:
+        """Get attributes (as a list) from validation rules (nested dict).
+
+        Example:
+            validation_rules = [
+                {
+                    'parameter': 'H.R.',
+                    'extreme_values': {'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'}
+                },
+                {
+                    'parameter': 'H2.R.',
+                    'extreme_values': {'hmax': 'HR2_HMAX', 'hmin': 'HR2_HMIN'}
+                },
+                    etc..
+                ]
+
+            get_validation_attributes(int_pars=None) returns: ['HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN',]
+        """
+        if int_pars is None:
+            int_pars = [rule["parameter"] for rule in self.validation_rules]
+        result = []
+        for rule in self.validation_rules:
+            if not any(re.match(pattern=rule["parameter"], string=int_par) for int_par in int_pars):
+                continue
+            for attribute in rule["extreme_values"].values():
+                if isinstance(attribute, list):
+                    result += [value["attribute"] for value in attribute]
+                else:
+                    result += [attribute]
+        return result
+
 
 hoofdlocationset = LocationSet(
     name="hoofdlocaties",
     fews_name="OPVLWATER_HOOFDLOC",
     checker_property_name="hoofdloc",
+    idmap_section_name="KUNSTWERKEN",
     validation_rules=[
         {"parameter": "H.S.", "extreme_values": {"hmax": "HS1_HMAX", "hmin": "HS1_HMIN"}},
         {"parameter": "H2.S.", "extreme_values": {"hmax": "HS2_HMAX", "hmin": "HS2_HMIN"}},
@@ -332,6 +389,7 @@ sublocationset = LocationSet(
     name="sublocaties",
     fews_name="OPVLWATER_SUBLOC",
     checker_property_name="subloc",
+    idmap_section_name="KUNSTWERKEN",
     validation_rules=[
         {"parameter": "H.R.", "extreme_values": {"hmax": "HR1_HMAX", "hmin": "HR1_HMIN"}},
         {"parameter": "H2.R.", "extreme_values": {"hmax": "HR2_HMAX", "hmin": "HR2_HMIN"}},
@@ -360,10 +418,12 @@ sublocationset = LocationSet(
     ],
 )
 
+
 waterstandlocationset = LocationSet(
     name="waterstandlocaties",
     fews_name="OPVLWATER_WATERSTANDEN_AUTO",
     checker_property_name="waterstandloc",
+    idmap_section_name="WATERSTANDLOCATIES",
     validation_rules=[
         {
             "parameter": "H.G.",
@@ -390,6 +450,7 @@ mswlocationset = LocationSet(
     name="mswlocaties",
     fews_name="MSW_STATIONS",
     checker_property_name="mswloc",
+    idmap_section_name="",
     validation_rules=[],
 )
 
@@ -397,17 +458,21 @@ pslocationset = LocationSet(
     name="peilschalen",
     fews_name="OPVLWATER_PEILSCHALEN",
     checker_property_name="",  # TODO
+    idmap_section_name="",
     validation_rules=[],
 )
 
 
 class LocationSetChoices(Enum):
-    #
     hoofdloc = hoofdlocationset
     subloc = sublocationset
     waterstandloc = waterstandlocationset
     mswloc = mswlocationset
     psloc = pslocationset
+
+    @property
+    def skip_check_location_set_error(self) -> bool:
+        return self not in {self.hoofdloc, self.subloc, self.waterstandloc}
 
 
 IDMAP_FILES = [
@@ -496,60 +561,6 @@ PARAMETER_MAPPING = [
     {"internal": "WR.", "external": "WR"},
     {"internal": "WS.", "external": "WS"},
 ]
-
-VALIDATION_RULES = {
-    "sublocaties": [
-        {"parameter": "H.R.", "extreme_values": {"hmax": "HR1_HMAX", "hmin": "HR1_HMIN"}},
-        {"parameter": "H2.R.", "extreme_values": {"hmax": "HR2_HMAX", "hmin": "HR2_HMIN"}},
-        {"parameter": "H3.R.", "extreme_values": {"hmax": "HR3_HMAX", "hmin": "HR3_HMIN"}},
-        {
-            "parameter": "Q.B.",
-            "type": "debietmeter",
-            "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
-        },
-        {
-            "parameter": "Q.G.",
-            "type": "debietmeter",
-            "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
-        },
-        {"parameter": "F.", "extreme_values": {"hmax": "FRQ_HMAX", "hmin": "FRQ_HMIN"}},
-        {"parameter": "Hh.", "extreme_values": {"hmax": "HEF_HMAX", "hmin": "HEF_HMIN"}},
-        {
-            "parameter": "POS.",
-            "extreme_values": {"hmax": "PERC_HMAX", "smax": "PERC_SMAX", "smin": "PERC_SMIN", "hmin": "PERC_HMIN"},
-        },
-        {
-            "parameter": "POS2.",
-            "extreme_values": {"hmax": "PERC2_HMAX", "smax": "PERC2_SMAX", "smin": "PERC2_SMIN", "hmin": "PERC2_HMIN"},
-        },
-        {"parameter": "TT.", "extreme_values": {"hmax": "TT_HMAX", "hmin": "TT_HMIN"}},
-    ],
-    "hoofdlocaties": [
-        {"parameter": "H.S.", "extreme_values": {"hmax": "HS1_HMAX", "hmin": "HS1_HMIN"}},
-        {"parameter": "H2.S.", "extreme_values": {"hmax": "HS2_HMAX", "hmin": "HS2_HMIN"}},
-        {"parameter": "H3.S.", "extreme_values": {"hmax": "HS3_HMAX", "hmin": "HS3_HMIN"}},
-    ],
-    "waterstandlocaties": [
-        {
-            "parameter": "H.G.",
-            "extreme_values": {
-                "hmax": "HARDMAX",
-                "smax": [
-                    {"period": 1, "attribute": "WIN_SMAX"},
-                    {"period": 2, "attribute": "OV_SMAX"},
-                    {"period": 3, "attribute": "ZOM_SMAX"},
-                ],
-                "smin": [
-                    {"period": 1, "attribute": "WIN_SMIN"},
-                    {"period": 2, "attribute": "OV_SMIN"},
-                    {"period": 3, "attribute": "ZOM_SMIN"},
-                ],
-                "hmin": "HARDMIN",
-            },
-        }
-    ],
-}
-
 
 def check_constants():
     # check 1: BASE_DIR's name
