@@ -96,7 +96,7 @@ class FewsConfig:
         """Singleton: ensure only one instance of FewsConfig throughout whole mptconfig_checker"""
         if cls._instance:
             already_used_path = cls._instance[0]
-            logger.warning(f"FewsConfig already instantiated with {already_used_path}. Returning that instance now!")
+            logger.info(f"Singleton FewsConfig already instantiated with {already_used_path}. Returning that one now")
         else:
             new_instance = super().__new__(cls)
             cls._instance = (path, new_instance)

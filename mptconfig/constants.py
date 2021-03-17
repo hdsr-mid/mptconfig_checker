@@ -269,7 +269,7 @@ EXPECTED_SUMMARY4 = {
     "exPar missing": 346,
     "exLoc error": 5,
     "timeSeries error": 7,
-    "validation error": 955,
+    "validation error": 1501,  # dit was 955 met daniels subloc debietmeter skip code (2 regels), scheelt 546 subloc errors  # noqa
     "par mismatch": 0,
     "locSet error": 335,
 }
@@ -363,6 +363,15 @@ class LocationSet:
             int_pars = [rule["parameter"] for rule in self.validation_rules]
         result = []
         for rule in self.validation_rules:
+            # TODO: als ik deze twee regels toevoeg, dan krijg ik zelfde output als Daniel...
+            #  if "type" in rule.keys():  # <-- alleen voor sublocaties
+            #      continue
+            #  zie hieronder originele 'get_validation_attributes_daniel_tollenaar':
+
+            # TODO: @Roger waarom slaat Daniel validatie attributes voor debietmeter "Q.G." en "Q.B." over?
+            #  met get_series_startenddate_CAW_summary_total_sorted_20201013.csv + WIS_6.0_ONTWIKKEL_202002_RK:
+            #   wel  overslaan debietmeter Q.G. en Q.B = 0 validatie errors voor sublocaties
+            #   niet overslaan debietmeter Q.G. en Q.B = 634 validatie errors voor sublocaties
             if not any(re.match(pattern=rule["parameter"], string=int_par) for int_par in int_pars):
                 continue
             for attribute in rule["extreme_values"].values():
@@ -371,6 +380,29 @@ class LocationSet:
                 else:
                     result += [attribute]
         return result
+
+    # TODO: remove this old code from daniel tollenaar
+    # def get_validation_attributes_daniel_tollenaar(self, validation_rules, int_pars=None, loc_type=None):
+    #     """Get attributes from validationRules."""
+    #     if int_pars is None:
+    #         int_pars = [rule["parameter"] for rule in validation_rules]
+    #     result = []
+    #     for rule in validation_rules:
+    #         if "type" in rule.keys():
+    #             if rule["type"] == loc_type:
+    #                 if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
+    #                     for key, attribute in rule["extreme_values"].items():
+    #                         if isinstance(attribute, list):
+    #                             result += [value["attribute"] for value in attribute]
+    #                         else:
+    #                             result += [attribute]
+    #         elif any(re.match(rule["parameter"], int_par) for int_par in int_pars):
+    #             for key, attribute in rule["extreme_values"].items():
+    #                 if isinstance(attribute, list):
+    #                     result += [value["attribute"] for value in attribute]
+    #                 else:
+    #                     result += [attribute]
+    #     return result
 
 
 hoofdlocationset = LocationSet(
@@ -464,8 +496,8 @@ pslocationset = LocationSet(
 
 
 class LocationSetChoices(Enum):
-    hoofdloc = hoofdlocationset
     subloc = sublocationset
+    hoofdloc = hoofdlocationset
     waterstandloc = waterstandlocationset
     mswloc = mswlocationset
     psloc = pslocationset
@@ -561,6 +593,7 @@ PARAMETER_MAPPING = [
     {"internal": "WR.", "external": "WR"},
     {"internal": "WS.", "external": "WS"},
 ]
+
 
 def check_constants():
     # check 1: BASE_DIR's name

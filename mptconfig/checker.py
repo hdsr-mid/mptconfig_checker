@@ -931,6 +931,11 @@ class MptConfigChecker:
                 try:
                     end_time = pd.to_datetime(date_str)
                 except pd.errors.OutOfBoundsDatetime as err:
+                    # TODO: 32101230 is een fictieve datum voor onbemeten locaties
+                    #  pandas kan dat niet converteren naar datum, want:
+                    #  Timestamp.max = Timestamp('2262-04-11 23:47:16.854775807')
+                    #  maw: wellicht niet 32101230 gebruiken, maar 22220101
+                    #  sowieso ergens definieren wat 19000101, 21000101, en 22220101 zijn
                     logger.warning(f"subloc contains out of bound date '{date_str}' cannot be converted, err={err}")
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
@@ -1052,7 +1057,6 @@ class MptConfigChecker:
 
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent."""
-        raise AssertionError(f"modified={'validation error': (955, 1501)}")
         # Roger 'algemeen validatie csvs'
         # Inloc in validatie-CSV’s
         # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs
@@ -1110,10 +1114,13 @@ class MptConfigChecker:
             "fout_beschrijving": [],
         }
 
+        # TODO: remove this
+        # nr_valid_errors = 0
+
         for loc_set in constants.LocationSetChoices:
             if not loc_set.value.validation_rules:
                 continue
-            validaton_attributes = loc_set.value.get_validation_attributes(int_pars=None)
+            validation_attributes = loc_set.value.get_validation_attributes(int_pars=None)
             idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
             idmap_df = pd.DataFrame(data=idmaps)
 
@@ -1125,6 +1132,11 @@ class MptConfigChecker:
             )
 
             location_set_gdf = self.__create_location_set_df(loc_set)
+
+            # TODO: remove this
+            # print(f"{loc_set.name}")
+            # print(f"nr_rows_location_set_gdf={len(location_set_gdf)}")
+            # print(f"nr_cols_location_set_gdf={len(location_set_gdf.columns)}")
 
             for idx, row in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
@@ -1138,9 +1150,13 @@ class MptConfigChecker:
                 attribs_too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
                 attribs_too_many = [
                     attrib
-                    for attrib in validaton_attributes
+                    for attrib in validation_attributes
                     if (attrib not in attribs_required) and (attrib in row.keys())
                 ]
+
+                # TODO: remove this
+                # if loc_set == constants.LocationSetChoices.subloc:
+                #     print(idx, len(attribs_required), len(attribs_too_few), len(attribs_too_many))
 
                 for key, value in {"missend": attribs_too_few, "overbodig": attribs_too_many}.items():
                     if len(value) > 0:
@@ -1199,6 +1215,57 @@ class MptConfigChecker:
                     valid_errors["fout_type"] += [errors["fout_type"]] * len(errors["fout_beschrijving"])
 
                     valid_errors["fout_beschrijving"] += errors["fout_beschrijving"]
+
+            # TODO: remove this
+            # valid_errors_diff = len(valid_errors["fout_type"]) - nr_valid_errors
+            # print(f"nr_valid_errors={valid_errors_diff}")
+            # nr_valid_errors = len(valid_errors["fout_type"])
+
+        # TODO: remove this
+        # ORIG by DT
+        # sublocaties
+        # nr_rows_location_set_gdf=868
+        # nr_cols_location_set_gdf=112
+        # nr_valid_errors=0
+        # hoofdlocaties
+        # nr_rows_location_set_gdf=357
+        # nr_cols_location_set_gdf=23
+        # nr_valid_errors=0
+        # waterstandlocaties
+        # nr_rows_location_set_gdf=864
+        # nr_cols_location_set_gdf=68
+        # nr_valid_errors=1031
+        # 0+0+1031=1031 zonder double = 955 (totaal aantal validation errors)
+
+        # NEW by RK (subloc heeft +634 fouten)
+        # subloc
+        # nr_rows_location_set_gdf=868
+        # nr_cols_location_set_gdf=112
+        # nr_valid_errors=634
+        # hoofdloc
+        # nr_rows_location_set_gdf=357
+        # nr_cols_location_set_gdf=23
+        # nr_valid_errors=0
+        # waterstandloc
+        # nr_rows_location_set_gdf=864
+        # nr_cols_location_set_gdf=68
+        # nr_valid_errors=1031
+        # 634+0+1031=1665 zonder double = 1501 (totaal aantal validation errors)
+
+        # NEW by RK (gelijk aan DT) --> met die rare 2 regels code in get_validation_attributes
+        # subloc
+        # nr_rows_location_set_gdf=868
+        # nr_cols_location_set_gdf=112
+        # nr_valid_errors=0
+        # hoofdloc
+        # nr_rows_location_set_gdf=357
+        # nr_cols_location_set_gdf=23
+        # nr_valid_errors=0
+        # waterstandloc
+        # nr_rows_location_set_gdf=864
+        # nr_cols_location_set_gdf=68
+        # nr_valid_errors=1031
+        # 0+0+1031=1031 zonder double = 955 (totaal aantal validation errors)
 
         result_df = pd.DataFrame(data=valid_errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
@@ -1431,7 +1498,7 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def add_input_files_to_results(self):
+    def add_input_files_to_results(self) -> None:
         """each input files is a excel sheet with type is input, as opposeded to check results results which are
         excel sheets with type is output."""
         self.results.add_sheet(
@@ -1467,7 +1534,7 @@ class MptConfigChecker:
             )
         )
 
-    def add_paths_to_results(self):
+    def add_paths_to_results(self) -> None:
         columns = ["name", "path", "description"]
         data = [
             (path_constant.name, path_constant.value.path.as_posix(), path_constant.value.description)
@@ -1478,6 +1545,18 @@ class MptConfigChecker:
             name="used_paths",
             df=path_df,
             description="beschrijving van en absoluut pad naar gebruikte bestanden",
+            sheet_type=ExcelSheetTypeChoices.output_no_check,
+        )
+        self.results.add_sheet(excelsheet=excelsheet)
+
+    def add_tab_color_description_to_results(self):
+        data = ExcelSheetTypeChoices.tab_color_description()
+        columns = ["description", "color"]
+        description_df = pd.DataFrame(data=data, columns=columns)
+        excelsheet = ExcelSheet(
+            name="tab_colors",
+            df=description_df,
+            description="beschrijving van tabblad kleuren",
             sheet_type=ExcelSheetTypeChoices.output_no_check,
         )
         self.results.add_sheet(excelsheet=excelsheet)
@@ -1493,34 +1572,36 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        # self.results.add_sheet(excelsheet=self.check_missing_histtags())
-        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        # self.results.add_sheet(excelsheet=self.check_missing_pars())
-        # self.results.add_sheet(excelsheet=self.check_hloc_consistency())
-        #
-        # # check returns two results
-        # sheet1, sheet2 = self.check_expar_errors_intloc_missing()
-        # self.results.add_sheet(excelsheet=sheet1)
-        # self.results.add_sheet(excelsheet=sheet2)
-        #
-        # self.results.add_sheet(excelsheet=self.check_expar_missing())
-        # self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
-        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        self.results.add_sheet(excelsheet=self.check_missing_histtags())
+        self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        self.results.add_sheet(excelsheet=self.check_missing_pars())
+        self.results.add_sheet(excelsheet=self.check_hloc_consistency())
+
+        # check returns two results
+        sheet1, sheet2 = self.check_expar_errors_intloc_missing()
+        self.results.add_sheet(excelsheet=sheet1)
+        self.results.add_sheet(excelsheet=sheet2)
+
+        self.results.add_sheet(excelsheet=self.check_expar_missing())
+        self.results.add_sheet(excelsheet=self.check_exloc_intloc_consistency())
+        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
         self.results.add_sheet(excelsheet=self.check_intpar_expar_consistency())
         self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
-        self.add_mpt_histtags_new_to_results()
-
-        # # TODO: @renier: remove this integration test
+        # TODO: @renier: remove this integration test
         summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
         from mptconfig.tmp import validate_expected_summary
 
         validate_expected_summary(new_summary=summary)
-        self.add_input_files_to_results()
+
+        # add output_no_check sheets
+        self.add_tab_color_description_to_results()
         self.add_paths_to_results()
+        self.add_input_files_to_results()
+        self.add_mpt_histtags_new_to_results()
 
         # write excel file with check results
         excel_writer = ExcelWriter(results=self.results)
