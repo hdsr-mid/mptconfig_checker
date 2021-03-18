@@ -22,7 +22,7 @@ def dict_compare(d1: Dict, d2: Dict):
 
 
 def validate_expected_summary(new_summary: Dict) -> None:
-    added, removed, modified, same = dict_compare(d1=constants.EXPECTED_SUMMARY, d2=new_summary)
+    added, removed, modified, same = dict_compare(d1=new_summary, d2=constants.EXPECTED_SUMMARY)
 
     if len(same) == len(constants.EXPECTED_SUMMARY):
         logger.info("nice, summary is as expected")

@@ -35,11 +35,11 @@ class PathConstants1(Enum):
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-    ignored_exloc = PathNamedTuple(
+    ignored_ex_loc = PathNamedTuple(
         is_file=True,
         should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
-        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+        path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage ex_loc error",
     )
     ignored_histtag = PathNamedTuple(
         is_file=True,
@@ -51,32 +51,32 @@ class PathConstants1(Enum):
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+        description="Locations die worden overgeslagen bij rapportage time_series error",
     )
     ignored_xy = PathNamedTuple(
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+        description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
     )
 
 
 EXPECTED_SUMMARY1 = {
     "idmap section error": 36,
-    "ignored histTags match": 0,
-    "histTags noMatch": 56,
+    "ignored histtags match": 0,
+    "histtags nomatch": 56,
     "idmaps double": 0,
     "mpt_histtags_new": 1770,
     "pars missing": 1,
-    "hloc error": 0,
-    "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "intLoc missing": 2,
-    "exPar missing": 338,
-    "exLoc error": 8,
-    "timeSeries error": 62,
-    "validation error": 273,
+    "h_loc error": 0,
+    "ex_par error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "int_loc missing": 2,
+    "ex_par missing": 338,
+    "ex_loc error": 8,
+    "time_series error": 62,
+    "validation error": 692,  # dit was 273 met daniels subloc debietmeter skip code (2 regels)
     "par mismatch": 0,
-    "locSet error": 319,
+    "loc_set error": 319,
 }
 
 
@@ -100,11 +100,11 @@ class PathConstants2(Enum):
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-    ignored_exloc = PathNamedTuple(
+    ignored_ex_loc = PathNamedTuple(
         is_file=True,
         should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
-        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+        path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage ex_loc error",
     )
     ignored_histtag = PathNamedTuple(
         is_file=True,
@@ -116,32 +116,32 @@ class PathConstants2(Enum):
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+        description="Locations die worden overgeslagen bij rapportage time_series error",
     )
     ignored_xy = PathNamedTuple(
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+        description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
     )
 
 
 EXPECTED_SUMMARY2 = {
     "idmap section error": 34,
-    "ignored histTags match": 1,
-    "histTags noMatch": 15,
+    "ignored histtags match": 1,
+    "histtags nomatch": 15,
     "idmaps double": 0,
     "mpt_histtags_new": 1802,
     "pars missing": 0,
-    "hloc error": 18,
-    "exPar error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "intLoc missing": 0,
-    "exPar missing": 346,
-    "exLoc error": 5,
-    "timeSeries error": 7,
+    "h_loc error": 18,
+    "ex_par error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "int_loc missing": 0,
+    "ex_par missing": 346,
+    "ex_loc error": 5,
+    "time_series error": 7,
     "validation error": 708,
     "par mismatch": 0,
-    "locSet error": 335,
+    "loc_set error": 335,
 }
 
 
@@ -165,11 +165,11 @@ class PathConstants3(Enum):
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-    ignored_exloc = PathNamedTuple(
+    ignored_ex_loc = PathNamedTuple(
         is_file=True,
         should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
-        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+        path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage ex_loc error",
     )
     ignored_histtag = PathNamedTuple(
         is_file=True,
@@ -181,32 +181,32 @@ class PathConstants3(Enum):
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+        description="Locations die worden overgeslagen bij rapportage time_series error",
     )
     ignored_xy = PathNamedTuple(
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+        description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
     )
 
 
 EXPECTED_SUMMARY3 = {
     "idmap section error": 36,
-    "ignored histTags match": 0,
-    "histTags noMatch": 69,
+    "ignored histtags match": 0,
+    "histtags nomatch": 69,
     "idmaps double": 0,
     "mpt_histtags_new": 1770,
     "pars missing": 1,
-    "hloc error": 0,
-    "exPar error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "intLoc missing": 2,
-    "exPar missing": 338,
-    "exLoc error": 8,
-    "timeSeries error": 62,
-    "validation error": 273,
+    "h_loc error": 0,
+    "ex_par error": 91,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "int_loc missing": 2,
+    "ex_par missing": 338,
+    "ex_loc error": 8,
+    "time_series error": 62,
+    "validation error": 692,  # dit was 273 met daniels subloc debietmeter skip code (2 regels)
     "par mismatch": 0,
-    "locSet error": 319,
+    "loc_set error": 319,
 }
 
 
@@ -230,11 +230,11 @@ class PathConstants4(Enum):
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-    ignored_exloc = PathNamedTuple(
+    ignored_ex_loc = PathNamedTuple(
         is_file=True,
         should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_exloc.csv",
-        description="externalLocations die worden overgeslagen bij rapportage exLoc error",
+        path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
+        description="externalLocations die worden overgeslagen bij rapportage ex loc error",
     )
     ignored_histtag = PathNamedTuple(
         is_file=True,
@@ -246,36 +246,36 @@ class PathConstants4(Enum):
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-        description="Locations die worden overgeslagen bij rapportage timeSeries error",
+        description="Locations die worden overgeslagen bij rapportage time_series error",
     )
     ignored_xy = PathNamedTuple(
         is_file=True,
         should_exist=True,
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-        description="CAW-locaties waarbij controle op consistente xy locatie in locSet error wordt overgeslagen",
+        description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
     )
 
 
 EXPECTED_SUMMARY4 = {
     "idmap section error": 34,
-    "ignored histTags match": 1,
-    "histTags noMatch": 15,
+    "ignored histtags match": 1,
+    "histtags nomatch": 15,
     "idmaps double": 0,
     "mpt_histtags_new": 1802,
     "pars missing": 0,
-    "hloc error": 18,
-    "exPar error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "intLoc missing": 0,
-    "exPar missing": 346,
-    "exLoc error": 5,
-    "timeSeries error": 7,
+    "h_loc error": 18,
+    "ex_par error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
+    "int_loc missing": 0,
+    "ex_par missing": 346,
+    "ex_loc error": 5,
+    "time_series error": 7,
     "validation error": 1501,  # dit was 955 met daniels subloc debietmeter skip code (2 regels), scheelt 546 subloc errors  # noqa
     "par mismatch": 0,
-    "locSet error": 335,
+    "loc_set error": 335,
 }
 
-PathConstants = PathConstants4
-EXPECTED_SUMMARY = EXPECTED_SUMMARY4
+PathConstants = PathConstants3
+EXPECTED_SUMMARY = EXPECTED_SUMMARY3
 
 
 class LocationSet:
@@ -321,7 +321,7 @@ class LocationSet:
             return self._csvfile_meta
         locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
         location_sets = locations_dict["locationSets"]["locationSet"]
-        csvfile_meta = [locset for locset in location_sets if locset["id"] == self.fews_name]
+        csvfile_meta = [loc_set for loc_set in location_sets if loc_set["id"] == self.fews_name]
         assert len(csvfile_meta) == 1
         self._csvfile_meta = csvfile_meta[0]["csvFile"]
         return self._csvfile_meta
@@ -338,7 +338,10 @@ class LocationSet:
         attribute_files = self.csvfile_meta["attributeFile"]
         if not isinstance(attribute_files, list):
             attribute_files = [attribute_files]
-        self._attrib_files = [attrib_file for attrib_file in attribute_files if "attribute" in attrib_file.keys()]
+        assert all(
+            [isinstance(attrib_file, dict) for attrib_file in attribute_files]
+        ), "attribute_files must be list with dicts"
+        self._attrib_files = [attrib_file for attrib_file in attribute_files if "attribute" in attrib_file]
         return self._attrib_files
 
     def get_validation_attributes(self, int_pars: List[str] = None) -> List[str]:
@@ -553,7 +556,7 @@ EXTERNAL_PARAMETERS_ALLOWED = {
     "debietmeter": ["Q.$"],
     "vispassage": ["ES.$", "SP.$", "SS.$", "Q.$"],
     "krooshek": ["HB.$", "HO.$"],
-    "waterstand": ["HB.$", "HO.$", "H$"],  # TODO: @Roger: moet deze laatste niet H.$ zijn ?!?
+    "waterstand": ["HB.$", "HO.$", "H.$"],
 }
 
 PARAMETER_MAPPING = [
@@ -607,7 +610,7 @@ def check_constants():
         "result_xlsx",
         "fews_config",
         "histtags_csv",
-        "ignored_exloc",
+        "ignored_ex_loc",
         "ignored_histtag",
         "ignored_ts800",
         "ignored_xy",

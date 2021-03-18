@@ -21,17 +21,17 @@ def flatten_nested_list(_list: List[List]) -> List:
 def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
     """Add FEWS-locationIds to histtags in df.apply() method.
     Returns either np.NaN (= float type) or a list with strings (few_locs)."""
-    exloc, expar = row["serie"].split(sep="_", maxsplit=1)
+    ex_loc, ex_par = row["serie"].split(sep="_", maxsplit=1)
     fews_locs = [
         col["internalLocation"]
         for col in idmap
-        if col["externalLocation"] == exloc and col["externalParameter"] == expar
+        if col["externalLocation"] == ex_loc and col["externalParameter"] == ex_par
     ]
     # !! avoid <return fews_locs if fews_locs else [""]> !!
     return fews_locs if fews_locs else np.NaN
 
 
-def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
+def update_h_locs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
     if not bool(np.isin(row["LOC_ID"], h_locs)):
         return row["STARTDATE"], row["ENDDATE"]
