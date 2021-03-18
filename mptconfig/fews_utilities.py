@@ -86,20 +86,6 @@ def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str 
     return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
 
 
-class EnsureOneFewsConfig:
-    _instance_with_path = None
-
-    def __new__(cls, *args, **kwargs):
-        assert kwargs["path"]
-        if cls._instance_with_path:
-            # Please instantiate FewsConfig one time
-            logger.warning(f"watch out! FewsConfig was already instanciate with path {cls._instance_with_path}")
-        else:
-            cls._instance_with_path = kwargs["path"]
-            a = super(EnsureOneFewsConfig, cls).__new__(cls, **kwargs)
-        return a
-
-
 class FewsConfig:
 
     _instance = None
@@ -107,13 +93,14 @@ class FewsConfig:
     geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
 
     def __new__(cls, path: Path):
+        """Singleton: ensure only one instance of FewsConfig throughout whole mptconfig_checker"""
         if cls._instance:
-            logger.warning(
-                f"watch out! FewsConfig was already instantiated with path {path}. Returning that instance now!"
-            )
+            already_used_path = cls._instance[0]
+            logger.info(f"Singleton FewsConfig already instantiated with {already_used_path}. Returning that one now")
         else:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+            new_instance = super().__new__(cls)
+            cls._instance = (path, new_instance)
+        return cls._instance[1]
 
     def __init__(self, path: Path):
         self.path = path
@@ -264,19 +251,19 @@ class FewsConfig:
         # from initial creator (Daniel Tollenaar):
         # 1. Ik kan nu alleen locationsets direct uit CSV-files lezen, maar een locatieset kan ook
         #    onderdeel zijn van een subset (zie https://publicwiki.deltares.nl/display/FEWSDOC/02+LocationSets).
-        #    Dat begrijpt fews utilities nog niet, maar is dus niet relevant voor .
+        #    Dat begrijpt fews utilities nog niet, maar dat is dus nu niet relevant voor jullie.
         # 2. In eerste instantie had ik de ambitie om vanuit de FEWS-config te snappen wáár
         #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
         #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.
         #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
-            logger.info(f"no location_set found in fews_config for location_set_key: {location_set_key}")
+            logger.warning(f"no location_set found in fews_config for location_set_key: {location_set_key}")
             return
 
         file = location_set.get("csvFile", {}).get("file", None)
         if not file:
-            logger.info(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
+            logger.warning(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
             return
 
         file = Path(file)
