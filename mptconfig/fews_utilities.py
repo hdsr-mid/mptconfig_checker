@@ -88,19 +88,7 @@ def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str 
 
 class FewsConfig:
 
-    _instance = None
-
     geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
-
-    def __new__(cls, path: Path):
-        """Singleton: ensure only one instance of FewsConfig throughout whole mptconfig_checker"""
-        if cls._instance:
-            already_used_path = cls._instance[0]
-            logger.info(f"Singleton FewsConfig already instantiated with {already_used_path}. Returning that one now")
-        else:
-            new_instance = super().__new__(cls)
-            cls._instance = (path, new_instance)
-        return cls._instance[1]
 
     def __init__(self, path: Path):
         self.path = path
@@ -284,9 +272,3 @@ class FewsConfig:
         crs = self.geo_datum.get(geo_datum_found, None)
         gdf.crs = crs if crs else None
         return gdf
-
-
-def test_ensure_fews_config_singleton():
-    a = FewsConfig(path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config")
-    b = FewsConfig(path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config")
-    assert a.path == b.path

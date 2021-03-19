@@ -274,8 +274,8 @@ EXPECTED_SUMMARY4 = {
     "loc_set error": 335,
 }
 
-PathConstants = PathConstants3
-EXPECTED_SUMMARY = EXPECTED_SUMMARY3
+PathConstants = PathConstants4
+EXPECTED_SUMMARY = EXPECTED_SUMMARY4
 
 
 class LocationSet:
@@ -598,7 +598,7 @@ PARAMETER_MAPPING = [
 ]
 
 
-def check_constants():
+def check_constants_paths():
     # check 1: BASE_DIR's name
     assert (
         BASE_DIR.name == "mptconfig_checker"
@@ -636,4 +636,4 @@ def check_constants():
             assert path_namedtuple.value.path.is_dir(), f"dir should exists {path_namedtuple.value.path}"
 
 
-check_constants()
+check_constants_paths()
