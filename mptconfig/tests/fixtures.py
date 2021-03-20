@@ -1,6 +1,5 @@
 from enum import Enum
 from mptconfig.constants import BASE_DIR
-from mptconfig.constants import check_constants_paths
 from mptconfig.constants import PathConstants
 from mptconfig.constants import PathNamedTuple
 from pathlib import Path
@@ -17,7 +16,7 @@ TEST_DATA_DIR = BASE_DIR / "test" / "data"
 ORIGINAL_PATH_CONSTANTS = PathConstants
 
 
-@pytest.fixture(autouse=False)
+@pytest.fixture(autouse=True)
 def patched_path_constants_1():
     """Use context manager to patch constants.PathConstants. We patch since constants.PathConstants may
     change in the future while the test must use fixed paths (same test input every test run."""
@@ -80,7 +79,7 @@ def patched_path_constants_1():
         yield
 
 
-@pytest.fixture(autouse=False)
+@pytest.fixture(autouse=True)
 def patched_path_constants_2():
     """Use context manager to patch constants.PathConstants. We patch since constants.PathConstants may
     change in the future while the test must use fixed paths (same test input every test run."""
@@ -136,35 +135,3 @@ def patched_path_constants_2():
     logger.debug(f"patching {target}")
     with patch(target=target, new=PatchedPathConstants):
         yield
-
-
-def test_ensure_patched_path_constants_1_works(patched_path_constants_1):
-    original_fews_config_path = ORIGINAL_PATH_CONSTANTS.fews_config.value.path
-    patched_fews_config_path = PathConstants.fews_config.value.path
-    assert isinstance(original_fews_config_path, Path) and isinstance(patched_fews_config_path, Path)
-    assert original_fews_config_path != patched_fews_config_path
-    assert (
-        patched_fews_config_path == Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
-    )
-    assert (
-        PathConstants.histtags_csv.value.path
-        == TEST_DATA_DIR / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv"
-    )
-    # check all patched constant paths
-    check_constants_paths()
-
-
-def test_ensure_patched_path_constants_2_works(patched_path_constants_2):
-    original_fews_config_path = ORIGINAL_PATH_CONSTANTS.fews_config.value.path
-    patched_fews_config_path = PathConstants.fews_config.value.path
-    assert isinstance(original_fews_config_path, Path) and isinstance(patched_fews_config_path, Path)
-    assert original_fews_config_path != patched_fews_config_path
-    assert (
-        patched_fews_config_path == Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
-    )
-    assert (
-        PathConstants.histtags_csv.value.path
-        == TEST_DATA_DIR / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv"
-    )
-    # check all patched constant paths
-    check_constants_paths()

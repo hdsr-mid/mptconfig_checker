@@ -3,6 +3,7 @@ from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
+from mptconfig.tests.utils import ensure_dataframes_equal
 
 import pandas as pd  # noqa pandas comes with geopandas
 
@@ -76,10 +77,7 @@ def test_check_missing_histtags_1(patched_path_constants_1):
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
     assert excelsheet.nr_rows == 15
-    # ensure ordered dfs (index and column)
-    excelsheet.df = excelsheet.df.sort_index().sort_index(axis=1)
-    expected_df = expected_df_1_and_2.sort_index().sort_index(axis=1)
-    assert excelsheet.df.equals(expected_df)
+    ensure_dataframes_equal(expected_df=expected_df_1_and_2, test_df=excelsheet.df)
 
 
 def test_check_missing_histtags_2(patched_path_constants_2):
@@ -90,7 +88,4 @@ def test_check_missing_histtags_2(patched_path_constants_2):
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
     assert excelsheet.nr_rows == 15
-    # ensure ordered dfs (index and column)
-    excelsheet.df = excelsheet.df.sort_index().sort_index(axis=1)
-    expected_df = expected_df_1_and_2.sort_index().sort_index(axis=1)
-    assert excelsheet.df.equals(expected_df)
+    ensure_dataframes_equal(expected_df=expected_df_1_and_2, test_df=excelsheet.df)

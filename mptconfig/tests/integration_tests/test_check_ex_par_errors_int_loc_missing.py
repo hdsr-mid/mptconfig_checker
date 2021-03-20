@@ -3,6 +3,7 @@ from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
+from mptconfig.tests.utils import ensure_dataframes_equal
 
 import pandas as pd  # noqa pandas comes with geopandas
 
@@ -756,11 +757,7 @@ def test_check_ex_par_errors_int_loc_missing_1(patched_path_constants_1):
     assert (ex_par_sheet.sheet_type and int_loc_sheet.sheet_type) == ExcelSheetTypeChoices.output_check
     assert ex_par_sheet.nr_rows == 89
     assert int_loc_sheet.nr_rows == 0
-
-    # ensure ordered dfs (index and column)
-    ex_par_sheet.df = ex_par_sheet.df.sort_index().sort_index(axis=1)
-    expected_df = expected_df_ex_par_1_and_2.sort_index().sort_index(axis=1)
-    assert ex_par_sheet.df.equals(expected_df)
+    ensure_dataframes_equal(expected_df=expected_df_ex_par_1_and_2, test_df=ex_par_sheet.df)
 
 
 def test_check_ex_par_errors_int_loc_missing_2(patched_path_constants_2):
@@ -774,8 +771,4 @@ def test_check_ex_par_errors_int_loc_missing_2(patched_path_constants_2):
     assert (ex_par_sheet.sheet_type and int_loc_sheet.sheet_type) == ExcelSheetTypeChoices.output_check
     assert ex_par_sheet.nr_rows == 89
     assert int_loc_sheet.nr_rows == 0
-
-    # ensure ordered dfs (index and column)
-    ex_par_sheet.df = ex_par_sheet.df.sort_index().sort_index(axis=1)
-    expected_df = expected_df_ex_par_1_and_2.sort_index().sort_index(axis=1)
-    assert ex_par_sheet.df.equals(expected_df)
+    ensure_dataframes_equal(expected_df=expected_df_ex_par_1_and_2, test_df=ex_par_sheet.df)

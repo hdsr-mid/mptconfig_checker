@@ -158,29 +158,21 @@ expected_df_1_and_2 = pd.DataFrame(
 )
 
 
-def test_check_h_loc_1(patched_path_constants_1):
+def test_check_validation_rules_1(patched_path_constants_1):
     """integration test with patched paths 1"""
     meetpunt_config = MptConfigChecker()
-    excelsheet = meetpunt_config.check_h_loc(sheet_name="blabla")
+    excelsheet = meetpunt_config.check_validation_rules(sheet_name="blabla")
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 18
-    # ensure ordered dfs (index and column)
-    excelsheet.df = excelsheet.df.sort_index().sort_index(axis=1)
-    expected_df = expected_df_1_and_2.sort_index().sort_index(axis=1)
-    assert excelsheet.df.equals(expected_df)
+    # TODO: assert excelsheet.nr_rows == 1501
 
 
-def test_check_h_loc_2(patched_path_constants_2):
+def test_check_validation_rules_2(patched_path_constants_2):
     """integration test with patched paths 2"""
     meetpunt_config = MptConfigChecker()
-    excelsheet = meetpunt_config.check_h_loc(sheet_name="blabla")
+    excelsheet = meetpunt_config.check_validation_rules(sheet_name="blabla")
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 18
-    # ensure ordered dfs (index and column)
-    excelsheet.df = excelsheet.df.sort_index().sort_index(axis=1)
-    expected_df = expected_df_1_and_2.sort_index().sort_index(axis=1)
-    assert excelsheet.df.equals(expected_df)
+    # TODO: assert excelsheet.nr_rows == 1501
