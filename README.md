@@ -5,43 +5,21 @@ Python scripts ter ondersteuning van het HDSR CAW FEWS:
 
 ## Test Coverage (23-3-2021)
 ```
----------- coverage: platform win32, python 3.7.10-final-0 -----------
-Name                                                                            Stmts   Miss  Cover
----------------------------------------------------------------------------------------------------
-mptconfig\__init__.py                                                               0      0   100%
-mptconfig\checker.py                                                              815    176    78%
-mptconfig\constants.py                                                            144      2    99%
-mptconfig\excel.py                                                                170     88    48%
-mptconfig\fews_utilities.py                                                       156     18    88%
-mptconfig\tests\__init__.py                                                         0      0   100%
-mptconfig\tests\fixtures.py                                                        38      0   100%
-mptconfig\tests\integration_tests\__init__.py                                       0      0   100%
-mptconfig\tests\integration_tests\test_check_double_idmaps.py                      23      0   100%
-mptconfig\tests\integration_tests\test_check_ex_loc_int_loc.py                     27      0   100%
-mptconfig\tests\integration_tests\test_check_ex_par_errors_int_loc_missing.py      31      0   100%
-mptconfig\tests\integration_tests\test_check_ex_par_missing.py                     28      0   100%
-mptconfig\tests\integration_tests\test_check_h_loc.py                              26      0   100%
-mptconfig\tests\integration_tests\test_check_idmap_sections.py                     27      0   100%
-mptconfig\tests\integration_tests\test_check_ignored_histtags.py                   25      0   100%
-mptconfig\tests\integration_tests\test_check_int_par_ex_par.py                     23      0   100%
-mptconfig\tests\integration_tests\test_check_location_set_errors.py                27      0   100%
-mptconfig\tests\integration_tests\test_check_missing_histtags.py                   27      0   100%
-mptconfig\tests\integration_tests\test_check_missing_pars.py                       25      0   100%
-mptconfig\tests\integration_tests\test_check_timeseries_logic.py                   27      0   100%
-mptconfig\tests\integration_tests\test_check_validation_rules.py                   21      0   100%
-mptconfig\tests\locationsets\__init__.py                                            0      0   100%
-mptconfig\tests\locationsets\test_hoofdlocationset.py                              31      0   100%
-mptconfig\tests\locationsets\test_mswlocationset.py                                29      0   100%
-mptconfig\tests\locationsets\test_pslocationset.py                                 29      0   100%
-mptconfig\tests\locationsets\test_sublocationset.py                                31      0   100%
-mptconfig\tests\locationsets\test_waterstandlocationset.py                         31      0   100%
-mptconfig\tests\test_fews_config.py                                                12      0   100%
-mptconfig\tests\test_fixtures.py                                                   40      2    95%
-mptconfig\tests\utils.py                                                            5      0   100%
-mptconfig\tmp.py                                                                   30     24    20%
-mptconfig\utils.py                                                                 51     22    57%
----------------------------------------------------------------------------------------------------
-TOTAL                                                                            1949    332    83%
+---------- coverage: platform win32, python 3.7.10-final-0 ----------
+Name                          Stmts   Miss  Cover
+-------------------------------------------------
+main.py                          32     32     0%
+mptconfig\__init__.py             0      0   100%
+mptconfig\checker.py            815    176    78%
+mptconfig\constants.py          112     18    84%
+mptconfig\description.py          0      0   100%
+mptconfig\excel.py              171     89    48%
+mptconfig\fews_utilities.py     156     18    88%
+mptconfig\tmp.py                 30     24    20%
+mptconfig\utils.py               51     22    57%
+setup.py                         10     10     0%
+-------------------------------------------------
+TOTAL                          1377    389    72%
 ```
 
 
