@@ -245,8 +245,7 @@ class ExcelWriter:
         # create and load xlsx file
         result_xlsx_path = PathConstants.result_xlsx.value.path
         logger.info(f"creating result file {result_xlsx_path}")
-        # TODO: activate this check
-        # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
+        assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
         writer = pd.ExcelWriter(path=result_xlsx_path.as_posix(), mode="w", engine="openpyxl")
 
         if not self.results.has_content_sheet:

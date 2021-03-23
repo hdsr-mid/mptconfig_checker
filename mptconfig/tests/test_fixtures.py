@@ -1,11 +1,17 @@
 from enum import Enum
+from enum import EnumMeta
 from mptconfig.constants import BASE_DIR
 from mptconfig.constants import PathConstants
-from mptconfig.tests.patches import patched_path_constants_1
-from mptconfig.tests.patches import patched_path_constants_2
-from mptconfig.tests.patches import PatchedPathConstants1
-from mptconfig.tests.patches import PatchedPathConstants2
+from mptconfig.tests.fixtures import patched_path_constants_1
+from mptconfig.tests.fixtures import patched_path_constants_2
+from mptconfig.tests.fixtures import PatchedPathConstants1
+from mptconfig.tests.fixtures import PatchedPathConstants2
 from pathlib import Path
+
+
+# silence flake8 errors
+_patched_path_constants_1 = patched_path_constants_1
+_patched_path_constants_2 = patched_path_constants_2
 
 
 def test_members_patched_path_constants_1_and_2():
@@ -63,12 +69,12 @@ def test_patched_constants2(patched_path_constants_2):
 
 
 def test_path_constants_location():
-    """almost all tests use a patched version of mptconfig.constants.PathConstants
-    e.g. @p"""
+    """
+    fixtures patched_path_constants_1 and patched_path_constants_2 patch location 'mptconfig.constants.PathConstants'.
+    Ensure that this location exists, and that it is a Enum class.
+    """
     module_name = "mptconfig.constants"
     class_name = "PathConstants"
     _module = __import__(name=module_name, fromlist=[class_name])
-    _class = getattr(_module, class_name)
-    # TODO: activate this
-    #  assert _class.__name__ == class_name
-    assert 1 + 1 == 2
+    assert getattr(_module, class_name), f"class {module_name}.{class_name} should exists. This is patched in fixtures"
+    assert isinstance(getattr(_module, class_name), EnumMeta), "PathConstants should be a EnumMeta"

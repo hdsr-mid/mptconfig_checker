@@ -1,9 +1,9 @@
 from mptconfig.checker import MptConfigChecker
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetTypeChoices
-from mptconfig.tests.patches import patched_path_constants_1
-from mptconfig.tests.patches import patched_path_constants_2
-from mptconfig.tests.utils import ensure_dataframes_equal
+from mptconfig.tests.fixtures import patched_path_constants_1
+from mptconfig.tests.fixtures import patched_path_constants_2
+from mptconfig.tests.utils import equal_dataframes
 
 import pandas as pd  # noqa pandas comes with geopandas
 
@@ -1493,8 +1493,8 @@ def test_check_ex_par_errors_int_loc_missing_1(patched_path_constants_1):
     assert (ex_par_sheet.sheet_type and int_loc_sheet.sheet_type) == ExcelSheetTypeChoices.output_check
     assert ex_par_sheet.nr_rows == 89
     assert int_loc_sheet.nr_rows == 2
-    ensure_dataframes_equal(expected_df=expected_df_ex_par_1, test_df=ex_par_sheet.df)
-    ensure_dataframes_equal(expected_df=expected_df_int_loc_1, test_df=int_loc_sheet.df)
+    assert equal_dataframes(expected_df=expected_df_ex_par_1, test_df=ex_par_sheet.df)
+    assert equal_dataframes(expected_df=expected_df_int_loc_1, test_df=int_loc_sheet.df)
 
 
 def test_check_ex_par_errors_int_loc_missing_2(patched_path_constants_2):
@@ -1508,4 +1508,4 @@ def test_check_ex_par_errors_int_loc_missing_2(patched_path_constants_2):
     assert (ex_par_sheet.sheet_type and int_loc_sheet.sheet_type) == ExcelSheetTypeChoices.output_check
     assert ex_par_sheet.nr_rows == 89
     assert int_loc_sheet.nr_rows == 0
-    ensure_dataframes_equal(expected_df=expected_df_ex_par_2, test_df=ex_par_sheet.df)
+    assert equal_dataframes(expected_df=expected_df_ex_par_2, test_df=ex_par_sheet.df)

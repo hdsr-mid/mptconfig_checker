@@ -1031,7 +1031,10 @@ class MptConfigChecker:
             attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
             # watch out: attrib_file_name != loc_set.value.csvfile !!!
             attrib_file_name = Path(attrib_file["csvFile"])
-            csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name.stem]
+            try:
+                csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name.stem]
+            except Exception as err:
+                print(err)
             attrib_df = pd.read_csv(
                 filepath_or_buffer=csv_file_path,
                 sep=None,
@@ -1115,12 +1118,10 @@ class MptConfigChecker:
             "fout_beschrijving": [],
         }
 
-        # TODO: remove this
-        # nr_valid_errors = 0
-
         for loc_set in constants.LocationSetChoices:
             if not loc_set.value.validation_rules:
                 continue
+
             validation_attributes = loc_set.value.get_validation_attributes(int_pars=None)
             idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
             idmap_df = pd.DataFrame(data=idmaps)
@@ -1132,12 +1133,10 @@ class MptConfigChecker:
                 columns=["internalParameters"],
             )
 
-            location_set_gdf = self.__create_location_set_df(loc_set)
-
             # TODO: remove this
-            # print(f"{loc_set.name}")
-            # print(f"nr_rows_location_set_gdf={len(location_set_gdf)}")
-            # print(f"nr_cols_location_set_gdf={len(location_set_gdf.columns)}")
+            if loc_set == constants.LocationSetChoices.waterstandloc:
+                print("hoi")
+            location_set_gdf = self.__create_location_set_df(loc_set)
 
             for idx, row in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
@@ -1154,10 +1153,6 @@ class MptConfigChecker:
                     for attrib in validation_attributes
                     if (attrib not in attribs_required) and (attrib in row.keys())
                 ]
-
-                # TODO: remove this
-                # if loc_set == constants.LocationSetChoices.subloc:
-                #     print(idx, len(attribs_required), len(attribs_too_few), len(attribs_too_many))
 
                 for key, value in {"missend": attribs_too_few, "overbodig": attribs_too_many}.items():
                     if len(value) > 0:
@@ -1216,57 +1211,6 @@ class MptConfigChecker:
                     valid_errors["fout_type"] += [errors["fout_type"]] * len(errors["fout_beschrijving"])
 
                     valid_errors["fout_beschrijving"] += errors["fout_beschrijving"]
-
-            # TODO: remove this
-            # valid_errors_diff = len(valid_errors["fout_type"]) - nr_valid_errors
-            # print(f"nr_valid_errors={valid_errors_diff}")
-            # nr_valid_errors = len(valid_errors["fout_type"])
-
-        # TODO: remove this
-        # ORIG by DT
-        # sublocaties
-        # nr_rows_location_set_gdf=868
-        # nr_cols_location_set_gdf=112
-        # nr_valid_errors=0
-        # hoofdlocaties
-        # nr_rows_location_set_gdf=357
-        # nr_cols_location_set_gdf=23
-        # nr_valid_errors=0
-        # waterstandlocaties
-        # nr_rows_location_set_gdf=864
-        # nr_cols_location_set_gdf=68
-        # nr_valid_errors=1031
-        # 0+0+1031=1031 zonder double = 955 (totaal aantal validation errors)
-
-        # NEW by RK (subloc heeft +634 fouten)
-        # subloc
-        # nr_rows_location_set_gdf=868
-        # nr_cols_location_set_gdf=112
-        # nr_valid_errors=634
-        # hoofdloc
-        # nr_rows_location_set_gdf=357
-        # nr_cols_location_set_gdf=23
-        # nr_valid_errors=0
-        # waterstandloc
-        # nr_rows_location_set_gdf=864
-        # nr_cols_location_set_gdf=68
-        # nr_valid_errors=1031
-        # 634+0+1031=1665 zonder double = 1501 (totaal aantal validation errors)
-
-        # NEW by RK (gelijk aan DT) --> met die rare 2 regels code in get_validation_attributes
-        # subloc
-        # nr_rows_location_set_gdf=868
-        # nr_cols_location_set_gdf=112
-        # nr_valid_errors=0
-        # hoofdloc
-        # nr_rows_location_set_gdf=357
-        # nr_cols_location_set_gdf=23
-        # nr_valid_errors=0
-        # waterstandloc
-        # nr_rows_location_set_gdf=864
-        # nr_cols_location_set_gdf=68
-        # nr_valid_errors=1031
-        # 0+0+1031=1031 zonder double = 955 (totaal aantal validation errors)
 
         result_df = pd.DataFrame(data=valid_errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:

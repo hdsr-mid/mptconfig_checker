@@ -211,7 +211,7 @@ EXPECTED_SUMMARY3 = {
 }
 
 
-class PathConstants(Enum):
+class PathConstants4(Enum):
     result_xlsx = PathNamedTuple(
         is_file=True,
         should_exist=False,
@@ -257,7 +257,7 @@ class PathConstants(Enum):
     )
 
 
-EXPECTED_SUMMARY = {
+EXPECTED_SUMMARY4 = {
     "idmap section error": 34,
     "ignored histtags match": 1,
     "histtags nomatch": 15,
@@ -275,8 +275,8 @@ EXPECTED_SUMMARY = {
     "loc_set error": 335,
 }
 
-# PathConstants = PathConstants4
-# EXPECTED_SUMMARY = EXPECTED_SUMMARY4
+PathConstants = PathConstants4
+EXPECTED_SUMMARY = EXPECTED_SUMMARY4
 
 
 class LocationSet:
@@ -333,7 +333,7 @@ class LocationSet:
         return self.csvfile_meta["file"]
 
     @property
-    def attrib_files(self):
+    def attrib_files(self) -> List[Dict]:
         if self._attrib_files is not None:
             return self._attrib_files
         attribute_files = self.csvfile_meta["attributeFile"]
@@ -384,29 +384,6 @@ class LocationSet:
                 else:
                     result += [attribute]
         return result
-
-    # TODO: remove this old code from daniel tollenaar
-    # def get_validation_attributes_daniel_tollenaar(self, validation_rules, int_pars=None, loc_type=None):
-    #     """Get attributes from validationRules."""
-    #     if int_pars is None:
-    #         int_pars = [rule["parameter"] for rule in validation_rules]
-    #     result = []
-    #     for rule in validation_rules:
-    #         if "type" in rule.keys():
-    #             if rule["type"] == loc_type:
-    #                 if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-    #                     for key, attribute in rule["extreme_values"].items():
-    #                         if isinstance(attribute, list):
-    #                             result += [value["attribute"] for value in attribute]
-    #                         else:
-    #                             result += [attribute]
-    #         elif any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-    #             for key, attribute in rule["extreme_values"].items():
-    #                 if isinstance(attribute, list):
-    #                     result += [value["attribute"] for value in attribute]
-    #                 else:
-    #                     result += [attribute]
-    #     return result
 
 
 hoofdlocationset = LocationSet(
@@ -628,8 +605,7 @@ def check_constants_paths():
         if not isinstance(path_namedtuple.value.path, Path):
             raise AssertionError(f"{path_namedtuple.name}'s path is not of type pathlib.Path")
         if not path_namedtuple.value.should_exist:
-            # TODO: activate this check
-            # assert not path_namedtuple.path.exists(), f"path {path_namedtuple.path} should not exist"
+            assert not path_namedtuple.path.exists(), f"path {path_namedtuple.path} should not exist"
             continue
         if path_namedtuple.value.is_file:
             assert path_namedtuple.value.path.is_file(), f"file should exist {path_namedtuple.value.path}"
