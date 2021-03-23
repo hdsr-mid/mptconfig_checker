@@ -4,6 +4,7 @@ Python scripts ter ondersteuning van het HDSR CAW FEWS:
  - het aanvullen van attributen van locatiesets binnen de configuratie
 
 ## Test Coverage (23-3-2021)
+```
 ---------- coverage: platform win32, python 3.7.10-final-0 -----------
 Name                                                                            Stmts   Miss  Cover
 ---------------------------------------------------------------------------------------------------
@@ -41,7 +42,7 @@ mptconfig\tmp.py                                                                
 mptconfig\utils.py                                                                 51     22    57%
 ---------------------------------------------------------------------------------------------------
 TOTAL                                                                            1949    332    83%
-
+```
 
 
 ### Conda general tips
