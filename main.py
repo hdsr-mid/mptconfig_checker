@@ -1,4 +1,5 @@
 from mptconfig.checker import MptConfigChecker
+from mptconfig.constants import check_constants_paths
 
 import logging
 import sys
@@ -33,6 +34,7 @@ if __name__ == "__main__":
     check_python_version()
     setup_logging()
     logger = logging.getLogger(__name__)
+    check_constants_paths()
 
     # run checks
     logger.info("starting mpt config checker")

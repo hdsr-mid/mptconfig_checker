@@ -6,12 +6,15 @@ from unittest.mock import patch
 
 import logging
 import pytest
+import tempfile
 
 
 logger = logging.getLogger(__name__)
 
 
 TEST_DATA_DIR = BASE_DIR / "mptconfig" / "tests" / "data"
+# we use a tempdir, so that all files that are created during test are deleted after a test run
+TMP_OUTPUT_DIR = Path(tempfile.tempdir)
 assert TEST_DATA_DIR.is_dir()
 
 
@@ -19,7 +22,7 @@ class PatchedPathConstants1(Enum):
     result_xlsx = PathNamedTuple(
         is_file=True,
         should_exist=False,
-        path=TEST_DATA_DIR / "output" / "result.xlsx",
+        path=TMP_OUTPUT_DIR / "output" / "result.xlsx",
         description="",
     )
     histtags_csv = PathNamedTuple(
@@ -65,7 +68,7 @@ class PatchedPathConstants2(Enum):
     result_xlsx = PathNamedTuple(
         is_file=True,
         should_exist=False,
-        path=TEST_DATA_DIR / "output" / "result.xlsx",
+        path=TMP_OUTPUT_DIR / "output" / "result.xlsx",
         description="",
     )
     histtags_csv = PathNamedTuple(
