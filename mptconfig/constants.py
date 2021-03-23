@@ -12,6 +12,7 @@ import re
 
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
+assert BASE_DIR.name == "mptconfig_checker"
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 
 
@@ -210,7 +211,7 @@ EXPECTED_SUMMARY3 = {
 }
 
 
-class PathConstants4(Enum):
+class PathConstants(Enum):
     result_xlsx = PathNamedTuple(
         is_file=True,
         should_exist=False,
@@ -256,7 +257,7 @@ class PathConstants4(Enum):
     )
 
 
-EXPECTED_SUMMARY4 = {
+EXPECTED_SUMMARY = {
     "idmap section error": 34,
     "ignored histtags match": 1,
     "histtags nomatch": 15,
@@ -274,8 +275,8 @@ EXPECTED_SUMMARY4 = {
     "loc_set error": 335,
 }
 
-PathConstants = PathConstants4
-EXPECTED_SUMMARY = EXPECTED_SUMMARY4
+# PathConstants = PathConstants4
+# EXPECTED_SUMMARY = EXPECTED_SUMMARY4
 
 
 class LocationSet:
