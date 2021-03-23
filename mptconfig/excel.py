@@ -1,11 +1,12 @@
 from enum import Enum
-from mptconfig import constants
+from mptconfig.constants import PathConstants
 from openpyxl import worksheet as openpyxl_worksheet
 from openpyxl.utils import get_column_letter
 from pandas.api.types import is_datetime64_any_dtype as is_datetime  # noqa pandas comes with geopandas
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 
 import logging
 import pandas as pd  # noqa pandas comes with geopandas
@@ -14,19 +15,47 @@ import pandas as pd  # noqa pandas comes with geopandas
 logger = logging.getLogger(__name__)
 
 
-class ExcelSheetTypeChoices(Enum):
-    input = "input"
-    output_check = "output_check"
-    output_no_check = "output_no_check"
-    content = "content"
-
-
 class ExcelTabColorChoices(Enum):
     red = "00FF0000"
     green = "0000FF00"
     blue = "000000FF"
     black = "00000000"
     white = "FFFFFFFF"
+
+
+class ExcelSheetTypeChoices(Enum):
+    input = "input"
+    output_check = "output_check"
+    output_no_check = "output_no_check"
+    content = "content"
+
+    def tab_color(self, empty_sheet: bool) -> ExcelTabColorChoices:
+        mapping = {
+            self.input: ExcelTabColorChoices.blue,
+            self.output_check: ExcelTabColorChoices.green if empty_sheet else ExcelTabColorChoices.red,
+            self.output_no_check: ExcelTabColorChoices.white,
+            self.content: ExcelTabColorChoices.white,
+        }
+        return mapping[self]
+
+    @classmethod
+    def tab_color_description(cls) -> List[Tuple]:
+        """
+        Example: [
+                    ('sheet_type=input and empty_sheet=True', 'white'),
+                    ('sheet_type=input and empty_sheet=False', 'white'),
+                    ('sheet_type=output_check and empty_sheet=True', 'green'),
+                    ('sheet_type=output_check and empty_sheet=False', 'red')
+                    etc..
+                ]
+        """
+        description = []
+        for sheet_type in cls.__members__.values():
+            for empty_sheet in True, False:
+                tab_color = cls.tab_color(sheet_type, empty_sheet=empty_sheet)
+                assert isinstance(tab_color, ExcelTabColorChoices)
+                description.append((f"sheet_type={sheet_type.name} and empty_sheet={empty_sheet}", tab_color.name))
+        return description
 
 
 class ExcelSheet:
@@ -56,17 +85,9 @@ class ExcelSheet:
 
     @property
     def tab_color(self) -> ExcelTabColorChoices:
-        if self.sheet_type == ExcelSheetTypeChoices.content:
-            return ExcelTabColorChoices.white
-        elif self.sheet_type == ExcelSheetTypeChoices.input:
-            return ExcelTabColorChoices.blue
-        elif self.sheet_type == ExcelSheetTypeChoices.output_no_check:
-            return ExcelTabColorChoices.white
-        assert (
-            self.sheet_type == ExcelSheetTypeChoices.output_check
-        ), "we expected sheet type to be SheetType.output_check"
-        # red if at least one error was found
-        return ExcelTabColorChoices.red if len(self.df) > 0 else ExcelTabColorChoices.green
+        tab_color = self.sheet_type.tab_color(empty_sheet=self.nr_rows == 0)
+        assert isinstance(tab_color, ExcelTabColorChoices), f"tab_color {tab_color} must be a ExcelTabColorChoices"
+        return tab_color
 
     @property
     def nr_rows(self) -> int:
@@ -81,12 +102,13 @@ class ExcelSheet:
             raise AssertionError(
                 f"sheet {self.name} index must be a Int64Index or RangeIndex, not type {type(self.df.index)}"
             )
+        self.df.reset_index(drop=True, inplace=True)
 
     def to_content_dict(self) -> Dict:
         return {
             "name": self.name,
             "type": self.sheet_type.value,
-            # "color": self.tab_color.,
+            "color": self.tab_color.name,
             "nr_rows": self.nr_rows,
             "description": self.description,
         }
@@ -123,7 +145,8 @@ class ExcelSheetCollector(dict):
         """Create panda dataframe based on all ExcelSheet objects included in ExcelSheetCollector (self.results).
         This content df has columns (ExcelSheet objects): "name", "type", "nr_rows", "description"."""
         assert self.has_sheets and not self.has_content_sheet, "can not create content sheet"
-        content_columns = self.input_sheets[0].to_content_dict().keys()
+        logger.info("creating automatic content sheet")
+        content_columns = self.output_check_sheets[0].to_content_dict().keys()
         data = []
         for sheet in self.content_sheet_input:
             assert isinstance(sheet, ExcelSheet)
@@ -150,7 +173,6 @@ class ExcelSheetCollector(dict):
         content_sheet = [sheet for sheet in self.values() if sheet.sheet_type == ExcelSheetTypeChoices.content]
         if content_sheet:
             return content_sheet[0]
-        logger.debug("no content sheet exists")
         return None
 
     @property
@@ -184,7 +206,7 @@ class ExcelSheetCollector(dict):
     def ordered_sheets(self) -> List[pd.DataFrame]:
         """This is the tab order in the excel file"""
         assert self.has_content_sheet
-        return [self.content_sheet] + self.input_sheets + self.output_no_check_sheets + self.output_check_sheets
+        return [self.content_sheet] + self.output_no_check_sheets + self.input_sheets + self.output_check_sheets
 
 
 class ExcelWriter:
@@ -195,6 +217,7 @@ class ExcelWriter:
 
     def _set_sheet_style(self, worksheet: openpyxl_worksheet, tab_color: ExcelTabColorChoices = None) -> None:
         if tab_color:
+            assert isinstance(tab_color, ExcelTabColorChoices), f"tab_color {tab_color} must be a ExcelTabColorChoices"
             worksheet.sheet_properties.tabColor = tab_color.value
         worksheet.auto_filter.ref = worksheet.dimensions
         self.__auto_fit_column_size(worksheet=worksheet)
@@ -220,7 +243,7 @@ class ExcelWriter:
         # TODO: added jinja2 as dependency, but it does not work on excel, so remove it from env
 
         # create and load xlsx file
-        result_xlsx_path = constants.PathConstants.result_xlsx.path
+        result_xlsx_path = PathConstants.result_xlsx.value.path
         logger.info(f"creating result file {result_xlsx_path}")
         assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
         writer = pd.ExcelWriter(path=result_xlsx_path.as_posix(), mode="w", engine="openpyxl")
@@ -233,6 +256,6 @@ class ExcelWriter:
             worksheet = writer.sheets[sheet.name]
             self._set_sheet_style(worksheet=worksheet, tab_color=sheet.tab_color)
 
-        logger.info(f"saving result file {result_xlsx_path}")
         writer.save()
         writer.close()
+        logger.info(f"created result file {result_xlsx_path}")

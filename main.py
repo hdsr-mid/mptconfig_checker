@@ -16,7 +16,7 @@ def check_python_version():
 
 def setup_logging() -> None:
     """Adds a configured strearm handler to the root logger."""
-    log_level = logging.DEBUG
+    log_level = logging.INFO
     log_date_format = "%H:%M:%S"
     log_format = "%(asctime)s %(filename)s %(levelname)s %(message)s"
 
@@ -32,7 +32,10 @@ def setup_logging() -> None:
 if __name__ == "__main__":
     check_python_version()
     setup_logging()
+    logger = logging.getLogger(__name__)
 
     # run checks
+    logger.info("starting mpt config checker")
     meetpunt_config = MptConfigChecker()
     meetpunt_config.run()
+    logger.info("shutting down mpt config checker")

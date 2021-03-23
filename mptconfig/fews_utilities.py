@@ -1,6 +1,5 @@
 from collections import defaultdict
 from lxml import etree as ET  # noqa
-from mptconfig.constants import GEO_DATUM
 from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
@@ -88,7 +87,10 @@ def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str 
 
 
 class FewsConfig:
-    def __init__(self, path):
+
+    geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
+
+    def __init__(self, path: Path):
         self.path = path
         self._location_sets = None
 
@@ -139,7 +141,11 @@ class FewsConfig:
                 continue
             if _dirpath.name not in self.__dict__.keys():
                 continue
-            self.__dict__[_dirpath.name].update({Path(filename).stem: _dirpath / filename for filename in filenames})
+            for filename in filenames:
+                filename_no_suffix = Path(filename).stem
+                full_path = _dirpath / filename
+                logger.debug(f"populate FewsConfig with property {_dirpath.name} for file {filename_no_suffix}")
+                self.__dict__[_dirpath.name].update({filename_no_suffix: full_path})
 
     @property
     def location_sets(self) -> Dict:
@@ -233,19 +239,19 @@ class FewsConfig:
         # from initial creator (Daniel Tollenaar):
         # 1. Ik kan nu alleen locationsets direct uit CSV-files lezen, maar een locatieset kan ook
         #    onderdeel zijn van een subset (zie https://publicwiki.deltares.nl/display/FEWSDOC/02+LocationSets).
-        #    Dat begrijpt fews utilities nog niet, maar is dus niet relevant voor .
+        #    Dat begrijpt fews utilities nog niet, maar dat is dus nu niet relevant voor jullie.
         # 2. In eerste instantie had ik de ambitie om vanuit de FEWS-config te snappen wáár
         #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
         #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.
         #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
-            logger.info(f"no location_set found in fews_config for location_set_key: {location_set_key}")
+            logger.warning(f"no location_set found in fews_config for location_set_key: {location_set_key}")
             return
 
         file = location_set.get("csvFile", {}).get("file", None)
         if not file:
-            logger.info(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
+            logger.warning(f"found location_set but not file in fews_config for location_set_key: {location_set_key}")
             return
 
         file = Path(file)
@@ -263,6 +269,6 @@ class FewsConfig:
             gdf=gdf, filepath=filepath, x_attrib=x_attrib, y_attrib=y_attrib, z_attrib=z_attrib
         )
         geo_datum_found = location_set["csvFile"]["geoDatum"]
-        crs = GEO_DATUM.get(geo_datum_found, None)
+        crs = self.geo_datum.get(geo_datum_found, None)
         gdf.crs = crs if crs else None
         return gdf

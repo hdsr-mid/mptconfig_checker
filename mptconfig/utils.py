@@ -7,7 +7,6 @@ from typing import Union
 import logging
 import numpy as np  # noqa numpy comes with geopandas
 import pandas as pd  # noqa pandas comes with geopandas
-import re
 
 
 PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")
@@ -15,69 +14,24 @@ PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy"
 logger = logging.getLogger(__name__)
 
 
+def flatten_nested_list(_list: List[List]) -> List:
+    return [item for sublist in _list for item in sublist]
+
+
 def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
     """Add FEWS-locationIds to histtags in df.apply() method.
     Returns either np.NaN (= float type) or a list with strings (few_locs)."""
-    exloc, expar = row["serie"].split(sep="_", maxsplit=1)
+    ex_loc, ex_par = row["serie"].split(sep="_", maxsplit=1)
     fews_locs = [
         col["internalLocation"]
         for col in idmap
-        if col["externalLocation"] == exloc and col["externalParameter"] == expar
+        if col["externalLocation"] == ex_loc and col["externalParameter"] == ex_par
     ]
     # !! avoid <return fews_locs if fews_locs else [""]> !!
     return fews_locs if fews_locs else np.NaN
 
 
-def get_validation_attribs(validation_rules: List[Dict], int_pars: List[str] = None, loc_type: str = None) -> List[str]:
-    """Get attributes from validationRules.
-
-    Example:
-        get_validation_attribs(
-            validation_rules= [
-                {
-                    'parameter': 'H.R.',
-                    'extreme_values': {'hmax': 'HR1_HMAX', 'hmin': 'HR1_HMIN'}
-                },
-                {
-                    'parameter': 'H2.R.',
-                    'extreme_values': {'hmax': 'HR2_HMAX', 'hmin': 'HR2_HMIN'}
-                },
-                etc..
-            ]
-
-        returns:
-            [
-            'HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN', 'HR3_HMAX', 'HR3_HMIN', 'FRQ_HMAX',
-            'FRQ_HMIN', 'HEF_HMAX', 'HEF_HMIN', 'PERC_HMAX', 'PERC_SMAX', 'PERC_SMIN', 'PERC_HMIN',
-            'PERC2_HMAX', 'PERC2_SMAX', 'PERC2_SMIN', 'PERC2_HMIN', 'TT_HMAX', 'TT_HMIN'
-            ]
-
-    """
-    if int_pars is None:
-        int_pars = [rule["parameter"] for rule in validation_rules]
-    result = []
-    for rule in validation_rules:
-        if "type" in rule.keys():
-            # TODO: @daniel, wat is loc_type? wordt in geen enkele call meegegeven.
-            #  Dus loc_type is None, dus hieronder staat: if rule["type'] == None ?
-            #  omdat rule een Dict[str:str] is, neem ik aan dat loc_type een string is. Klopt die aanname?
-            if rule["type"] == loc_type:
-                if any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-                    for key, attribute in rule["extreme_values"].items():
-                        if isinstance(attribute, list):
-                            result += [value["attribute"] for value in attribute]
-                        else:
-                            result += [attribute]
-        elif any(re.match(rule["parameter"], int_par) for int_par in int_pars):
-            for key, attribute in rule["extreme_values"].items():
-                if isinstance(attribute, list):
-                    result += [value["attribute"] for value in attribute]
-                else:
-                    result += [attribute]
-    return result
-
-
-def update_hlocs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
+def update_h_locs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
     if not bool(np.isin(row["LOC_ID"], h_locs)):
         return row["STARTDATE"], row["ENDDATE"]
