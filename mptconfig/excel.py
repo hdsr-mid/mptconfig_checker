@@ -1,8 +1,9 @@
 from enum import Enum
 from mptconfig.constants import PathConstants
 from openpyxl import worksheet as openpyxl_worksheet
-from openpyxl.utils import get_column_letter
 from pandas.api.types import is_datetime64_any_dtype as is_datetime  # noqa pandas comes with geopandas
+from pandas.io.excel._xlsxwriter import XlsxWriter  # noqa used for type-hinting
+from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -145,7 +146,7 @@ class ExcelSheetCollector(dict):
         """Create panda dataframe based on all ExcelSheet objects included in ExcelSheetCollector (self.results).
         This content df has columns (ExcelSheet objects): "name", "type", "nr_rows", "description"."""
         assert self.has_sheets and not self.has_content_sheet, "can not create content sheet"
-        logger.info("creating automatic content sheet")
+        logger.info("auto-generating excel content sheet")
         content_columns = self.output_check_sheets[0].to_content_dict().keys()
         data = []
         for sheet in self.content_sheet_input:
@@ -215,14 +216,17 @@ class ExcelWriter:
         assert isinstance(self.results, ExcelSheetCollector), "results is not a ExcelSheetCollector"
         assert self.results.has_sheets, "cannot create excel file if no sheets exists"
 
-    def _set_sheet_style(self, worksheet: openpyxl_worksheet, tab_color: ExcelTabColorChoices = None) -> None:
+    def _set_sheet_style(
+        self, df: pd.DataFrame, worksheet: openpyxl_worksheet, tab_color: ExcelTabColorChoices = None
+    ) -> None:
         if tab_color:
             assert isinstance(tab_color, ExcelTabColorChoices), f"tab_color {tab_color} must be a ExcelTabColorChoices"
-            worksheet.sheet_properties.tabColor = tab_color.value
-        worksheet.auto_filter.ref = worksheet.dimensions
-        self.__auto_fit_column_size(worksheet=worksheet)
+            worksheet.tab_color = tab_color.value
+        # Apply the auto filter based on the dimensions of the dataframe
+        worksheet.autofilter(first_row=0, first_col=0, last_row=df.shape[0], last_col=df.shape[1])
+        self.__auto_fit_column_size(worksheet=worksheet, df=df)
         # freeze first row and first two columns
-        worksheet.freeze_panes = worksheet["C2"]
+        worksheet.freeze_panes(row=1, col=2)
 
     @staticmethod
     def __as_text(value):
@@ -230,32 +234,50 @@ class ExcelWriter:
             return ""
         return str(value)
 
-    def __auto_fit_column_size(self, worksheet: openpyxl_worksheet) -> None:
+    @staticmethod
+    def get_df_column_widths(df: pd.DataFrame) -> List[int]:
+        # find the maximum length of the index column
+        index_column_width = max([len(str(s)) for s in df.index.values] + [len(str(df.index.name))])
+        # find max of the lengths of column name and its values for each column, left to right
+        other_column_widths = [max([len(str(s)) for s in df[col].values] + [len(col)]) for col in df.columns]
+        return [index_column_width] + other_column_widths
+
+    def __auto_fit_column_size(self, worksheet: openpyxl_worksheet, df: pd.DataFrame) -> None:
         minimal_cell_width = 13
-        for column_cells in worksheet.columns:
-            len_longest_str = max(len(self.__as_text(value=cell.value)) for cell in column_cells)
-            new_width = max(minimal_cell_width, len_longest_str)
-            column_letter = get_column_letter(column_cells[0].column)
-            worksheet.column_dimensions[column_letter].width = float(new_width)
+        df_column_widths = self.get_df_column_widths(df=df)
+        # index column is not included (counted) in worksheet.dim_colmax
+        assert worksheet.dim_colmax == len(df_column_widths) - 1
+        for index, width in enumerate(df_column_widths):
+            new_width = float(max(minimal_cell_width, width))
+            worksheet.set_column(first_col=index, last_col=index, width=new_width)
+
+    @staticmethod
+    def _create_excel_writer(path: Path) -> XlsxWriter:
+        options = {"strings_to_formulas": False, "strings_to_urls": False}
+        writer = pd.ExcelWriter(path=path.as_posix(), mode="w", engine="xlsxwriter", options=options)
+        return writer
 
     def write(self):
         """Write each ExcelSheet object in ExcelSheetCollector to a separate sheet in one excel file."""
         # TODO: added jinja2 as dependency, but it does not work on excel, so remove it from env
+        # TODO: add xlsxwriter ass dependency: we now use pd.ExcelWriter(engine="xlsxwriter") instead of engine=openpyxl
 
         # create and load xlsx file
         result_xlsx_path = PathConstants.result_xlsx.value.path
-        logger.info(f"creating result file {result_xlsx_path}")
-        assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
-        writer = pd.ExcelWriter(path=result_xlsx_path.as_posix(), mode="w", engine="openpyxl")
-
+        logger.info(f"creating result file {PathConstants.result_xlsx.value.path}")
+        # TODO: activate this assert
+        # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
+        writer = self._create_excel_writer(path=result_xlsx_path)
         if not self.results.has_content_sheet:
             self.results.create_content_sheet()
         for sheet in self.results.ordered_sheets:
             assert isinstance(sheet, ExcelSheet)
             sheet.df.to_excel(excel_writer=writer, sheet_name=sheet.name, index=True)
             worksheet = writer.sheets[sheet.name]
-            self._set_sheet_style(worksheet=worksheet, tab_color=sheet.tab_color)
+            self._set_sheet_style(df=sheet.df, worksheet=worksheet, tab_color=sheet.tab_color)
 
         writer.save()
-        writer.close()
-        logger.info(f"created result file {result_xlsx_path}")
+        if writer.engine != "xlsxwriter":
+            assert writer.engine == "openpyxl"
+            writer.close()
+        logger.info(f"created result file {PathConstants.result_xlsx.value.path}")
