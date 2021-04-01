@@ -21,6 +21,65 @@ def xml_to_etree(xml_filepath: Path) -> ET._Element:
     return etree
 
 
+# TODO: remove this function, only used to check renier kramer == dt (daniel tollenaar)
+def etree_to_dict_dt(
+    t: Union[ET._Element, ET._Comment],
+    section_start: str = None,
+    section_end: str = None,
+) -> Dict:
+    """ converts an etree to a dictionary """
+
+    if not isinstance(t, ET._Comment):
+
+        d = {t.tag.rpartition("}")[-1]: {} if t.attrib else None}
+        children = list(t)
+
+        # get a section only
+        if (not section_start == None) | (not section_end == None):
+            if section_start:
+                start = [
+                    idx
+                    for idx, child in enumerate(children)
+                    if isinstance(child, ET._Comment)
+                    if ET.tostring(child).decode("utf-8").strip() == section_start
+                ][0]
+            else:
+                start = 0
+            if section_end:
+                end = [
+                    idx
+                    for idx, child in enumerate(children)
+                    if isinstance(child, ET._Comment)
+                    if ET.tostring(child).decode("utf-8").strip() == section_end
+                ][0]
+                if start < end:
+                    children = children[start:end]
+            else:
+                children = children[start:]
+
+        children = [child for child in children if not isinstance(child, ET._Comment)]
+
+        if children:
+            dd = defaultdict(list)
+            # for dc in map(etree_to_dict, children):
+            for dc in [etree_to_dict(child) for child in children]:
+                for k, v in dc.items():
+                    dd[k].append(v)
+
+            d = {t.tag.rpartition("}")[-1]: {k: v[0] if len(v) == 1 else v for k, v in dd.items()}}
+        if t.attrib:
+            d[t.tag.rpartition("}")[-1]].update((k, v) for k, v in t.attrib.items())
+        if t.text:
+            text = t.text.strip()
+            if children or t.attrib:
+                if text:
+                    d[t.tag.rpartition("}")[-1]]["#text"] = text
+            else:
+                d[t.tag.rpartition("}")[-1]] = text
+
+        return d
+
+
 def etree_to_dict(
     etree: Union[ET._Element, ET._Comment],
     section_start: str = None,
@@ -83,7 +142,10 @@ def etree_to_dict(
 def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
     etree = xml_to_etree(xml_filepath=xml_filepath)
-    return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
+    rk = etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
+    dt = etree_to_dict_dt(t=etree, section_start=section_start, section_end=section_end)
+    assert rk == dt
+    return rk
 
 
 class FewsConfig:

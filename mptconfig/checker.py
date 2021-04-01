@@ -177,6 +177,7 @@ class MptConfigChecker:
         assert not mpt_df["STARTDATE"].hasnans, "mpt_df column STARTDATE should not have nans"
         assert not mpt_df["ENDDATE"].hasnans, "mpt_df column ENDDATE should not have nans"
         self._mpt_histtags_new = mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=False)
+        assert sorted(self._mpt_histtags_new.columns) == ["ENDDATE", "LOC_ID", "STARTDATE"]
         return self._mpt_histtags_new
 
     @property
@@ -189,6 +190,7 @@ class MptConfigChecker:
             sep=",",
             engine="python",
         )
+        assert sorted(self._ignored_ex_loc.columns) == ["externalLocation", "internalLocation"]
         return self._ignored_ex_loc
 
     @property
@@ -201,6 +203,7 @@ class MptConfigChecker:
             sep=",",
             engine="python",
         )
+        assert sorted(self._ignored_histtag.columns) == ["ENDDATE", "STARTDATE", "UNKNOWN_SERIE"]
         self._ignored_histtag["UNKNOWN_SERIE"] = self._ignored_histtag["UNKNOWN_SERIE"].str.replace("#", "")
         return self._ignored_histtag
 
@@ -214,6 +217,7 @@ class MptConfigChecker:
             sep=",",
             engine="python",
         )
+        assert sorted(self._ignored_ts800.columns) == ["externalLocation", "internalLocation"]
         return self._ignored_ts800
 
     @property
@@ -498,11 +502,9 @@ class MptConfigChecker:
         return excel_sheet
 
     def check_h_loc(self, sheet_name: str = "h_loc error") -> ExcelSheet:
-        """Check if all sub_locs of the same h_loc have consistent parameters."""
+        """Check if all sub_locs of the same h_loc have consistent parameters: xy, rayon, systeem, kompas."""
         description = "fouten in CAW sublocatie-groepen waardoor hier geen hoofdlocaties.csv uit kan worden geschreven"
         logger.info(f"start {self.check_h_loc.__name__}")
-        # TODO: @renier: fix backup if no
-        # if not self.ignored_xy, dan ignored_xy = pd.DataFrame({"internalLocation": [], "x": [], "y": []}))
 
         h_loc_errors = {
             "LOC_ID": [],
@@ -1024,7 +1026,22 @@ class MptConfigChecker:
     def __create_location_set_df(self, loc_set: constants.LocationSetChoices) -> pd.DataFrame:
         assert isinstance(loc_set, constants.LocationSetChoices)
         location_set_df = loc_set.value.geo_df
+
+        # waterstandloc
+        # rk_loc_set_value_attrib_files = [{'csvFile': 'oppvlwater_langsprofielen', 'id': '%LOC_ID%', 'attribute': [{'number': '%Langsprofiel_Kromme_Rijn%', 'id': 'Langsprofiel_Kromme_Rijn'}, {'number': '%Langsprofiel_Caspargouwse_Wetering%', 'id': 'Langsprofiel_Caspargouwse_Wetering'}, {'number': '%Langsprofiel_Stadswater_Utrecht_en_Vecht%', 'id': 'Langsprofiel_Stadswater_Utrecht_en_Vecht'}, {'number': '%Langsprofiel_Doorslag-Gekanaliseerde_Hollandse_IJssel%', 'id': 'Langsprofiel_Doorslag-Gekanaliseerde_Hollandse_IJssel'}, {'number': '%Langsprofiel_Oude_Rijn_boezem_Oost%', 'id': 'Langsprofiel_Oude_Rijn_boezem_Oost'}, {'number': '%Langsprofiel_Oude_Rijn_boezem_West%', 'id': 'Langsprofiel_Oude_Rijn_boezem_West'}, {'number': '%Langsprofiel_Grecht%', 'id': 'Langsprofiel_Grecht'}, {'number': '%Langsprofiel_Lange_Linschoten_tm_Jaap_Bijzerwetering%', 'id': 'Langsprofiel_Lange_Linschoten_tm_Jaap_Bijzerwetering'}, {'number': '%Langsprofiel_Dubbele_Wiericke%', 'id': 'Langsprofiel_Dubbele_Wiericke'}, {'number': '%Langsprofiel_Leidsche_Rijn%', 'id': 'Langsprofiel_Leidsche_Rijn'}, {'number': '%Langsprofiel_Amsterdam-Rijnkanaal%', 'id': 'Langsprofiel_Amsterdam-Rijnkanaal'}, {'number': '%Langsprofiel_Merwedekanaal%', 'id': 'Langsprofiel_Merwedekanaal'}, {'number': '%Langsprofiel_Boezem_AGV%', 'id': 'Langsprofiel_Boezem_AGV'}, {'number': '%Langsprofiel_Langbroekerwetering%', 'id': 'Langsprofiel_Langbroekerwetering'}, {'number': '%Langsprofiel_Amerongerwetering%', 'id': 'Langsprofiel_Amerongerwetering'}, {'number': '%Langsprofiel_Schalkwijkse_wetering%', 'id': 'Langsprofiel_Schalkwijkse_wetering'}]}, {'csvFile': 'oppvlwater_waterstanden_cacb.csv', 'id': '%LOC_ID%', 'relation': {'relatedLocationId': '%REL_CACB%', 'id': 'REL_CACB'}, 'attribute': [{'number': '%COEF_CA%', 'id': 'COEF_CA'}, {'number': '%COEF_CB%', 'id': 'COEF_CB'}]}, {'csvFile': 'oppvlwater_waterstanden_validations.csv', 'id': '%LOC_ID%', 'attribute': {'number': '%watervalidatie%', 'id': 'watervalidatie'}}, {'csvFile': 'oppvlwater_watervalidatie.csv', 'id': '%LOC_ID%', 'startDateTime': '%STARTDATE%', 'endDateTime': '%ENDDATE%', 'checkForContinuousPeriod': 'false', 'attribute': [{'number': '%WIN_SMAX%', 'id': 'WIN_SMAX'}, {'number': '%WIN_SMIN%', 'id': 'WIN_SMIN'}, {'number': '%OV_SMAX%', 'id': 'OV_SMAX'}, {'number': '%OV_SMIN%', 'id': 'OV_SMIN'}, {'number': '%ZOM_SMAX%', 'id': 'ZOM_SMAX'}, {'number': '%ZOM_SMIN%', 'id': 'ZOM_SMIN'}, {'number': '%HARDMAX%', 'id': 'HARDMAX'}, {'number': '%HARDMIN%', 'id': 'HARDMIN'}, {'number': '%RATECHANGE%', 'id': 'RATECHANGE'}, {'number': '%SR_DEV%', 'id': 'SR_DEV'}, {'number': '%SR_PERIOD%', 'id': 'SR_PERIOD'}, {'number': '%SR0.5_DEV%', 'id': 'SR0.5_DEV'}, {'number': '%SR0.5_PERIOD%', 'id': 'SR0.5_PERIOD'}, {'number': '%SR7_DEV%', 'id': 'SR7_DEV'}, {'number': '%SR7_PERIOD%', 'id': 'SR7_PERIOD'}, {'number': '%TS_RATE%', 'id': 'TS_RATE'}, {'number': '%TS_PERIOD%', 'id': 'TS_PERIOD'}]}, {'csvFile': 'oppvlwater_herhalingstijden.csv', 'id': '%LOC_ID%', 'attribute': [{'text': 'Annual Exceedance', 'id': 'Selection'}, {'number': '%H_Threshold%', 'id': 'H_Threshold'}, {'number': '7', 'id': 'Viewperiod'}, {'text': 'Exponential', 'id': 'Function'}, {'text': 'Maximum Likelyhood', 'id': 'Fit'}, {'text': 'No', 'id': 'SelectComputationPeriod'}, {'text': '%RekenPeriode_Start%', 'id': 'ComputationPeriodStart'}, {'text': '%RekenPeriode_Eind%', 'id': 'ComputationPeriodEnd'}, {'text': 'YES', 'id': 'GraphConfidence'}, {'number': '95', 'id': 'Confidence'}, {'text': 'Yes', 'id': 'GraphLegend'}, {'number': '100', 'id': 'XasMax'}, {'text': '01-01-2000', 'id': 'DayHourDate'}, {'number': '%H_T1%', 'id': 'H_T1'}, {'number': '%H_T2%', 'id': 'H_T2'}, {'number': '%H_T5%', 'id': 'H_T5'}, {'number': '%H_T10%', 'id': 'H_T10'}, {'number': '%H_T25%', 'id': 'H_T25'}, {'number': '%H_T50%', 'id': 'H_T50'}, {'number': '%H_T100%', 'id': 'H_T100'}]}]
+        # dt_loc_set_value_attrib_files = [{'csvFile': 'oppvlwater_langsprofielen', 'id': '%LOC_ID%', 'attribute': [{'number': '%Langsprofiel_Kromme_Rijn%', 'id': 'Langsprofiel_Kromme_Rijn'}, {'number': '%Langsprofiel_Caspargouwse_Wetering%', 'id': 'Langsprofiel_Caspargouwse_Wetering'}, {'number': '%Langsprofiel_Stadswater_Utrecht_en_Vecht%', 'id': 'Langsprofiel_Stadswater_Utrecht_en_Vecht'}, {'number': '%Langsprofiel_Doorslag-Gekanaliseerde_Hollandse_IJssel%', 'id': 'Langsprofiel_Doorslag-Gekanaliseerde_Hollandse_IJssel'}, {'number': '%Langsprofiel_Oude_Rijn_boezem_Oost%', 'id': 'Langsprofiel_Oude_Rijn_boezem_Oost'}, {'number': '%Langsprofiel_Oude_Rijn_boezem_West%', 'id': 'Langsprofiel_Oude_Rijn_boezem_West'}, {'number': '%Langsprofiel_Grecht%', 'id': 'Langsprofiel_Grecht'}, {'number': '%Langsprofiel_Lange_Linschoten_tm_Jaap_Bijzerwetering%', 'id': 'Langsprofiel_Lange_Linschoten_tm_Jaap_Bijzerwetering'}, {'number': '%Langsprofiel_Dubbele_Wiericke%', 'id': 'Langsprofiel_Dubbele_Wiericke'}, {'number': '%Langsprofiel_Leidsche_Rijn%', 'id': 'Langsprofiel_Leidsche_Rijn'}, {'number': '%Langsprofiel_Amsterdam-Rijnkanaal%', 'id': 'Langsprofiel_Amsterdam-Rijnkanaal'}, {'number': '%Langsprofiel_Merwedekanaal%', 'id': 'Langsprofiel_Merwedekanaal'}, {'number': '%Langsprofiel_Boezem_AGV%', 'id': 'Langsprofiel_Boezem_AGV'}, {'number': '%Langsprofiel_Langbroekerwetering%', 'id': 'Langsprofiel_Langbroekerwetering'}, {'number': '%Langsprofiel_Amerongerwetering%', 'id': 'Langsprofiel_Amerongerwetering'}, {'number': '%Langsprofiel_Schalkwijkse_wetering%', 'id': 'Langsprofiel_Schalkwijkse_wetering'}]}, {'csvFile': 'oppvlwater_waterstanden_cacb.csv', 'id': '%LOC_ID%', 'relation': {'relatedLocationId': '%REL_CACB%', 'id': 'REL_CACB'}, 'attribute': [{'number': '%COEF_CA%', 'id': 'COEF_CA'}, {'number': '%COEF_CB%', 'id': 'COEF_CB'}]}, {'csvFile': 'oppvlwater_waterstanden_validations.csv', 'id': '%LOC_ID%', 'attribute': {'number': '%watervalidatie%', 'id': 'watervalidatie'}}, {'csvFile': 'oppvlwater_watervalidatie.csv', 'id': '%LOC_ID%', 'startDateTime': '%STARTDATE%', 'endDateTime': '%ENDDATE%', 'checkForContinuousPeriod': 'false', 'attribute': [{'number': '%WIN_SMAX%', 'id': 'WIN_SMAX'}, {'number': '%WIN_SMIN%', 'id': 'WIN_SMIN'}, {'number': '%OV_SMAX%', 'id': 'OV_SMAX'}, {'number': '%OV_SMIN%', 'id': 'OV_SMIN'}, {'number': '%ZOM_SMAX%', 'id': 'ZOM_SMAX'}, {'number': '%ZOM_SMIN%', 'id': 'ZOM_SMIN'}, {'number': '%HARDMAX%', 'id': 'HARDMAX'}, {'number': '%HARDMIN%', 'id': 'HARDMIN'}, {'number': '%RATECHANGE%', 'id': 'RATECHANGE'}, {'number': '%SR_DEV%', 'id': 'SR_DEV'}, {'number': '%SR_PERIOD%', 'id': 'SR_PERIOD'}, {'number': '%SR0.5_DEV%', 'id': 'SR0.5_DEV'}, {'number': '%SR0.5_PERIOD%', 'id': 'SR0.5_PERIOD'}, {'number': '%SR7_DEV%', 'id': 'SR7_DEV'}, {'number': '%SR7_PERIOD%', 'id': 'SR7_PERIOD'}, {'number': '%TS_RATE%', 'id': 'TS_RATE'}, {'number': '%TS_PERIOD%', 'id': 'TS_PERIOD'}]}]
+
+        if loc_set == constants.LocationSetChoices.waterstandloc:
+            print("hoi")
+
         for attrib_file in loc_set.value.attrib_files:
+
+            # deze loc_set.value.attrib_files is bijna hetzelfde als die van daniel. Maar dan meer:
+
+            # {'csvFile': 'oppvlwater_herhalingstijden.csv', 'id': '%LOC_ID%', 'attribute': [{'text': 'Annual Exceedance', 'id': 'Selection'}, {'number': '%H_Threshold%', 'id': 'H_Threshold'}, {'number': '7', 'id': 'Viewperiod'}, {'text': 'Exponential', 'id': 'Function'}, {'text': 'Maximum Likelyhood', 'id': 'Fit'}, {'text': 'No', 'id': 'SelectComputationPeriod'}, {'text': '%RekenPeriode_Start%', 'id': 'ComputationPeriodStart'}, {'text': '%RekenPeriode_Eind%', 'id': 'ComputationPeriodEnd'}, {'text': 'YES', 'id': 'GraphConfidence'}, {'number': '95', 'id': 'Confidence'}, {'text': 'Yes', 'id': 'GraphLegend'}, {'number': '100', 'id': 'XasMax'}, {'text': '01-01-2000', 'id': 'DayHourDate'}, {'number': '%H_T1%', 'id': 'H_T1'}, {'number': '%H_T2%', 'id': 'H_T2'}, {'number': '%H_T5%', 'id': 'H_T5'}, {'number': '%H_T10%', 'id': 'H_T10'}, {'number': '%H_T25%', 'id': 'H_T25'}, {'number': '%H_T50%', 'id': 'H_T50'}, {'number': '%H_T100%', 'id': 'H_T100'}]}]
+
+            # fout zit ws in loc_set.value.csvfile_meta
+
             attribs = attrib_file["attribute"]
             if not isinstance(attrib_file["attribute"], list):
                 attribs = [attribs]
@@ -1032,9 +1049,11 @@ class MptConfigChecker:
             # watch out: attrib_file_name != loc_set.value.csvfile !!!
             attrib_file_name = Path(attrib_file["csvFile"])
             try:
-                csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name.stem]
+                csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name]
             except Exception as err:
                 print(err)
+                continue
+
             attrib_df = pd.read_csv(
                 filepath_or_buffer=csv_file_path,
                 sep=None,
@@ -1133,9 +1152,9 @@ class MptConfigChecker:
                 columns=["internalParameters"],
             )
 
-            # TODO: remove this
-            if loc_set == constants.LocationSetChoices.waterstandloc:
-                print("hoi")
+            # # TODO: remove this
+            # if loc_set == constants.LocationSetChoices.waterstandloc:
+            #     print("hoi")
             location_set_gdf = self.__create_location_set_df(loc_set)
 
             for idx, row in location_set_gdf.iterrows():

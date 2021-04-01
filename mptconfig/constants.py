@@ -291,20 +291,29 @@ class LocationSet:
         self.idmap_section_name = idmap_section_name
         self.validation_rules = validation_rules
         self.fews_config = FewsConfig(path=PathConstants.fews_config.value.path)
-        self._data = None
+        self._geo_df = None
+        self._general_location_set_dict = None
         self._csvfile_meta = None
         self._attrib_files = None
-        self._fews_location_set = None
 
     @property
     def geo_df(self) -> gpd.GeoDataFrame:
-        if self._data is not None:
-            return self._data
-        self._data = self.fews_config.get_locations(location_set_key=self.fews_name)
-        return self._data
+        if self._geo_df is not None:
+            return self._geo_df
+        self._geo_df = self.fews_config.get_locations(location_set_key=self.fews_name)
+        return self._geo_df
 
     @property
-    def csvfile_meta(self) -> Dict[str, str]:
+    def general_location_set_dict(self) -> Dict:
+        """ """
+        if self._general_location_set_dict is not None:
+            return self._general_location_set_dict
+        locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
+        self._general_location_set_dict = locations_dict["locationSets"]["locationSet"]
+        return self._general_location_set_dict
+
+    @property
+    def csvfile_meta(self) -> Dict:
         """
         e.g. {
                 'file': 'oppvlwater_hoofdloc',
@@ -317,9 +326,7 @@ class LocationSet:
         """
         if self._csvfile_meta is not None:
             return self._csvfile_meta
-        locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
-        location_sets = locations_dict["locationSets"]["locationSet"]
-        csvfile_meta = [loc_set for loc_set in location_sets if loc_set["id"] == self.fews_name]
+        csvfile_meta = [loc_set for loc_set in self.general_location_set_dict if loc_set["id"] == self.fews_name]
         assert len(csvfile_meta) == 1
         self._csvfile_meta = csvfile_meta[0]["csvFile"]
         return self._csvfile_meta
@@ -330,10 +337,13 @@ class LocationSet:
         return self.csvfile_meta["file"]
 
     @property
-    def attrib_files(self) -> List[Dict]:
+    def attrib_files(self) -> List:
         if self._attrib_files is not None:
             return self._attrib_files
-        attribute_files = self.csvfile_meta["attributeFile"]
+        attribute_files = self.csvfile_meta.get("attributeFile", None)
+        if not attribute_files:
+            self._attrib_files = []
+            return self._attrib_files
         if not isinstance(attribute_files, list):
             attribute_files = [attribute_files]
         assert all(
