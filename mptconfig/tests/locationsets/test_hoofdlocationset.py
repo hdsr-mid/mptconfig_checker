@@ -140,20 +140,20 @@ expected_attrib_files_1_and_2 = [
 def test_hoofdlocationset_1(patched_path_constants_1):
     assert hoofdlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert hoofdlocationset.name == expected_name_1_and_2
-    assert hoofdlocationset.csvfile == expected_csvfile_1_and_2
+    assert hoofdlocationset.csv_filename == expected_csvfile_1_and_2
     assert hoofdlocationset.fews_name == expected_fews_name_1_and_2
     assert hoofdlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert hoofdlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert hoofdlocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert hoofdlocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     assert hoofdlocationset.attrib_files == expected_attrib_files_1_and_2
 
 
 def test_hoofdlocationset_2(patched_path_constants_2):
     assert hoofdlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert hoofdlocationset.name == expected_name_1_and_2
-    assert hoofdlocationset.csvfile == expected_csvfile_1_and_2
+    assert hoofdlocationset.csv_filename == expected_csvfile_1_and_2
     assert hoofdlocationset.fews_name == expected_fews_name_1_and_2
     assert hoofdlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert hoofdlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert hoofdlocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert hoofdlocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     assert hoofdlocationset.attrib_files == expected_attrib_files_1_and_2

@@ -38,11 +38,11 @@ expected_attrib_files_1_and_2 = None
 def test_mswlocationset_1(patched_path_constants_1):
     assert mswlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert mswlocationset.name == expected_name_1_and_2
-    assert mswlocationset.csvfile == expected_csvfile_1_and_2
+    assert mswlocationset.csv_filename == expected_csvfile_1_and_2
     assert mswlocationset.fews_name == expected_fews_name_1_and_2
     assert mswlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert mswlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert mswlocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert mswlocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     # TODO: find out why keyerror
     #  attribute_files = self.csvfile_meta["attributeFile"]
     #  KeyError: 'attributeFile'
@@ -52,11 +52,11 @@ def test_mswlocationset_1(patched_path_constants_1):
 def test_mswlocationset_2(patched_path_constants_2):
     assert mswlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert mswlocationset.name == expected_name_1_and_2
-    assert mswlocationset.csvfile == expected_csvfile_1_and_2
+    assert mswlocationset.csv_filename == expected_csvfile_1_and_2
     assert mswlocationset.fews_name == expected_fews_name_1_and_2
     assert mswlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert mswlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert mswlocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert mswlocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     # TODO: find out why keyerror
     #  attribute_files = self.csvfile_meta["attributeFile"]
     #  KeyError: 'attributeFile'

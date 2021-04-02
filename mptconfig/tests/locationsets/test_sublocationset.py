@@ -554,20 +554,20 @@ expected_attrib_files_1_and_2 = [
 def test_sublocationset_1(patched_path_constants_1):
     assert sublocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert sublocationset.name == expected_name_1_and_2
-    assert sublocationset.csvfile == expected_csvfile_1_and_2
+    assert sublocationset.csv_filename == expected_csvfile_1_and_2
     assert sublocationset.fews_name == expected_fews_name_1_and_2
     assert sublocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert sublocationset.validation_rules == expected_validation_rules_1_and_2
-    assert sublocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert sublocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     assert sublocationset.attrib_files == expected_attrib_files_1_and_2
 
 
 def test_sublocationset_2(patched_path_constants_2):
     assert sublocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert sublocationset.name == expected_name_1_and_2
-    assert sublocationset.csvfile == expected_csvfile_1_and_2
+    assert sublocationset.csv_filename == expected_csvfile_1_and_2
     assert sublocationset.fews_name == expected_fews_name_1_and_2
     assert sublocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert sublocationset.validation_rules == expected_validation_rules_1_and_2
-    assert sublocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert sublocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     assert sublocationset.attrib_files == expected_attrib_files_1_and_2

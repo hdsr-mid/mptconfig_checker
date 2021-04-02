@@ -65,6 +65,8 @@ class MptConfigChecker:
 
     @property
     def fews_config(self):
+        # why inside caching property? Since it is important to not load fews_config during
+        # instantiating MptConfigChecker, as almost all tests use a patched PathConstants
         if self._fews_config is not None:
             return self._fews_config
         self._fews_config = FewsConfig(path=constants.PathConstants.fews_config.value.path)
@@ -1316,11 +1318,7 @@ class MptConfigChecker:
         for loc_set in constants.LocationSetChoices:
             if loc_set.skip_check_location_set_error:
                 continue
-
-            csv_file = loc_set.value.csvfile
-            location_gdf = loc_set.value.geo_df
             int_locs = []
-
             for idmap in ["IdOPVLWATER", "IdOPVLWATER_HYMOS"]:
                 section_start_end_list = constants.IDMAP_SECTIONS[idmap][loc_set.value.idmap_section_name]
                 for section in section_start_end_list:
@@ -1332,7 +1330,7 @@ class MptConfigChecker:
             if loc_set in (constants.LocationSetChoices.subloc, constants.LocationSetChoices.hoofdloc):
                 int_locs = [loc for loc in int_locs if loc[-1] != "0"]
 
-            for idx, row in list(location_gdf.iterrows()):
+            for idx, row in list(loc_set.value.geo_df.iterrows()):
                 error = {
                     "name_error": False,
                     "caw_name_inconsistent": False,
@@ -1385,9 +1383,9 @@ class MptConfigChecker:
                     if not error["name_error"]:
                         caw_name = re.match(pattern="([A-Z0-9 ]*)_", string=loc_name).group(1)
                         if not all(
-                            location_gdf[location_gdf["LOC_ID"].str.match(f"..{caw_code}")]["LOC_NAME"].str.match(
-                                f"({caw_name}_{caw_code}-K)"
-                            )
+                            loc_set.value.geo_df[loc_set.value.geo_df["LOC_ID"].str.match(f"..{caw_code}")][
+                                "LOC_NAME"
+                            ].str.match(f"({caw_name}_{caw_code}-K)")
                         ):
                             error["caw_name_inconsistent"] = True
 
@@ -1431,9 +1429,9 @@ class MptConfigChecker:
                     if not error["name_error"]:
                         caw_name = re.match(pattern="([A-Z0-9 ]*)_", string=loc_name).group(1)
                         if not all(
-                            location_gdf[location_gdf["LOC_ID"].str.match(f"..{caw_code}")]["LOC_NAME"].str.match(
-                                f"({caw_name}_{caw_code}-w)"
-                            )
+                            loc_set.value.geo_df[loc_set.value.geo_df["LOC_ID"].str.match(f"..{caw_code}")][
+                                "LOC_NAME"
+                            ].str.match(f"({caw_name}_{caw_code}-w)")
                         ):
                             error["caw_name_inconsistent"] = True
 
@@ -1447,7 +1445,7 @@ class MptConfigChecker:
                     loc_set_errors["locationId"].append(loc_id)
                     loc_set_errors["caw_name"].append(caw_name)
                     loc_set_errors["caw_code"].append(caw_code)
-                    loc_set_errors["csv_file"].append(csv_file)
+                    loc_set_errors["csv_file"].append(loc_set.value.csv_filename)
                     loc_set_errors["location_name"].append(loc_name)
                     for key, value in error.items():
                         loc_set_errors[key].append(value)

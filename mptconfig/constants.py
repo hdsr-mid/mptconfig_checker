@@ -290,11 +290,20 @@ class LocationSet:
         self.checker_property_name = checker_property_name
         self.idmap_section_name = idmap_section_name
         self.validation_rules = validation_rules
-        self.fews_config = FewsConfig(path=PathConstants.fews_config.value.path)
+        self._fews_config = None
         self._geo_df = None
-        self._general_location_set_dict = None
+        self._general_location_sets_dict = None
         self._csvfile_meta = None
         self._attrib_files = None
+
+    @property
+    def fews_config(self) -> FewsConfig:
+        # why inside caching property? Since it is important to not load fews_config during
+        # instantiating LocationSet subclass, as almost all tests use a patched PathConstants
+        if self._fews_config is not None:
+            return self._fews_config
+        self._fews_config = FewsConfig(path=PathConstants.fews_config.value.path)
+        return self._fews_config
 
     @property
     def geo_df(self) -> gpd.GeoDataFrame:
@@ -304,16 +313,19 @@ class LocationSet:
         return self._geo_df
 
     @property
-    def general_location_set_dict(self) -> Dict:
-        """ """
-        if self._general_location_set_dict is not None:
-            return self._general_location_set_dict
-        locations_dict = xml_to_dict(xml_filepath=self.fews_config.RegionConfigFiles["LocationSets"])
-        self._general_location_set_dict = locations_dict["locationSets"]["locationSet"]
-        return self._general_location_set_dict
+    def general_location_sets_dict(self) -> Dict:
+        if self._general_location_sets_dict is not None:
+            return self._general_location_sets_dict
+        location_sets_file_path = self.fews_config.RegionConfigFiles["LocationSets"]
+        location_sets_dict = xml_to_dict(xml_filepath=location_sets_file_path)
+        self._general_location_sets_dict = location_sets_dict["locationSets"]["locationSet"]
+        # ensure unique ids, e.g. 'OPVLWATER_HOOFDLOC', 'OPVLWATER_SUBLOC', 'RWZI', ..
+        ids = [x["id"] for x in self._general_location_sets_dict]
+        assert len(set(ids)) == len(ids), "we expected unique id's in RegionConfigFiles LocationSets"
+        return self._general_location_sets_dict
 
     @property
-    def csvfile_meta(self) -> Dict:
+    def csv_file_meta(self) -> Dict:
         """
         e.g. {
                 'file': 'oppvlwater_hoofdloc',
@@ -326,21 +338,21 @@ class LocationSet:
         """
         if self._csvfile_meta is not None:
             return self._csvfile_meta
-        csvfile_meta = [loc_set for loc_set in self.general_location_set_dict if loc_set["id"] == self.fews_name]
+        csvfile_meta = [loc_set for loc_set in self.general_location_sets_dict if loc_set["id"] == self.fews_name]
         assert len(csvfile_meta) == 1
         self._csvfile_meta = csvfile_meta[0]["csvFile"]
         return self._csvfile_meta
 
     @property
-    def csvfile(self) -> str:
+    def csv_filename(self) -> str:
         """ e.g. 'oppvlwater_hoofdloc' """
-        return self.csvfile_meta["file"]
+        return self.csv_file_meta["file"]
 
     @property
     def attrib_files(self) -> List:
         if self._attrib_files is not None:
             return self._attrib_files
-        attribute_files = self.csvfile_meta.get("attributeFile", None)
+        attribute_files = self.csv_file_meta.get("attributeFile", None)
         if not attribute_files:
             self._attrib_files = []
             return self._attrib_files

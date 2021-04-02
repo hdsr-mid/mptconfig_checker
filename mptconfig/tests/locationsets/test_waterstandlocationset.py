@@ -278,20 +278,20 @@ expected_attrib_files_1_and_2 = [
 def test_waterstandlocationset_1(patched_path_constants_1):
     assert waterstandlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert waterstandlocationset.name == expected_name_1_and_2
-    assert waterstandlocationset.csvfile == expected_csvfile_1_and_2
+    assert waterstandlocationset.csv_filename == expected_csvfile_1_and_2
     assert waterstandlocationset.fews_name == expected_fews_name_1_and_2
     assert waterstandlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert waterstandlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert waterstandlocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert waterstandlocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     assert waterstandlocationset.attrib_files == expected_attrib_files_1_and_2
 
 
 def test_waterstandlocationset_2(patched_path_constants_2):
     assert waterstandlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
     assert waterstandlocationset.name == expected_name_1_and_2
-    assert waterstandlocationset.csvfile == expected_csvfile_1_and_2
+    assert waterstandlocationset.csv_filename == expected_csvfile_1_and_2
     assert waterstandlocationset.fews_name == expected_fews_name_1_and_2
     assert waterstandlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
     assert waterstandlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert waterstandlocationset.csvfile_meta == expected_csvfile_meta_1_and_2
+    assert waterstandlocationset.csv_file_meta == expected_csvfile_meta_1_and_2
     assert waterstandlocationset.attrib_files == expected_attrib_files_1_and_2
