@@ -1497,192 +1497,6 @@ expected_df_ex_par_2 = pd.DataFrame(
     }
 )
 
-expected_intlocs_1 = [
-    "KW100521",
-    "KW101011",
-    "KW104421",
-    "KW104431",
-    "KW105012",
-    "KW105013",
-    "KW105014",
-    "KW105711",
-    "KW105911",
-    "KW106511",
-    "KW106821",
-    "KW108911",
-    "KW109311",
-    "KW109711",
-    "KW211511",
-    "KW211811",
-    "KW212511",
-    "KW212711",
-    "KW212813",
-    "KW212814",
-    "KW212815",
-    "KW212816",
-    "KW213012",
-    "KW213013",
-    "KW213121",
-    "KW213411",
-    "KW213412",
-    "KW214511",
-    "KW216013",
-    "KW217311",
-    "KW217811",
-    "KW217911",
-    "KW218011",
-    "KW218221",
-    "KW218231",
-    "KW218411",
-    "KW218613",
-    "KW218614",
-    "KW219121",
-    "KW219131",
-    "KW320111",
-    "KW320112",
-    "KW320411",
-    "KW322111",
-    "KW322815",
-    "KW322821",
-    "KW322831",
-    "KW322911",
-    "KW323016",
-    "KW323515",
-    "KW323613",
-    "KW323614",
-    "KW325111",
-    "KW325211",
-    "KW431014",
-    "KW431114",
-    "KW431713",
-    "KW432224",
-    "KW432611",
-    "KW432711",
-    "KW432811",
-    "KW432911",
-    "KW432912",
-    "KW432913",
-    "KW433011",
-    "KW433115",
-    "KW433121",
-    "KW433511",
-    "KW433521",
-    "KW433711",
-    "KW433811",
-    "KW435013",
-    "KW435412",
-    "KW435413",
-    "KW435511",
-    "KW436011",
-    "KW436115",
-    "KW436415",
-    "KW437015",
-    "KW437211",
-    "KW437221",
-    "KW438311",
-    "KW438511",
-    "KW439211",
-    "KW439421",
-    "KW439711",
-    "KW440011",
-    "KW440311",
-    "KW440411",
-    "KW440811",
-    "KW440812",
-]
-
-expected_intlocs_2 = [
-    "KW100521",
-    "KW101011",
-    "KW104421",
-    "KW104431",
-    "KW105012",
-    "KW105013",
-    "KW105014",
-    "KW105711",
-    "KW105911",
-    "KW106511",
-    "KW106821",
-    "KW108911",
-    "KW109311",
-    "KW110421",
-    "KW211511",
-    "KW211811",
-    "KW212511",
-    "KW212711",
-    "KW212813",
-    "KW212814",
-    "KW212815",
-    "KW212816",
-    "KW213012",
-    "KW213013",
-    "KW213121",
-    "KW213411",
-    "KW213412",
-    "KW214511",
-    "KW216013",
-    "KW217311",
-    "KW217811",
-    "KW217911",
-    "KW218011",
-    "KW218221",
-    "KW218231",
-    "KW218411",
-    "KW218619",
-    "KW219121",
-    "KW219131",
-    "KW320111",
-    "KW320112",
-    "KW320411",
-    "KW322111",
-    "KW322815",
-    "KW322821",
-    "KW322831",
-    "KW322911",
-    "KW323515",
-    "KW323613",
-    "KW323614",
-    "KW325111",
-    "KW325211",
-    "KW431014",
-    "KW431114",
-    "KW431713",
-    "KW432224",
-    "KW432611",
-    "KW432711",
-    "KW432811",
-    "KW432911",
-    "KW432912",
-    "KW432913",
-    "KW433011",
-    "KW433115",
-    "KW433121",
-    "KW433511",
-    "KW433521",
-    "KW433711",
-    "KW433811",
-    "KW435013",
-    "KW435412",
-    "KW435413",
-    "KW435511",
-    "KW436011",
-    "KW436115",
-    "KW436415",
-    "KW437015",
-    "KW437211",
-    "KW437221",
-    "KW438311",
-    "KW438511",
-    "KW439211",
-    "KW439421",
-    "KW440011",
-    "KW440311",
-    "KW440411",
-    "KW440811",
-    "KW440812",
-    "KW441011",
-]
-
 
 def test_check_ex_par_errors_int_loc_missing_1(patched_path_constants_1):
     """integration test with patched paths 1"""
@@ -1690,22 +1504,9 @@ def test_check_ex_par_errors_int_loc_missing_1(patched_path_constants_1):
     ex_par_sheet, int_loc_sheet = meetpunt_config.check_ex_par_errors_int_loc_missing(
         ex_par_sheet_name="blaat1", int_loc_sheet_name="blaat2"
     )
-    from pathlib import Path
-
-    assert meetpunt_config.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
-    assert len(meetpunt_config.ignored_ex_loc) == 6
-
     assert isinstance(ex_par_sheet, ExcelSheet) and isinstance(int_loc_sheet, ExcelSheet)
     assert ex_par_sheet.name == "blaat1" and int_loc_sheet.name == "blaat2"
     assert (ex_par_sheet.sheet_type and int_loc_sheet.sheet_type) == ExcelSheetTypeChoices.output_check
-
-    # int_locs = ex_par_sheet.df.internalLocation.to_list()
-    # too_many = set(int_locs).difference(set(expected_intlocs_1))
-    # too_few = set(expected_intlocs_2).difference(set(expected_intlocs_1))
-    # assert set([1, 2, 3]).difference(set([3, 4])) == set([1, 2])
-    # assert not too_many
-    # assert not too_few  # {'KW110421', 'KW218619', 'KW441011'}
-
     assert ex_par_sheet.nr_rows == 91
     assert int_loc_sheet.nr_rows == 2
     assert equal_dataframes(expected_df=expected_df_ex_par_1, test_df=ex_par_sheet.df)
@@ -1718,26 +1519,9 @@ def test_check_ex_par_errors_int_loc_missing_2(patched_path_constants_2):
     ex_par_sheet, int_loc_sheet = meetpunt_config.check_ex_par_errors_int_loc_missing(
         ex_par_sheet_name="blaat1", int_loc_sheet_name="blaat2"
     )
-    from pathlib import Path
-
-    assert (
-        meetpunt_config.fews_config.path
-        == Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
-    )
-    assert len(meetpunt_config.ignored_ex_loc) == 6
-
     assert isinstance(ex_par_sheet, ExcelSheet) and isinstance(int_loc_sheet, ExcelSheet)
     assert ex_par_sheet.name == "blaat1" and int_loc_sheet.name == "blaat2"
     assert (ex_par_sheet.sheet_type and int_loc_sheet.sheet_type) == ExcelSheetTypeChoices.output_check
-    assert len(set(expected_intlocs_2)) == len(expected_intlocs_2)
-
-    # int_locs = ex_par_sheet.df.internalLocation.to_list()
-    # too_many = set(int_locs).difference(set(expected_intlocs_2))
-    # too_few = set(expected_intlocs_2).difference(set(int_locs))
-    # # assert set([1, 2, 3]).difference(set([3, 4])) == set([1, 2])
-    # assert not too_many  # {'KW218613', 'KW218614'}
-    # assert not too_few  # {'KW110421', 'KW218619', 'KW441011'}
-
     assert ex_par_sheet.nr_rows == 89
     assert int_loc_sheet.nr_rows == 0
     assert equal_dataframes(expected_df=expected_df_ex_par_2, test_df=ex_par_sheet.df)

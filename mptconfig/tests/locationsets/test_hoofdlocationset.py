@@ -1,4 +1,4 @@
-from mptconfig.constants import _hoofdlocationset
+from mptconfig import constants
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
 from pathlib import Path
@@ -245,24 +245,26 @@ expected_attrib_files_2 = [
 
 
 def test_hoofdlocationset_1(patched_path_constants_1):
-    assert _hoofdlocationset.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
-    assert _hoofdlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
-    assert _hoofdlocationset.name == expected_name_1_and_2
-    assert _hoofdlocationset.csv_filename == expected_csvfile_1_and_2
-    assert _hoofdlocationset.fews_name == expected_fews_name_1_and_2
-    assert _hoofdlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
-    assert _hoofdlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert _hoofdlocationset.csv_file_meta == expected_csvfile_meta_1
-    assert _hoofdlocationset.attrib_files == expected_attrib_files_1
+    hoofdloc = constants.HoofdLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    assert hoofdloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert hoofdloc.idmap_section_name == expected_idmap_section_name_1_and_2
+    assert hoofdloc.name == expected_name_1_and_2
+    assert hoofdloc.csv_filename == expected_csvfile_1_and_2
+    assert hoofdloc.fews_name == expected_fews_name_1_and_2
+    assert hoofdloc.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
+    assert hoofdloc.validation_rules == expected_validation_rules_1_and_2
+    assert hoofdloc.csv_file_meta == expected_csvfile_meta_1
+    assert hoofdloc.attrib_files == expected_attrib_files_1
 
 
 def test_hoofdlocationset_2(patched_path_constants_2):
-    assert _hoofdlocationset.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
-    assert _hoofdlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
-    assert _hoofdlocationset.name == expected_name_1_and_2
-    assert _hoofdlocationset.csv_filename == expected_csvfile_1_and_2
-    assert _hoofdlocationset.fews_name == expected_fews_name_1_and_2
-    assert _hoofdlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
-    assert _hoofdlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert _hoofdlocationset.csv_file_meta == expected_csvfile_meta_2
-    assert _hoofdlocationset.attrib_files == expected_attrib_files_2
+    hoofdloc = constants.HoofdLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    assert hoofdloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert hoofdloc.idmap_section_name == expected_idmap_section_name_1_and_2
+    assert hoofdloc.name == expected_name_1_and_2
+    assert hoofdloc.csv_filename == expected_csvfile_1_and_2
+    assert hoofdloc.fews_name == expected_fews_name_1_and_2
+    assert hoofdloc.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
+    assert hoofdloc.validation_rules == expected_validation_rules_1_and_2
+    assert hoofdloc.csv_file_meta == expected_csvfile_meta_2
+    assert hoofdloc.attrib_files == expected_attrib_files_2

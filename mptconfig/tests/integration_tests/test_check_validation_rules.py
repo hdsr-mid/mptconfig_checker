@@ -165,7 +165,7 @@ def test_check_validation_rules_1(patched_path_constants_1):
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 1504
+    assert excelsheet.nr_rows == 692
 
 
 def test_check_validation_rules_2(patched_path_constants_2):
@@ -175,4 +175,4 @@ def test_check_validation_rules_2(patched_path_constants_2):
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 1537
+    assert excelsheet.nr_rows == 708

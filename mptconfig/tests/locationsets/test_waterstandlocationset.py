@@ -1,6 +1,7 @@
-from mptconfig.constants import _waterstandlocationset
+from mptconfig import constants
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
+from pathlib import Path
 
 
 # silence flake8 errors
@@ -449,22 +450,26 @@ expected_attrib_files_2 = [
 
 
 def test_waterstandlocationset_1(patched_path_constants_1):
-    assert _waterstandlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
-    assert _waterstandlocationset.name == expected_name_1_and_2
-    assert _waterstandlocationset.csv_filename == expected_csvfile_1_and_2
-    assert _waterstandlocationset.fews_name == expected_fews_name_1_and_2
-    assert _waterstandlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
-    assert _waterstandlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert _waterstandlocationset.csv_file_meta == expected_csvfile_meta_1
-    assert _waterstandlocationset.attrib_files == expected_attrib_files_1
+    wsloc = constants.WaterstandLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    assert wsloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert wsloc.idmap_section_name == expected_idmap_section_name_1_and_2
+    assert wsloc.name == expected_name_1_and_2
+    assert wsloc.csv_filename == expected_csvfile_1_and_2
+    assert wsloc.fews_name == expected_fews_name_1_and_2
+    assert wsloc.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
+    assert wsloc.validation_rules == expected_validation_rules_1_and_2
+    assert wsloc.csv_file_meta == expected_csvfile_meta_1
+    assert wsloc.attrib_files == expected_attrib_files_1
 
 
 def test_waterstandlocationset_2(patched_path_constants_2):
-    assert _waterstandlocationset.idmap_section_name == expected_idmap_section_name_1_and_2
-    assert _waterstandlocationset.name == expected_name_1_and_2
-    assert _waterstandlocationset.csv_filename == expected_csvfile_1_and_2
-    assert _waterstandlocationset.fews_name == expected_fews_name_1_and_2
-    assert _waterstandlocationset.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
-    assert _waterstandlocationset.validation_rules == expected_validation_rules_1_and_2
-    assert _waterstandlocationset.csv_file_meta == expected_csvfile_meta_2
-    assert _waterstandlocationset.attrib_files == expected_attrib_files_2
+    wsloc = constants.WaterstandLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    assert wsloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert wsloc.idmap_section_name == expected_idmap_section_name_1_and_2
+    assert wsloc.name == expected_name_1_and_2
+    assert wsloc.csv_filename == expected_csvfile_1_and_2
+    assert wsloc.fews_name == expected_fews_name_1_and_2
+    assert wsloc.get_validation_attributes(int_pars=None) == expected_validation_attributes_1_and_2
+    assert wsloc.validation_rules == expected_validation_rules_1_and_2
+    assert wsloc.csv_file_meta == expected_csvfile_meta_2
+    assert wsloc.attrib_files == expected_attrib_files_2

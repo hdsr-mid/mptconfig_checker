@@ -259,6 +259,7 @@ class FewsConfig:
         #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
         #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.
         #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
+        assert isinstance(location_set_key, str)
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
             logger.warning(f"no location_set found in fews_config for location_set_key: {location_set_key}")

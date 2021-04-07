@@ -1,9 +1,9 @@
 from mptconfig import constants
-from mptconfig.constants import LocationSetChoices
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
 
 import logging
+import pytest
 
 
 # silence flake8 errors
@@ -3889,101 +3889,93 @@ general_location_set_dict_2 = [
 ]
 
 
-def test_general_location_set_dict_1(patched_path_constants_1):
-    hoofd = constants._hoofdlocationset.general_location_sets_dict
-    sub = constants._sublocationset.general_location_sets_dict
-    ws = constants._waterstandlocationset.general_location_sets_dict
-    msw = constants._mswlocationset.general_location_sets_dict
-    ps = constants._pslocationset.general_location_sets_dict
-    assert hoofd == sub == ws == msw == ps == general_location_set_dict_1
+@pytest.fixture
+def locset1(patched_path_constants_1):
+    hoofdloc = constants.HoofdLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    subloc = constants.SubLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    wsloc = constants.WaterstandLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    mswloc = constants.MswLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    psloc = constants.PeilschaalLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    return hoofdloc, subloc, wsloc, mswloc, psloc
 
 
-def test_general_location_set_dict_2(patched_path_constants_2):
-    hoofd = constants._hoofdlocationset.general_location_sets_dict
-    sub = constants._sublocationset.general_location_sets_dict
-    ws = constants._waterstandlocationset.general_location_sets_dict
-    msw = constants._mswlocationset.general_location_sets_dict
-    ps = constants._pslocationset.general_location_sets_dict
-    assert hoofd == sub == ws == msw == ps == general_location_set_dict_2
+@pytest.fixture
+def locset2(patched_path_constants_2):
+    hoofdloc = constants.HoofdLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    subloc = constants.SubLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    wsloc = constants.WaterstandLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    mswloc = constants.MswLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    psloc = constants.PeilschaalLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
+    return hoofdloc, subloc, wsloc, mswloc, psloc
 
 
-def test_unique_validation_attributes1(patched_path_constants_1):
-    hoofd = constants._hoofdlocationset.get_validation_attributes(int_pars=None)
-    sub = constants._sublocationset.get_validation_attributes(int_pars=None)
-    ws = constants._waterstandlocationset.get_validation_attributes(int_pars=None)
-    msw = constants._mswlocationset.get_validation_attributes(int_pars=None)
-    ps = constants._pslocationset.get_validation_attributes(int_pars=None)
-    assert hoofd and sub and ws
-    assert not msw and not ps
-    assert hoofd != sub != ws
+def test_general_location_set_dict_1(locset1):
+    for locset in locset1:
+        assert locset.general_location_sets_dict == general_location_set_dict_1
 
 
-def test_unique_validation_attributes2(patched_path_constants_2):
-    hoofd = constants._hoofdlocationset.get_validation_attributes(int_pars=None)
-    sub = constants._sublocationset.get_validation_attributes(int_pars=None)
-    ws = constants._waterstandlocationset.get_validation_attributes(int_pars=None)
-    msw = constants._mswlocationset.get_validation_attributes(int_pars=None)
-    ps = constants._pslocationset.get_validation_attributes(int_pars=None)
-    assert hoofd and sub and ws
-    assert not msw and not ps
-    assert hoofd != sub != ws
+def test_general_location_set_dict_2(locset2):
+    for locset in locset2:
+        assert locset.general_location_sets_dict == general_location_set_dict_2
 
 
-def _helper_get_meta_1(locset: constants.LocationSetChoices):
-    return [loc_set for loc_set in general_location_set_dict_1 if loc_set["id"] == locset.fews_name][0]["csvFile"]
+def test_unique_validation_attributes1(locset1):
+    def attrbts(locset: constants.LocationSet):
+        return locset.get_validation_attributes(int_pars=None)
+
+    hoofdloc, subloc, wsloc, mswloc, psloc = locset1
+    assert attrbts(hoofdloc) and attrbts(subloc) and attrbts(wsloc)
+    assert attrbts(mswloc) == [] and attrbts(psloc) == []
+    assert attrbts(hoofdloc) != attrbts(subloc) != attrbts(mswloc)
 
 
-def _helper_get_meta_2(locset: constants.LocationSetChoices):
-    return [loc_set for loc_set in general_location_set_dict_2 if loc_set["id"] == locset.fews_name][0]["csvFile"]
+def test_unique_validation_attributes2(locset2):
+    def attrbts(locset: constants.LocationSet):
+        return locset.get_validation_attributes(int_pars=None)
+
+    hoofdloc, subloc, wsloc, mswloc, psloc = locset2
+    assert attrbts(hoofdloc) and attrbts(subloc) and attrbts(wsloc)
+    assert attrbts(mswloc) == [] and attrbts(psloc) == []
+    assert attrbts(hoofdloc) != attrbts(subloc) != attrbts(mswloc)
 
 
-def test_unique_csvfile_meta1(patched_path_constants_1):
-    hoofd = LocationSetChoices.hoofdloc.value
-    sub = LocationSetChoices.subloc.value
-    ws = LocationSetChoices.waterstandloc.value
-    msw = LocationSetChoices.mswloc.value
-    ps = LocationSetChoices.psloc.value
+def test_unique_csvfile_meta1(locset1):
+    def _helper_get_meta(locset: constants.LocationSet):
+        return [loc_set for loc_set in general_location_set_dict_1 if loc_set["id"] == locset.fews_name][0]["csvFile"]
+
+    hoofd, sub, ws, msw, ps = locset1
     assert hoofd.csv_file_meta and sub.csv_file_meta and ws.csv_file_meta and msw.csv_file_meta and ps.csv_file_meta
     assert hoofd.csv_file_meta != sub.csv_file_meta != ws.csv_file_meta != msw.csv_file_meta != ps.csv_file_meta
-    assert hoofd.csv_file_meta == _helper_get_meta_1(locset=hoofd)
-    assert sub.csv_file_meta == _helper_get_meta_1(locset=sub)
-    assert ws.csv_file_meta == _helper_get_meta_1(locset=ws)
-    assert ps.csv_file_meta == _helper_get_meta_1(locset=ps)
-    assert msw.csv_file_meta == _helper_get_meta_1(locset=msw)
+    assert hoofd.csv_file_meta == _helper_get_meta(locset=hoofd)
+    assert sub.csv_file_meta == _helper_get_meta(locset=sub)
+    assert ws.csv_file_meta == _helper_get_meta(locset=ws)
+    assert ps.csv_file_meta == _helper_get_meta(locset=ps)
+    assert msw.csv_file_meta == _helper_get_meta(locset=msw)
 
 
-def test_unique_csvfile_meta2(patched_path_constants_2):
-    hoofd = LocationSetChoices.hoofdloc.value
-    sub = LocationSetChoices.subloc.value
-    ws = LocationSetChoices.waterstandloc.value
-    msw = LocationSetChoices.mswloc.value
-    ps = LocationSetChoices.psloc.value
+def test_unique_csvfile_meta2(locset2):
+    def _helper_get_meta(locset: constants.LocationSet):
+        return [loc_set for loc_set in general_location_set_dict_2 if loc_set["id"] == locset.fews_name][0]["csvFile"]
+
+    hoofd, sub, ws, msw, ps = locset2
     assert hoofd.csv_file_meta and sub.csv_file_meta and ws.csv_file_meta and msw.csv_file_meta and ps.csv_file_meta
     assert hoofd.csv_file_meta != sub.csv_file_meta != ws.csv_file_meta != msw.csv_file_meta != ps.csv_file_meta
-    assert hoofd.csv_file_meta == _helper_get_meta_2(locset=hoofd)
-    assert sub.csv_file_meta == _helper_get_meta_2(locset=sub)
-    assert ws.csv_file_meta == _helper_get_meta_2(locset=ws)
-    assert msw.csv_file_meta == _helper_get_meta_2(locset=msw)
-    assert ps.csv_file_meta == _helper_get_meta_2(locset=ps)
+    assert hoofd.csv_file_meta == _helper_get_meta(locset=hoofd)
+    assert sub.csv_file_meta == _helper_get_meta(locset=sub)
+    assert ws.csv_file_meta == _helper_get_meta(locset=ws)
+    assert ps.csv_file_meta == _helper_get_meta(locset=ps)
+    assert msw.csv_file_meta == _helper_get_meta(locset=msw)
 
 
-def test_unique_attribute_files1(patched_path_constants_1):
-    hoofd = LocationSetChoices.hoofdloc.value.attrib_files
-    sub = LocationSetChoices.subloc.value.attrib_files
-    ws = LocationSetChoices.waterstandloc.value.attrib_files
-    msw = LocationSetChoices.mswloc.value.attrib_files
-    ps = LocationSetChoices.psloc.value.attrib_files
-    assert hoofd and sub and ws
-    assert not msw and not ps
-    assert hoofd != sub != ws
+def test_unique_attribute_files1(locset1):
+    hoofd, sub, ws, msw, ps = locset1
+    assert hoofd.attrib_files and sub.attrib_files and ws.attrib_files
+    assert msw.attrib_files == [] and ps.attrib_files == []
+    assert hoofd.attrib_files != sub.attrib_files != ws.attrib_files
 
 
-def test_unique_attribute_files2(patched_path_constants_2):
-    hoofd = LocationSetChoices.hoofdloc.value.attrib_files
-    sub = LocationSetChoices.subloc.value.attrib_files
-    ws = LocationSetChoices.waterstandloc.value.attrib_files
-    msw = LocationSetChoices.mswloc.value.attrib_files
-    ps = LocationSetChoices.psloc.value.attrib_files
-    assert hoofd and sub and ws
-    assert not msw and not ps
-    assert hoofd != sub != ws
+def test_unique_attribute_files2(locset2):
+    hoofd, sub, ws, msw, ps = locset2
+    assert hoofd.attrib_files and sub.attrib_files and ws.attrib_files
+    assert msw.attrib_files == [] and ps.attrib_files == []
+    assert hoofd.attrib_files != sub.attrib_files != ws.attrib_files
