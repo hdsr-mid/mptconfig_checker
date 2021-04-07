@@ -110,7 +110,7 @@ class PatchedPathConstants2(Enum):
     )
 
 
-@pytest.fixture(autouse=False, scope="session")
+@pytest.fixture(autouse=False, scope="function")
 def patched_path_constants_1():
     target = "mptconfig.constants.PathConstants"
     logger.debug(f"patching {target}")
@@ -118,9 +118,43 @@ def patched_path_constants_1():
         yield patched
 
 
-@pytest.fixture(autouse=False, scope="session")
+@pytest.fixture(autouse=False, scope="function")
 def patched_path_constants_2():
     target = "mptconfig.constants.PathConstants"
     logger.debug(f"patching {target}")
     with patch(target=target, new=PatchedPathConstants2) as patched:
         yield patched
+
+
+# @pytest.fixture(autouse=True, scope="function")
+# def reset1(patched_path_constants_1):
+#     patched_path_constants_1.reset()
+#
+#
+# @pytest.fixture(autouse=True)
+# def reset2(patched_path_constants_2):
+#     patched_path_constants_2.reset()
+
+
+# google op: "pytest teardown after each test"
+
+
+# https://stackoverflow.com/questions/51803167/pytest-fixture-setup-teardown-and-code-running-between-each-test
+
+# Just introduce another fixture that performs the reset. Make it an autouse fixture so it perfoms automatically before each test:
+
+# @pytest.fixture(scope='module')
+# def leela():
+#     leela = leelaZeroWrapper.LeelaWrapper()
+#     yield leela
+#     leela.quit()
+#
+# @pytest.fixture(autouse=True)
+# def reset(leela):
+#     leela.reset()
+#
+#
+# def test_single_play(leela):
+#     result = leela.play('b', 'a11')
+#     assert result == [{'color': 'black', 'loc': 'a11'}]
+# The default fixture scope is function, so the reset fixture will rerun before each test in module

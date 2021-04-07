@@ -3890,40 +3890,40 @@ general_location_set_dict_2 = [
 
 
 def test_general_location_set_dict_1(patched_path_constants_1):
-    hoofd = constants.hoofdlocationset.general_location_sets_dict
-    sub = constants.sublocationset.general_location_sets_dict
-    ws = constants.waterstandlocationset.general_location_sets_dict
-    msw = constants.mswlocationset.general_location_sets_dict
-    ps = constants.pslocationset.general_location_sets_dict
+    hoofd = constants._hoofdlocationset.general_location_sets_dict
+    sub = constants._sublocationset.general_location_sets_dict
+    ws = constants._waterstandlocationset.general_location_sets_dict
+    msw = constants._mswlocationset.general_location_sets_dict
+    ps = constants._pslocationset.general_location_sets_dict
     assert hoofd == sub == ws == msw == ps == general_location_set_dict_1
 
 
 def test_general_location_set_dict_2(patched_path_constants_2):
-    hoofd = constants.hoofdlocationset.general_location_sets_dict
-    sub = constants.sublocationset.general_location_sets_dict
-    ws = constants.waterstandlocationset.general_location_sets_dict
-    msw = constants.mswlocationset.general_location_sets_dict
-    ps = constants.pslocationset.general_location_sets_dict
+    hoofd = constants._hoofdlocationset.general_location_sets_dict
+    sub = constants._sublocationset.general_location_sets_dict
+    ws = constants._waterstandlocationset.general_location_sets_dict
+    msw = constants._mswlocationset.general_location_sets_dict
+    ps = constants._pslocationset.general_location_sets_dict
     assert hoofd == sub == ws == msw == ps == general_location_set_dict_2
 
 
 def test_unique_validation_attributes1(patched_path_constants_1):
-    hoofd = constants.hoofdlocationset.get_validation_attributes(int_pars=None)
-    sub = constants.sublocationset.get_validation_attributes(int_pars=None)
-    ws = constants.waterstandlocationset.get_validation_attributes(int_pars=None)
-    msw = constants.mswlocationset.get_validation_attributes(int_pars=None)
-    ps = constants.pslocationset.get_validation_attributes(int_pars=None)
+    hoofd = constants._hoofdlocationset.get_validation_attributes(int_pars=None)
+    sub = constants._sublocationset.get_validation_attributes(int_pars=None)
+    ws = constants._waterstandlocationset.get_validation_attributes(int_pars=None)
+    msw = constants._mswlocationset.get_validation_attributes(int_pars=None)
+    ps = constants._pslocationset.get_validation_attributes(int_pars=None)
     assert hoofd and sub and ws
     assert not msw and not ps
     assert hoofd != sub != ws
 
 
 def test_unique_validation_attributes2(patched_path_constants_2):
-    hoofd = constants.hoofdlocationset.get_validation_attributes(int_pars=None)
-    sub = constants.sublocationset.get_validation_attributes(int_pars=None)
-    ws = constants.waterstandlocationset.get_validation_attributes(int_pars=None)
-    msw = constants.mswlocationset.get_validation_attributes(int_pars=None)
-    ps = constants.pslocationset.get_validation_attributes(int_pars=None)
+    hoofd = constants._hoofdlocationset.get_validation_attributes(int_pars=None)
+    sub = constants._sublocationset.get_validation_attributes(int_pars=None)
+    ws = constants._waterstandlocationset.get_validation_attributes(int_pars=None)
+    msw = constants._mswlocationset.get_validation_attributes(int_pars=None)
+    ps = constants._pslocationset.get_validation_attributes(int_pars=None)
     assert hoofd and sub and ws
     assert not msw and not ps
     assert hoofd != sub != ws

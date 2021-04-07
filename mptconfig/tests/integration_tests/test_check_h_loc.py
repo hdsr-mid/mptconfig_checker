@@ -13,7 +13,7 @@ _patched_path_constants_1 = patched_path_constants_1
 _patched_path_constants_2 = patched_path_constants_2
 
 
-expected_df_1_and_2 = pd.DataFrame(
+expected_df_2 = pd.DataFrame(
     {
         "LOC_ID": {
             0: "KW100110",
@@ -166,8 +166,7 @@ def test_check_h_loc_1(patched_path_constants_1):
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 18
-    assert equal_dataframes(expected_df=expected_df_1_and_2, test_df=excelsheet.df)
+    assert excelsheet.nr_rows == 0
 
 
 def test_check_h_loc_2(patched_path_constants_2):
@@ -178,4 +177,4 @@ def test_check_h_loc_2(patched_path_constants_2):
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
     assert excelsheet.nr_rows == 18
-    assert equal_dataframes(expected_df=expected_df_1_and_2, test_df=excelsheet.df)
+    assert equal_dataframes(expected_df=expected_df_2, test_df=excelsheet.df)

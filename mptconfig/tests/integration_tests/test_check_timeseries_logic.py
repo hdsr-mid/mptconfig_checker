@@ -367,8 +367,8 @@ expected_df_1 = pd.DataFrame(
             28: "pompvijzel",
             29: "stuw",
             30: "pompvijzel",
-            31: "afsluiter",
-            32: "afsluiter",
+            31: "schuif",
+            32: "schuif",
             33: "stuw",
             34: "stuw",
             35: "pompvijzel",
@@ -431,8 +431,8 @@ expected_df_1 = pd.DataFrame(
             28: "pompvijzel zonder stuurpeil KW217012 wel",
             29: "stuw zonder stuurpeil KW217012 wel",
             30: "pompvijzel zonder stuurpeil KW217711 wel",
-            31: "afsluiter zonder stuurpeil KW218611,KW218612 wel",
-            32: "afsluiter zonder stuurpeil KW218611,KW218612 wel",
+            31: "schuif zonder stuurpeil KW218611,KW218612 wel",
+            32: "schuif zonder stuurpeil KW218611,KW218612 wel",
             33: "stuw zonder stuurpeil KW322311 wel",
             34: "stuw zonder stuurpeil KW322511 wel",
             35: "pompvijzel zonder stuurpeil KW322813,KW322815 wel",
@@ -465,6 +465,7 @@ expected_df_1 = pd.DataFrame(
         },
     }
 )
+
 expected_df_2 = pd.DataFrame(
     {
         "internalLocation": {
