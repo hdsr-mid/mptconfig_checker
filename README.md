@@ -5,21 +5,21 @@ Python scripts ter ondersteuning van het HDSR CAW FEWS:
 
 ## Test Coverage (23-3-2021)
 ```
----------- coverage: platform win32, python 3.7.10-final-0 ----------
+---------- coverage: platform win32, python 3.7.10-final-0 -
 Name                          Stmts   Miss  Cover
 -------------------------------------------------
 main.py                          32     32     0%
 mptconfig\__init__.py             0      0   100%
-mptconfig\checker.py            815    176    78%
-mptconfig\constants.py          112     18    84%
+mptconfig\checker.py            821    157    81%
+mptconfig\constants.py          191     23    88%
 mptconfig\description.py          0      0   100%
-mptconfig\excel.py              171     89    48%
-mptconfig\fews_utilities.py     156     18    88%
+mptconfig\excel.py              183     96    48%
+mptconfig\fews_utilities.py     170     28    84%
 mptconfig\tmp.py                 30     24    20%
 mptconfig\utils.py               51     22    57%
 setup.py                         10     10     0%
 -------------------------------------------------
-TOTAL                          1377    389    72%
+TOTAL                          1488    392    74%
 ```
 
 

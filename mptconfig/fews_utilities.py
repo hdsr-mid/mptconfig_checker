@@ -14,6 +14,20 @@ import os
 logger = logging.getLogger(__name__)
 
 
+def elements_equal(e1, e2):
+    if e1.tag != e2.tag:
+        return False
+    if e1.text != e2.text:
+        return False
+    if e1.tail != e2.tail:
+        return False
+    if e1.attrib != e2.attrib:
+        return False
+    if len(e1) != len(e2):
+        return False
+    return all(elements_equal(c1, c2) for c1, c2 in zip(e1, e2))
+
+
 def xml_to_etree(xml_filepath: Path) -> ET._Element:
     """ parses an xml-file to an etree. ETree can be used in function etree_to_dict """
     assert isinstance(xml_filepath, Path), f"path {xml_filepath} must be a pathlib.Path"
@@ -83,7 +97,8 @@ def etree_to_dict(
 def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str = None) -> Dict:
     """ converts an xml-file to a dictionary """
     etree = xml_to_etree(xml_filepath=xml_filepath)
-    return etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
+    _dict = etree_to_dict(etree=etree, section_start=section_start, section_end=section_end)
+    return _dict
 
 
 class FewsConfig:
@@ -244,6 +259,7 @@ class FewsConfig:
         #    alle validatieregels stonden in de CSV's door validationrulesets.xml en locationsets.xml
         #    te combineren. Dat ging nu te ver: validationrules wat sowieso een extra vraag.
         #    Vandaar dat VALIDATION_RULES nu in constants.py is gedefinieerd.
+        assert isinstance(location_set_key, str)
         location_set = self.location_sets.get(location_set_key, None)
         if not location_set:
             logger.warning(f"no location_set found in fews_config for location_set_key: {location_set_key}")
