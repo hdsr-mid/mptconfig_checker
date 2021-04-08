@@ -29,6 +29,14 @@ logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
+# TODO
+1. par_mismatch (zie mail Roger 26 maar 2021 puntje 13)
+2. check validation rules: deze doorvoeren --> hmin <= smin < smax <= hmax
+3. nieuwe ignore lijst gaan gebruiken voor timeseries  (ignored_time_series_error.csv) <-- eerst alle 7 verifieren obv mail Inke<->Roger
+4. check validation rules verbeteren: Q.G en Q.H (zie TODO in LocationSet.get_validation_attributes())
+5. check validation rules uitbreiden mbt (WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX, ZOM_SMIN) zie TODO check_validation_rules
+
+
 
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
@@ -1180,12 +1188,12 @@ class MptConfigChecker:
         #  zo ja, dan error als niet:
         #  hmin <= smin < smax <= hmax
 
-        # voor waterstanden is winter zomer en overgangs variant
-        # WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX	ZOM_SMIN
-        # oppvlwater_watervalidatie.csv
-
-        # zomer is >= ov
-        # ov >= winter
+        # TODO
+        #  voor waterstanden is winter zomer en overgangs variant
+        #  WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX	ZOM_SMIN
+        #  oppvlwater_watervalidatie.csv
+        #  zomer is >= ov
+        #  ov >= winter
 
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
@@ -1256,20 +1264,21 @@ class MptConfigChecker:
                             hmax = rule["hmax"][0]
                             hmin = rule["hmin"][0]
                             for smin, smax in zip(rule["smin"], rule["smax"]):
-                                if all(attrib in row.keys() for attrib in [smin, smax]):
-                                    if row[smax] <= row[smin]:
-                                        errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [f"{smax} <= {smin}"]
+                                if not all(attrib in row.keys() for attrib in [smin, smax]):
+                                    continue
+                                if row[smax] <= row[smin]:
+                                    errors["fout_type"] = "waarde"
+                                    errors["fout_beschrijving"] += [f"{smax} <= {smin}"]
 
-                                    # TODO: hiervoor al ergens checken of alle waarden in row zijn ingevuld,
-                                    #  want anders keyerror...
-                                    if row[hmax] < row[smax]:
-                                        errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [f"{hmax} < {smax}"]
+                                # TODO: hiervoor al ergens checken of alle waarden in row zijn ingevuld,
+                                #  want anders keyerror...
+                                if row[hmax] < row[smax]:
+                                    errors["fout_type"] = "waarde"
+                                    errors["fout_beschrijving"] += [f"{hmax} < {smax}"]
 
-                                    if row[smin] < row[hmin]:
-                                        errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [f"{smin} < {hmin}"]
+                                if row[smin] < row[hmin]:
+                                    errors["fout_type"] = "waarde"
+                                    errors["fout_beschrijving"] += [f"{smin} < {hmin}"]
 
                     valid_errors["internalLocation"] += [row["LOC_ID"]] * len(errors["fout_beschrijving"])
 
