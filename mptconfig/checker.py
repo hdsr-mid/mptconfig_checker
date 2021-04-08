@@ -1162,6 +1162,31 @@ class MptConfigChecker:
         #       - vaststellen obv tijdreeks zelf
         # 6. WIS gebruikt deze bandbreedtes om tijdseries te vlaggen.
 
+        # roger:
+        # - waarde MIN mag gelijk zijn aan waarde MIN
+        # - waarde MAX mag gelijk zijn aan waarde MAX
+        # - waarde MIN mag niet groter dan waarde MAX
+        # TODO: hoe zit dit met Hard en Soft?
+        #  nu error als:
+        #  - row[hmax] < row[hmin]
+        #  - row[smax] <= row[smin]
+        #  - row[smin] < row[hmin]
+        #  renier
+        #  volgorde  uitzondering
+        #  hmax
+        #  smax      mag gelijk zijn aan hmax
+        #  smin      mag gelijk zijn aan hmin (dit zei je vorige keer)
+        #  hmin
+        #  zo ja, dan error als niet:
+        #  hmin <= smin < smax <= hmax
+
+        # voor waterstanden is winter zomer en overgangs variant
+        # WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX	ZOM_SMIN
+        # oppvlwater_watervalidatie.csv
+
+        # zomer is >= ov
+        # ov >= winter
+
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
         valid_errors = {
@@ -1240,7 +1265,7 @@ class MptConfigChecker:
                                     #  want anders keyerror...
                                     if row[hmax] < row[smax]:
                                         errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [f"{'hmax'} < {smax}"]
+                                        errors["fout_beschrijving"] += [f"{hmax} < {smax}"]
 
                                     if row[smin] < row[hmin]:
                                         errors["fout_type"] = "waarde"

@@ -139,13 +139,13 @@ class FewsConfig:
 
         Example result:
             self.CoefficientSetsFiles = {
-                'BovenkantBuis': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/CoefficientSetsFiles/BovenkantBuis.xml'),  # noqa
-                'DebietParameters': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/CoefficientSetsFiles/DebietParameters.xml')  # noqa
+                'BovenkantBuis': WindowsPath('.../FEWS_SA/config/CoefficientSetsFiles/BovenkantBuis.xml'),
+                'DebietParameters': WindowsPath('.../FEWS_SA/config/CoefficientSetsFiles/DebietParameters.xml')
                 },
             self.DisplayConfigFiles = {
-                'GridDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/GridDisplay.xml'),  # noqa
-                'ManualForecastDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/ManualForecastDisplay.xml'),  # noqa
-                'SystemMonitorDisplay': WindowsPath('D:WIS_6.0_ONTWIKKEL_201902/FEWS_SA/config/DisplayConfigFiles/SystemMonitorDisplay.xml'),  # noqa
+                'GridDisplay': WindowsPath('../FEWS_SA/config/DisplayConfigFiles/GridDisplay.xml'),
+                'ManualForecastDisplay': WindowsPath('.../FEWS_SA/config/DisplayConfigFiles/ManualForecastDisplay.xml'),
+                'SystemMonitorDisplay': WindowsPath('.../FEWS_SA/config/DisplayConfigFiles/SystemMonitorDisplay.xml'),
                 etc..
                 },
             etc..

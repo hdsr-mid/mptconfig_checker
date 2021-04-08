@@ -1411,7 +1411,7 @@ expected_df_1 = pd.DataFrame(
             17: "HEF_HMAX,HEF_HMIN",
             18: "FRQ_HMAX,FRQ_HMIN",
             19: "HR1_HMAX,HR1_HMIN",
-            20: "hmax < Q_SMAX",
+            20: "Q_HMAX < Q_SMAX",
             21: "PERC_SMAX,PERC_SMIN,PERC2_SMAX,PERC2_SMIN",
             22: "PERC_SMAX,PERC_SMIN",
             23: "Q_SMIN < Q_HMIN",

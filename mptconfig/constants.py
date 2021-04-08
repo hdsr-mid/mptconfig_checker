@@ -15,7 +15,8 @@ BASE_DIR = Path(__file__).parent.parent
 assert BASE_DIR.name == "mptconfig_checker"
 S_WATERBALANS_WIS_CAW_DIR = Path("S:") / "Waterbalans" / "_WIS_" / "caw"
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
-
+D_WIS_60_REFERENTIE_201902 = Path("D:") / "WIS_6.0_REFERENTIE_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
+D_WIS_60_REFERENTIE_202002 = Path("D:") / "WIS_6.0_REFERENTIE_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
 
 # class PathConstants1(Enum):
 #     result_xlsx = PathNamedTuple(
@@ -33,7 +34,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 #     fews_config = PathNamedTuple(
 #         is_file=False,
 #         should_exist=True,
-#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
+#         path=D_WIS_60_REFERENTIE_201902,
 #         description="",
 #     )
 #     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -98,7 +99,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 #     fews_config = PathNamedTuple(
 #         is_file=False,
 #         should_exist=True,
-#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
+#         path=D_WIS_60_REFERENTIE_202002,
 #         description="",
 #     )
 #     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -163,7 +164,7 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 #     fews_config = PathNamedTuple(
 #         is_file=False,
 #         should_exist=True,
-#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
+#         path=D_WIS_60_REFERENTIE_201902,
 #         description="",
 #     )
 #     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -228,7 +229,7 @@ class PathConstants(Enum):
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,
-        path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_RK" / "FEWS_SA" / "config",
+        path=D_WIS_60_REFERENTIE_202002,
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -401,7 +402,9 @@ class LocationSet:
             int_pars = [rule["parameter"] for rule in self.validation_rules]
         result = []
         for rule in self.validation_rules:
-            if rule["parameter"] in ("Q.B.", "Q.G."):  # origineel dt code was "if "type" in rule.keys():"
+            if rule.get("type", "") == "debietmeter":
+                # TODO: debieter (QB en QG) wel voor oppvlwater_kunstvalidatie_debiet.csv checken!!
+                #  als er een nieuwe debietmeter komt in het veld, dan moet deze wel validatieregels hebben in deze csv
                 continue
             if not any(re.match(pattern=rule["parameter"], string=int_par) for int_par in int_pars):
                 continue

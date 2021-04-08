@@ -1,7 +1,6 @@
 from mptconfig import constants
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
-from pathlib import Path
 
 
 # silence flake8 errors
@@ -20,14 +19,6 @@ expected_validation_attributes_1_and_2 = [
     "HR2_HMIN",
     "HR3_HMAX",
     "HR3_HMIN",
-    "Q_HMAX",
-    "Q_SMAX",
-    "Q_SMIN",
-    "Q_HMIN",
-    "Q_HMAX",
-    "Q_SMAX",
-    "Q_SMIN",
-    "Q_HMIN",
     "FRQ_HMAX",
     "FRQ_HMIN",
     "HEF_HMAX",
@@ -43,6 +34,7 @@ expected_validation_attributes_1_and_2 = [
     "TT_HMAX",
     "TT_HMIN",
 ]
+
 
 expected_validation_rules_1_and_2 = [
     {"parameter": "H.R.", "extreme_values": {"hmax": "HR1_HMAX", "hmin": "HR1_HMIN"}},
@@ -554,7 +546,7 @@ expected_attrib_files_1_and_2 = [
 
 def test_sublocationset_1(patched_path_constants_1):
     subloc = constants.SubLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
-    assert subloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert subloc.fews_config.path == constants.D_WIS_60_REFERENTIE_201902
     assert subloc.idmap_section_name == expected_idmap_section_name_1_and_2
     assert subloc.name == expected_name_1_and_2
     assert subloc.csv_filename == expected_csvfile_1_and_2
@@ -567,7 +559,7 @@ def test_sublocationset_1(patched_path_constants_1):
 
 def test_sublocationset_2(patched_path_constants_2):
     subloc = constants.SubLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
-    assert subloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert subloc.fews_config.path == constants.D_WIS_60_REFERENTIE_202002
     assert subloc.idmap_section_name == expected_idmap_section_name_1_and_2
     assert subloc.name == expected_name_1_and_2
     assert subloc.csv_filename == expected_csvfile_1_and_2

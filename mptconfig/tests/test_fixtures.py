@@ -1,5 +1,6 @@
 from enum import Enum
 from enum import EnumMeta
+from mptconfig import constants
 from mptconfig.constants import BASE_DIR
 from mptconfig.constants import PathConstants
 from mptconfig.tests.fixtures import patched_path_constants_1
@@ -30,10 +31,7 @@ def test_patched_constants1(patched_path_constants_1):
     path1 = original_paths.fews_config.value.path
     path2 = new_paths.fews_config.value.path
     isinstance(path1, Path) and isinstance(path2, Path)
-    assert (
-        new_paths.fews_config.value.path
-        == Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
-    )
+    assert new_paths.fews_config.value.path == constants.D_WIS_60_REFERENTIE_201902
     assert (
         new_paths.histtags_csv.value.path
         == BASE_DIR
@@ -53,10 +51,7 @@ def test_patched_constants2(patched_path_constants_2):
     path1 = original_paths.fews_config.value.path
     path2 = new_paths.fews_config.value.path
     isinstance(path1, Path) and isinstance(path2, Path)
-    assert (
-        new_paths.fews_config.value.path
-        == Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
-    )
+    assert new_paths.fews_config.value.path == constants.D_WIS_60_REFERENTIE_202002
     assert (
         new_paths.histtags_csv.value.path
         == BASE_DIR
