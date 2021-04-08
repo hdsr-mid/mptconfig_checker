@@ -249,6 +249,12 @@ class PathConstants(Enum):
         / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
     )
+    ignored_time_series_error = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_time_series_error.csv",
+        description="internalLocation die worden overgeslagen bij rapportage time_series_error",
+    )
     ignored_ts800 = PathNamedTuple(
         is_file=True,
         should_exist=True,

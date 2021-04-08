@@ -53,6 +53,12 @@ class PatchedPathConstants1(Enum):
         path=TEST_DATA_DIR / "input" / "ignored_histtag.csv",
         description="",
     )
+    ignored_time_series_error = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=TEST_DATA_DIR / "input" / "ignored_time_series_error.csv",
+        description="",
+    )
     ignored_ts800 = PathNamedTuple(
         is_file=True,
         should_exist=True,
@@ -97,6 +103,12 @@ class PatchedPathConstants2(Enum):
         is_file=True,
         should_exist=True,
         path=TEST_DATA_DIR / "input" / "ignored_histtag.csv",
+        description="",
+    )
+    ignored_time_series_error = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=TEST_DATA_DIR / "input" / "ignored_time_series_error.csv",
         description="",
     )
     ignored_ts800 = PathNamedTuple(

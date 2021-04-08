@@ -29,13 +29,12 @@ logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
-# TODO
-1. par_mismatch (zie mail Roger 26 maar 2021 puntje 13)
-2. check validation rules: deze doorvoeren --> hmin <= smin < smax <= hmax
-3. nieuwe ignore lijst gaan gebruiken voor timeseries  (ignored_time_series_error.csv) <-- eerst alle 7 verifieren obv mail Inke<->Roger
-4. check validation rules verbeteren: Q.G en Q.H (zie TODO in LocationSet.get_validation_attributes())
-5. check validation rules uitbreiden mbt (WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX, ZOM_SMIN) zie TODO check_validation_rules
-
+# TODO: remove this
+# 1. par_mismatch (zie mail Roger 26 maar 2021 puntje 13)
+# 2. check validation rules: deze doorvoeren --> hmin <= smin < smax <= hmax
+# 3. check validation rules verbeteren: Q.G en Q.H (zie TODO in LocationSet.get_validation_attributes())
+# 4. check validation rules uitbreiden mbt (WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX, ZOM_SMIN)
+#    zie TODO check_validation_rules
 
 
 class MptConfigChecker:
@@ -61,6 +60,7 @@ class MptConfigChecker:
         self._fews_config = None
         self._ignored_ex_loc = None
         self._ignored_histtag = None
+        self._ignored_time_series_error = None
         self._ignored_ts800 = None
         self._ignored_xy = None
 
@@ -227,6 +227,23 @@ class MptConfigChecker:
         assert sorted(self._ignored_histtag.columns) == ["ENDDATE", "STARTDATE", "UNKNOWN_SERIE"]
         self._ignored_histtag["UNKNOWN_SERIE"] = self._ignored_histtag["UNKNOWN_SERIE"].str.replace("#", "")
         return self._ignored_histtag
+
+    @property
+    def ignored_time_series_error(self) -> pd.DataFrame:
+        if self._ignored_time_series_error is not None:
+            return self._ignored_time_series_error
+        self._ignored_time_series_error = pd.read_csv(
+            filepath_or_buffer=constants.PathConstants.ignored_time_series_error.value.path,
+            sep=",",
+            engine="python",
+        )
+        assert sorted(self._ignored_time_series_error.columns) == [
+            "fout",
+            "internalLocation",
+            "mail datum",
+            "reden om te ignoren (obv mailwisseling met CAW)",
+        ]
+        return self._ignored_time_series_error
 
     @property
     def ignored_ts800(self) -> pd.DataFrame:
@@ -833,6 +850,7 @@ class MptConfigChecker:
         }
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
+
         for index, row in self.hoofdloc.geo_df.iterrows():
             missings = dict.fromkeys(["QR", "QS", "HS"], False)
             int_loc = row["LOC_ID"]
@@ -988,6 +1006,10 @@ class MptConfigChecker:
             group_df["ex_loc_group"] = group_df["externalLocation"].apply(func=(lambda x: ex_locs_dict[x]))
 
             for int_loc, loc_df in group_df.groupby("internalLocation"):
+
+                if int_loc in self.ignored_time_series_error["internalLocation"].values:
+                    continue
+
                 sub_type = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == int_loc]["TYPE"].values[0]
                 date_str = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == int_loc]["EIND"].values[0]
                 try:
