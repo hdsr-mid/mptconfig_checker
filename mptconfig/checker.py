@@ -643,11 +643,6 @@ class MptConfigChecker:
         # hebben 0 of 1. Echter KW218221 is een uitzondering. We zouden een ignore voor KW218221 (alleen voor SM/SS
         # kunnen maken.. lage prio)
 
-        # TODO: nu worden schuiven gemeld die geen SS danwel SM hebben. Roger: ja logisch, die hebben een SP
-        #  als een schuif een SP, dan moet ie niet over SS of SM klagen, bijv:
-        #  internalLocation  locationType    ex_par_error    types   FQ      I.X     IX      SS./SM
-        #  KW100521          subloc                          schuif  ONWAAR  ONWAAR  ONWAAR  WAAR
-
         ex_par_description = "locaties waar foute externe parameters aan zijn gekoppeld"
         int_loc_description = "interne locaties in de idmap die niet zijn opgenomen in locatiesets"
 
@@ -812,6 +807,13 @@ class MptConfigChecker:
 
     def check_ex_par_missing(self, sheet_name: str = "ex_par missing") -> ExcelSheet:
         """Check if external parameters are missing on locations."""
+
+        # TODO: wat nu elke keer terug (7 locaties) komt moeten we wel gaan ignoren.
+        #  Want Inke moet dat gaan uitzoeken en het is moeilijk om dit te onthouden
+        #  ik heb nu een ignored_time_series_error.csv toegevoegd met die 7 locaties:
+        #  1. verifieer of die 7 kloppen (obv historische mailwisseling met Inke <--> Roger/Renier)
+        #  2. verwijs hier naar die nieuwe ignored lijst (en skip die locaties)
+
         description = "locaties waar externe parameters missen"
         logger.info(f"start {self.check_ex_par_missing.__name__}")
         ex_par_missing = {

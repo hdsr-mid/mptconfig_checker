@@ -401,15 +401,8 @@ class LocationSet:
             int_pars = [rule["parameter"] for rule in self.validation_rules]
         result = []
         for rule in self.validation_rules:
-            # TODO: als ik deze twee regels toevoeg, dan krijg ik zelfde output als Daniel...
-            #  if "type" in rule.keys():  # <-- alleen voor sublocaties
-            #      continue
-            #  zie hieronder originele 'get_validation_attributes_daniel_tollenaar':
-
-            # TODO: @Roger waarom slaat Daniel validatie attributes voor debietmeter "Q.G." en "Q.B." over?
-            #  met get_series_startenddate_CAW_summary_total_sorted_20201013.csv + WIS_6.0_ONTWIKKEL_202002_RK:
-            #   wel  overslaan debietmeter Q.G. en Q.B = 0 validatie errors voor sublocaties
-            #   niet overslaan debietmeter Q.G. en Q.B = 634 validatie errors voor sublocaties
+            if rule["parameter"] in ("Q.B.", "Q.G."):  # origineel dt code was "if "type" in rule.keys():"
+                continue
             if not any(re.match(pattern=rule["parameter"], string=int_par) for int_par in int_pars):
                 continue
             for attribute in rule["extreme_values"].values():

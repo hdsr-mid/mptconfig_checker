@@ -1,0 +1,8 @@
+internalLocation,eind,internalParameters,externalParameters,externalLocations,type,fout,reden om te ignoren (valideer obv mailwisseling met Inke)
+KW106112,2100-01-01 00:00:00,Q.G.0,Q2,1061,overlaat,overlaat zonder stuurpeil KW106111 wel,
+KW218613,2100-01-01 00:00:00,"ES.0,POS.0","ES1,SP1","186,2186",afsluiter,"afsluiter zonder stuurpeil KW218611,KW218612 wel",
+KW218614,2100-01-01 00:00:00,"ES.0,POS.0","ES2,SP2","186,2186",afsluiter,"afsluiter zonder stuurpeil KW218611,KW218612 wel",
+KW218619,2100-01-01 00:00:00,"ES.0,POS.0,Q.G.0","ES3,Q4,SP5",2186,schuif,"schuif zonder stuurpeil KW218611,KW218612 wel",
+KW323515,2100-01-01 00:00:00,"POS.0,Q.G.0","Q4,SP1","235,3235",schuif,"schuif zonder stuurpeil KW323513,KW323514 wel",
+KW324813,2100-01-01 00:00:00,"DD.15,IB.0","I2B,IB2","248,3248",pompvijzel,pompvijzel zonder stuurpeil KW324812 wel,
+KW435013,2100-01-01 00:00:00,"ES.0,POS.0,Q.G.0","ES1,Q2,SP1","350,4350",schuif,schuif zonder stuurpeil KW435012 wel,
