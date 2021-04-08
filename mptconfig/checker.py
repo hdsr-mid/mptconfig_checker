@@ -30,14 +30,6 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-LOCS_MAPPING = {
-    "hoofdlocaties": "hoofdloc",
-    "sublocaties": "subloc",
-    "waterstandlocaties": "waterstandloc",
-    "mswlocaties": "mswloc",
-}
-
-
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
     The main property of the class is 'self.results' which is:
@@ -430,12 +422,12 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def check_missing_histtags(self, sheet_name: str = "histtags nomatch") -> ExcelSheet:
-        """Check if hisTags are missing in config."""
+    def check_histtags_nomatch(self, sheet_name: str = "histtags nomatch") -> ExcelSheet:
+        """Check if hisTags can be mapped to internal location (if there are not included in histtag_ignore list)"""
         description = (
             "hisTags die niet konden worden gemapped naar interne locatie en niet in de hisTag_ignore zijn opgenomen"
         )
-        logger.info(f"start {self.check_missing_histtags.__name__}")
+        logger.info(f"start double{self.check_histtags_nomatch.__name__}")
         histtags_df = self.histtags.copy()
         idmaps = self._get_idmaps()
         histtags_df["fews_locid"] = self.histtags.apply(func=idmap2tags, args=[idmaps], axis=1)
@@ -468,6 +460,18 @@ class MptConfigChecker:
 
     def check_double_idmaps(self, sheet_name: str = "idmaps double") -> ExcelSheet:
         """Check if identical idmaps are doubled."""
+        # roger: volgens mij is dit (maar dat weet ik niet zeker):
+        #   histtags mag alleen worden aangeboden als 3 cijferig, als 4 cijferig en als 800 locatie
+
+        # roger:
+        # als idmaps
+        # bepaalde histtags mogen slechts aan 1 interne locaties parameters combinaties zijn gekoppeld
+        #   - een krooshekpeil kan maar aan 1 sublocatie
+        #   - een stuurpeil of streefpeil kan wel aan meerdere
+        # als het goed gebruikt deze check een whitelist (uitzondering, deze parameter typen wel, deze niet)
+        # renier:
+        # dat gebeurt niet hier Roger! :)
+
         description = "idmaps die dubbel in de dubbel gedefinieerd staan in de idmap-files"
         logger.info(f"start {self.check_double_idmaps.__name__}")
         result_df = pd.DataFrame(
@@ -610,7 +614,40 @@ class MptConfigChecker:
         self, ex_par_sheet_name: str = "ex_par error", int_loc_sheet_name: str = "int_loc missing"
     ) -> Tuple[ExcelSheet, ExcelSheet]:
         """Check on wrong external parameters and missing internal locations. This check returns
-        two sheets (name+df), whereas all other checks return one sheet (name+df)."""
+        two sheets (2x name+df), whereas all other checks return one sheet (1x name+df)."""
+
+        # roger: = ik snap eigenlijk niet waarom de kolom SS/SM erin staat.
+        # De bedoeling was dat als een schuif wel een ES heeft, maar geen SP of SS of SM, dat het dan vreemd is.
+        # Als een schuif geen ES heeft, maar wel een SP of SS of SM heeft, is het ook vreemd.
+        # renier:
+        # S.S = schuifstand (mNAP)
+        # S.M = schuifstand (m tov onderkant of bovenkant oid)
+        # S.W = stuwstand
+        # S.P = openingspercentage
+
+        # IX. (in bedrijf)
+        # IB.0 	    in bedrijf noneq                                    bijv IB2.0
+        # IBH.0     in bedrijf hoogtoeren [-] noneq                     bijv IBH2.0
+        # IBL.0	    in bedrijf laagtoeren [-] noneq                     bijv IBL2.0
+
+        # I.X (draaiduur)
+        # DD.15     draaiduur aantal seconden per 15min (dus max 900)
+        # DD.h      draaiduur aantal seconden per uur (dus max 3600)
+        # DDL.15    draaiduur laagtoeren sec per 15 min
+        # DDH.15    draaiduur hoogtoeren sec per 15 min
+        #   renier:
+        #   - noneq komt niet voor (DD.0, DDl.0, DDH.0).
+        #   - ik zie ook niet DD1.xx of DD.1.xx, of DD2.xx of DD.2.xx oid
+
+        # KW218221 komt hier naar boven: een afsluiter met een Q1. Echter, afsluiters hebben geen debiet, die
+        # hebben 0 of 1. Echter KW218221 is een uitzondering. We zouden een ignore voor KW218221 (alleen voor SM/SS
+        # kunnen maken.. lage prio)
+
+        # TODO: nu worden schuiven gemeld die geen SS danwel SM hebben. Roger: ja logisch, die hebben een SP
+        #  als een schuif een SP, dan moet ie niet over SS of SM klagen, bijv:
+        #  internalLocation  locationType    ex_par_error    types   FQ      I.X     IX      SS./SM
+        #  KW100521          subloc                          schuif  ONWAAR  ONWAAR  ONWAAR  WAAR
+
         ex_par_description = "locaties waar foute externe parameters aan zijn gekoppeld"
         int_loc_description = "interne locaties in de idmap die niet zijn opgenomen in locatiesets"
 
@@ -671,7 +708,7 @@ class MptConfigChecker:
                 ]
 
                 if sub_type == "schuif":
-                    if not any([ex_par for ex_par in ex_pars_gen if ex_par in ["SS.", "SM."]]):
+                    if not any([ex_par for ex_par in ex_pars_gen if ex_par in ["SS.", "SM.", "SP."]]):
                         errors["SS./SM."] = True
 
                 if any([ex_par for ex_par in ex_pars_gen if ex_par in ["I.B", "I.H", "I.L"]]):
@@ -1050,12 +1087,7 @@ class MptConfigChecker:
             attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
             # watch out: attrib_file_name != loc_set.value.csvfile !!!
             attrib_file_name = Path(attrib_file["csvFile"]).stem
-            try:
-                csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name]
-            except Exception as err:
-                print(err)
-                continue
-
+            csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name]
             attrib_df = pd.read_csv(
                 filepath_or_buffer=csv_file_path,
                 sep=None,
@@ -1285,11 +1317,6 @@ class MptConfigChecker:
 
     def check_location_set_errors(self, sheet_name: str = "loc_set error") -> ExcelSheet:
         """Check on errors in locationsets."""
-
-        # TODO: remove this
-        # expected = 260
-        # reality = 335
-
         description = (
             "controle of alle locatiesets logisch zijn opgebouwd, de juiste attribuut-verwijzingen"
             " hebben én consistent zijn per CAW-locatie"
@@ -1538,7 +1565,7 @@ class MptConfigChecker:
     def run(self):
         self.results.add_sheet(excelsheet=self.check_idmap_sections())
         self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        self.results.add_sheet(excelsheet=self.check_missing_histtags())
+        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
         self.results.add_sheet(excelsheet=self.check_double_idmaps())
         self.results.add_sheet(excelsheet=self.check_missing_pars())
         self.results.add_sheet(excelsheet=self.check_h_loc())
