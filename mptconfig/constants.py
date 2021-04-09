@@ -13,202 +13,10 @@ import re
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
 assert BASE_DIR.name == "mptconfig_checker"
+S_WATERBALANS_WIS_CAW_DIR = Path("S:") / "Waterbalans" / "_WIS_" / "caw"
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
-
-
-# class PathConstants1(Enum):
-#     result_xlsx = PathNamedTuple(
-#         is_file=True,
-#         should_exist=False,
-#         path=BASE_DIR / "data" / "output" / "result.xlsx",
-#         description="",
-#     )
-#     histtags_csv = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20200930.csv",
-#         description="",
-#     )
-#     fews_config = PathNamedTuple(
-#         is_file=False,
-#         should_exist=True,
-#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
-#         description="",
-#     )
-#     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-#     ignored_ex_loc = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
-#         description="externalLocations die worden overgeslagen bij rapportage ex_loc error",
-#     )
-#     ignored_histtag = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
-#         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
-#     )
-#     ignored_ts800 = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-#         description="Locations die worden overgeslagen bij rapportage time_series error",
-#     )
-#     ignored_xy = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-#         description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
-#     )
-#
-#
-# EXPECTED_SUMMARY1= {
-#     "idmap section error": 36,
-#     "ignored histtags match": 0,
-#     "histtags nomatch": 56,
-#     "idmaps double": 0,
-#     "mpt_histtags_new": 1770,
-#     "pars missing": 1,
-#     "h_loc error": 0,
-#     "ex_par error": 91,  # noqa dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-#     "int_loc missing": 2,
-#     "ex_par missing": 338,
-#     "ex_loc error": 8,
-#     "time_series error": 62,
-#     "validation error": 692,  # dit was 273 met daniels subloc debietmeter skip code (2 regels)
-#     "par mismatch": 0,
-#     "loc_set error": 319,
-# }
-
-#
-# class PathConstants2(Enum):
-#     result_xlsx = PathNamedTuple(
-#         is_file=True,
-#         should_exist=False,
-#         path=BASE_DIR / "data" / "output" / "result.xlsx",
-#         description="",
-#     )
-#     histtags_csv = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
-#         description="",
-#     )
-#     fews_config = PathNamedTuple(
-#         is_file=False,
-#         should_exist=True,
-#         path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
-#         description="",
-#     )
-#     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-#     ignored_ex_loc = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
-#         description="externalLocations die worden overgeslagen bij rapportage ex_loc error",
-#     )
-#     ignored_histtag = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
-#         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
-#     )
-#     ignored_ts800 = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-#         description="Locations die worden overgeslagen bij rapportage time_series error",
-#     )
-#     ignored_xy = PathNamedTuple(
-#         is_file=True,
-#         should_exist=True,
-#         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-#         description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
-#     )
-#
-#
-# EXPECTED_SUMMARY2 = {
-#     "idmap section error": 34,
-#     "ignored histtags match": 1,
-#     "histtags nomatch": 15,
-#     "idmaps double": 0,
-#     "mpt_histtags_new": 1802,
-#     "pars missing": 0,
-#     "h_loc error": 18,
-#     "ex_par error": 89,  # noqa dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-#     "int_loc missing": 0,
-#     "ex_par missing": 346,
-#     "ex_loc error": 5,
-#     "time_series error": 7,
-#     "validation error": 708,
-#     "par mismatch": 0,
-#     "loc_set error": 335,
-# }
-
-
-class PathConstants3(Enum):
-    result_xlsx = PathNamedTuple(
-        is_file=True,
-        should_exist=False,
-        path=BASE_DIR / "data" / "output" / "result.xlsx",
-        description="",
-    )
-    histtags_csv = PathNamedTuple(
-        is_file=True,
-        should_exist=True,
-        path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
-        description="",
-    )
-    fews_config = PathNamedTuple(
-        is_file=False,
-        should_exist=True,
-        path=Path("D:") / "WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config",
-        description="",
-    )
-    output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
-    ignored_ex_loc = PathNamedTuple(
-        is_file=True,
-        should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_ex_loc.csv",
-        description="externalLocations die worden overgeslagen bij rapportage ex_loc error",
-    )
-    ignored_histtag = PathNamedTuple(
-        is_file=True,
-        should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
-        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
-    )
-    ignored_ts800 = PathNamedTuple(
-        is_file=True,
-        should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_ts800.csv",
-        description="Locations die worden overgeslagen bij rapportage time_series error",
-    )
-    ignored_xy = PathNamedTuple(
-        is_file=True,
-        should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
-        description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
-    )
-
-
-EXPECTED_SUMMARY3 = {
-    "idmap section error": 36,
-    "ignored histtags match": 0,
-    "histtags nomatch": 69,
-    "idmaps double": 0,
-    "mpt_histtags_new": 1770,
-    "pars missing": 1,
-    "h_loc error": 0,
-    "ex_par error": 91,  # noqa dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "int_loc missing": 2,
-    "ex_par missing": 338,
-    "ex_loc error": 8,
-    "time_series error": 62,
-    "validation error": 692,  # dit was 273 met daniels subloc debietmeter skip code (2 regels)
-    "par mismatch": 0,
-    "loc_set error": 319,
-}
+D_WIS_60_REFERENTIE_201902 = Path("D:") / "WIS_6.0_REFERENTIE_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
+D_WIS_60_REFERENTIE_202002 = Path("D:") / "WIS_6.0_REFERENTIE_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
 
 
 class PathConstants(Enum):
@@ -227,7 +35,7 @@ class PathConstants(Enum):
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,
-        path=Path("D:") / "WIS_6.0_ONTWIKKEL_202002_RK" / "FEWS_SA" / "config",
+        path=D_WIS_60_REFERENTIE_202002,
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -240,8 +48,18 @@ class PathConstants(Enum):
     ignored_histtag = PathNamedTuple(
         is_file=True,
         should_exist=True,
-        path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        # path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
+        path=S_WATERBALANS_WIS_CAW_DIR
+        / "get_series_startenddate"
+        / "CAW_mpt_startenddate"
+        / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
         description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+    )
+    ignored_time_series_error = PathNamedTuple(
+        is_file=True,
+        should_exist=True,
+        path=BASE_DIR / "data" / "input" / "ignored_time_series_error.csv",
+        description="internalLocation die worden overgeslagen bij rapportage time_series_error",
     )
     ignored_ts800 = PathNamedTuple(
         is_file=True,
@@ -255,25 +73,6 @@ class PathConstants(Enum):
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
         description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
     )
-
-
-EXPECTED_SUMMARY = {
-    "idmap section error": 34,
-    "ignored histtags match": 1,
-    "histtags nomatch": 15,
-    "idmaps double": 0,
-    "mpt_histtags_new": 1802,
-    "pars missing": 0,
-    "h_loc error": 18,
-    "ex_par error": 89,  # dit was 2 met daniel's len(ex_par_error) > 0 | any(errors.values()). Met 'or' ipv '|' dus 91
-    "int_loc missing": 0,
-    "ex_par missing": 346,
-    "ex_loc error": 5,
-    "time_series error": 7,
-    "validation error": 1501,  # dit was 955 met daniels subloc debietmeter skip code (2 regels), scheelt 546 subloc errors  # noqa
-    "par mismatch": 0,
-    "loc_set error": 335,
-}
 
 
 class LocationSet:
@@ -396,15 +195,10 @@ class LocationSet:
             int_pars = [rule["parameter"] for rule in self.validation_rules]
         result = []
         for rule in self.validation_rules:
-            # TODO: als ik deze twee regels toevoeg, dan krijg ik zelfde output als Daniel...
-            #  if "type" in rule.keys():  # <-- alleen voor sublocaties
-            #      continue
-            #  zie hieronder originele 'get_validation_attributes_daniel_tollenaar':
-
-            # TODO: @Roger waarom slaat Daniel validatie attributes voor debietmeter "Q.G." en "Q.B." over?
-            #  met get_series_startenddate_CAW_summary_total_sorted_20201013.csv + WIS_6.0_ONTWIKKEL_202002_RK:
-            #   wel  overslaan debietmeter Q.G. en Q.B = 0 validatie errors voor sublocaties
-            #   niet overslaan debietmeter Q.G. en Q.B = 634 validatie errors voor sublocaties
+            if rule.get("type", "") == "debietmeter":
+                # TODO: debieter (QB en QG) wel voor oppvlwater_kunstvalidatie_debiet.csv checken!!
+                #  als er een nieuwe debietmeter komt in het veld, dan moet deze wel validatieregels hebben in deze csv
+                continue
             if not any(re.match(pattern=rule["parameter"], string=int_par) for int_par in int_pars):
                 continue
             for attribute in rule["extreme_values"].values():
@@ -633,7 +427,7 @@ PARAMETER_MAPPING = [
     {"internal": "ES.", "external": "ES."},
     {"internal": "ES2.", "external": "ES."},
     {"internal": "F.", "external": "FQ."},
-    {"internal": "H.G.", "external": "H"},
+    {"internal": "H.G.", "external": "HG"},
     {"internal": "H.G.", "external": "HB."},
     {"internal": "H.G.", "external": "HO."},
     {"internal": "H.S.", "external": "HS."},

@@ -1,7 +1,6 @@
 from mptconfig import constants
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
-from pathlib import Path
 
 
 # silence flake8 errors
@@ -451,7 +450,7 @@ expected_attrib_files_2 = [
 
 def test_waterstandlocationset_1(patched_path_constants_1):
     wsloc = constants.WaterstandLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
-    assert wsloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_201902_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert wsloc.fews_config.path == constants.D_WIS_60_REFERENTIE_201902
     assert wsloc.idmap_section_name == expected_idmap_section_name_1_and_2
     assert wsloc.name == expected_name_1_and_2
     assert wsloc.csv_filename == expected_csvfile_1_and_2
@@ -464,7 +463,7 @@ def test_waterstandlocationset_1(patched_path_constants_1):
 
 def test_waterstandlocationset_2(patched_path_constants_2):
     wsloc = constants.WaterstandLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
-    assert wsloc.fews_config.path == Path("D:WIS_6.0_ONTWIKKEL_202002_MPTCHECKER_TEST_INPUT/FEWS_SA/config")
+    assert wsloc.fews_config.path == constants.D_WIS_60_REFERENTIE_202002
     assert wsloc.idmap_section_name == expected_idmap_section_name_1_and_2
     assert wsloc.name == expected_name_1_and_2
     assert wsloc.csv_filename == expected_csvfile_1_and_2

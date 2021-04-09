@@ -3,7 +3,7 @@ from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
-from mptconfig.tests.utils import equal_dataframes
+from mptconfig.utils import equal_dataframes
 
 import pandas as pd  # noqa pandas comes with geopandas
 
@@ -45,10 +45,10 @@ expected_df_2 = pd.DataFrame(
 )
 
 
-def test_check_ex_loc_int_loc_1(patched_path_constants_1):
+def test_check_ex_loc_int_loc_mismatch_1(patched_path_constants_1):
     """integration test with patched paths 1"""
     meetpunt_config = MptConfigChecker()
-    excelsheet = meetpunt_config.check_ex_loc_int_loc(sheet_name="blabla")
+    excelsheet = meetpunt_config.check_ex_loc_int_loc_mismatch(sheet_name="blabla")
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
@@ -56,10 +56,10 @@ def test_check_ex_loc_int_loc_1(patched_path_constants_1):
     assert equal_dataframes(expected_df=expected_df_1, test_df=excelsheet.df)
 
 
-def test_check_ex_loc_int_loc_2(patched_path_constants_2):
+def test_check_ex_loc_int_loc_mismatch_2(patched_path_constants_2):
     """integration test with patched paths 2"""
     meetpunt_config = MptConfigChecker()
-    excelsheet = meetpunt_config.check_ex_loc_int_loc(sheet_name="blabla")
+    excelsheet = meetpunt_config.check_ex_loc_int_loc_mismatch(sheet_name="blabla")
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check

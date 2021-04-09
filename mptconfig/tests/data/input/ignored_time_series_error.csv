@@ -1,0 +1,7 @@
+internalLocation,fout,reden om te ignoren (obv mailwisseling met CAW),mail datum
+KW106112,overlaat zonder stuurpeil KW106111 wel,Overlaat is vast (niet in CAW) en heeft dus geen stuurpeil want er wordt niet gestuurd,20201204
+KW218613,"afsluiter zonder stuurpeil KW218611,KW218612 wel",Volgens mij zijn dit afsluiters zonder stuurpeil. ,20201204
+KW218614,"afsluiter zonder stuurpeil KW218611,KW218612 wel",Volgens mij zijn dit afsluiters zonder stuurpeil. ,20201204
+KW323515,"schuif zonder stuurpeil KW323513,KW323514 wel",locatie heeft inlaatsysteem met een niet-automtisch-aangestuurde schuif (handbediend). Er wordt alleen een statusmelding vanuit PLC gegegven,20210106
+KW324813,pompvijzel zonder stuurpeil KW324812 wel,Locatie heeft heeft naast het gemaal een VOPO pomp (KW324813) die werkt op vlotters dit is pomp2 (dus zonder stuurpeil).,20210106
+KW435013,schuif zonder stuurpeil KW435012 wel,"schuif heeft geen stuurpeil. Inlaat zit altijd dicht. De inlaat wordt niet gebuikt, water wordt via andere kant van het gebied ingelaten, niet hier. De auma is niet sterk genoeg om de inlaat te kunnen bedienen.",20201204
