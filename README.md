@@ -1,10 +1,11 @@
 ## Description
 A python project that:
-    - validates consistency of the HDSR FEWS-WIS meetpunt configuration;   
-    - complements the configuration's locationsets attributes.
-It outputs (default in mptconfig_checker/data/output):
-    - 1 excel_file with multiple sheets, each sheet containing the results of 1 check;
-    - a new waterstandlocaties.csv, sublocaties.csv, and eventually hoofdlocaties.csv (if sublocations holds no errors).
+* validates consistency of the HDSR FEWS-WIS meetpunt configuration;   
+* complements the configuration's locationsets attributes.\
+
+It outputs (default ouput directory = mptconfig_checker/data/output):
+* 1 excel_file with multiple sheets, each sheet containing the results of 1 check;
+* a new waterstandlocaties.csv, sublocaties.csv, and eventually hoofdlocaties.csv (if sublocations holds no errors).
 
 ### Usage
 1. define all paths in class PathConstants in mptconfig_checker/mptconfig/constants
