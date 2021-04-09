@@ -424,6 +424,18 @@ expected_df_1 = pd.DataFrame(
     }
 )
 
+expected_df_2 = pd.DataFrame(
+    {
+        "internalLocation": {0: "KW218619"},
+        "eind": {0: pd.Timestamp("2100-01-01 00:00:00")},
+        "internalParameters": {0: "ES.0,POS.0,Q.G.0"},
+        "externalParameters": {0: "ES3,Q4,SP5"},
+        "externalLocations": {0: "2186"},
+        "type": {0: "schuif"},
+        "fout": {0: "schuif zonder stuurpeil KW218611,KW218612 wel"},
+    }
+)
+
 
 def test_check_timeseries_logic_1(patched_path_constants_1):
     """integration test with patched paths 1"""
@@ -443,4 +455,5 @@ def test_check_timeseries_logic_2(patched_path_constants_2):
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 0
+    assert excelsheet.nr_rows == 1
+    assert equal_dataframes(expected_df=expected_df_2, test_df=excelsheet.df)
