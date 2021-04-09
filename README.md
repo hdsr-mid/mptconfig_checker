@@ -1,7 +1,7 @@
 ## Description
 A python project that:
 * validates consistency of the HDSR FEWS-WIS meetpunt configuration;   
-* complements the configuration's locationsets attributes.\
+* complements the configuration's locationsets attributes;
 * outputs 1 excel_file with multiple sheets, each sheet containing the results of 1 check;
 * outputs a new csvs: waterstandlocaties, sublocaties, and eventually hoofdlocaties (if sublocations holds no errors).
 
