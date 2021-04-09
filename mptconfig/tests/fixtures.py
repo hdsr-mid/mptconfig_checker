@@ -127,6 +127,10 @@ class PatchedPathConstants2(Enum):
 
 @pytest.fixture(autouse=False, scope="function")
 def patched_path_constants_1():
+    """Ideally we test with unit tests. Since we are in a hurry (and lack of time) we
+    test now with integration tests. This means that we use a reference FEWS-config, that does not
+    change over time. This means that the paths defined in "mptconfig.constants.PathConstants" are
+    patched with paths to files/dirs of which the content does not change over time."""
     target = "mptconfig.constants.PathConstants"
     logger.debug(f"patching {target}")
     with patch(target=target, new=PatchedPathConstants1) as patched:
@@ -135,6 +139,10 @@ def patched_path_constants_1():
 
 @pytest.fixture(autouse=False, scope="function")
 def patched_path_constants_2():
+    """Ideally we test with unit tests. Since we are in a hurry (and lack of time) we
+    test now with integration tests. This means that we use a reference FEWS-config, that does not
+    change over time. This means that the paths defined in "mptconfig.constants.PathConstants" are
+    patched with paths to files/dirs of which the content does not change over time."""
     target = "mptconfig.constants.PathConstants"
     logger.debug(f"patching {target}")
     with patch(target=target, new=PatchedPathConstants2) as patched:

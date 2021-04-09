@@ -3,7 +3,7 @@ from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
-from mptconfig.tests.utils import equal_dataframes
+from mptconfig.utils import equal_dataframes
 
 import pandas as pd  # noqa pandas comes with geopandas
 

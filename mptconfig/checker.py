@@ -5,7 +5,6 @@ from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
-from mptconfig.tmp import validate_expected_summary
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import sort_validation_attribs
@@ -30,10 +29,9 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 # TODO: remove this
-# 1. par_mismatch (zie mail Roger 26 maar 2021 puntje 13)
-# 2. check validation rules: deze doorvoeren --> hmin <= smin < smax <= hmax
-# 3. check validation rules verbeteren: Q.G en Q.H (zie TODO in LocationSet.get_validation_attributes())
-# 4. check validation rules uitbreiden mbt (WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX, ZOM_SMIN)
+# 1. check validation rules: deze doorvoeren --> hmin <= smin < smax <= hmax
+# 2. check validation rules verbeteren: Q.G en Q.H (zie TODO in LocationSet.get_validation_attributes())
+# 3. check validation rules uitbreiden mbt (WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX, ZOM_SMIN)
 #    zie TODO check_validation_rules
 
 
@@ -302,8 +300,6 @@ class MptConfigChecker:
         df = self._update_start_end_new_csv(location_set=self.subloc)
         grouper = df.groupby(["PAR_ID"])
         par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
-        # TODO: uitzoeken, gaat dit wel helemaal goed? want het was eerst
-        #  df["PAR_ID"] = gdf["LOC_ID"].str[0:-1] + "0" (die gdf in _update_start_end_new_csv)
         df["PAR_ID"] = df["LOC_ID"].str[0:-1] + "0"
         df["ALLE_TYPES"] = df["PAR_ID"].apply(func=lambda x: par_types_df.loc[x])
         df[["HBOVPS", "HBENPS"]] = df.apply(func=self._update_staff_gauge, axis=1, result_type="expand")
@@ -832,13 +828,6 @@ class MptConfigChecker:
 
     def check_ex_par_missing(self, sheet_name: str = "ex_par missing") -> ExcelSheet:
         """Check if external parameters are missing on locations."""
-
-        # TODO: wat nu elke keer terug (7 locaties) komt moeten we wel gaan ignoren.
-        #  Want Inke moet dat gaan uitzoeken en het is moeilijk om dit te onthouden
-        #  ik heb nu een ignored_time_series_error.csv toegevoegd met die 7 locaties:
-        #  1. verifieer of die 7 kloppen (obv historische mailwisseling met Inke <--> Roger/Renier)
-        #  2. verwijs hier naar die nieuwe ignored lijst (en skip die locaties)
-
         description = "locaties waar externe parameters missen"
         logger.info(f"start {self.check_ex_par_missing.__name__}")
         ex_par_missing = {
@@ -850,16 +839,10 @@ class MptConfigChecker:
         }
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
-
         for index, row in self.hoofdloc.geo_df.iterrows():
             missings = dict.fromkeys(["QR", "QS", "HS"], False)
             int_loc = row["LOC_ID"]
-
-            loc_group = next(
-                (df for loc, df in idmap_df.groupby("internalLocation") if loc == int_loc),
-                pd.DataFrame(),
-            )
-
+            loc_group = idmap_df[idmap_df["internalLocation"] == int_loc]
             if loc_group.empty:
                 ex_pars = []
                 ex_pars_gen = []
@@ -889,10 +872,10 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def check_ex_loc_int_loc(self, sheet_name: str = "ex_loc error") -> ExcelSheet:
+    def check_ex_loc_int_loc_mismatch(self, sheet_name: str = "ex_loc int_loc mismatch") -> ExcelSheet:
         """Check if external locations are consistent with internal locations."""
         description = "externe locaties die niet passen bij interne locatie"
-        logger.info(f"start {self.check_ex_loc_int_loc.__name__}")
+        logger.info(f"start {self.check_ex_loc_int_loc_mismatch.__name__}")
         ex_loc_errors = {"internalLocation": [], "externalLocation": []}
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
@@ -1330,10 +1313,10 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def check_int_par_ex_par(self, sheet_name: str = "par mismatch") -> ExcelSheet:
+    def check_int_par_ex_par_mismatch(self, sheet_name: str = "int_par ex_par mismatch") -> ExcelSheet:
         """Check if internal and external parameters are consistent."""
         description = "controle of externe parameters en interne parameters logisch aan elkaar gekoppeld zijn"
-        logger.info(f"start {self.check_int_par_ex_par.__name__}")
+        logger.info(f"start {self.check_int_par_ex_par_mismatch.__name__}")
         par_errors = {
             "internalLocation": [],
             "internalParameter": [],
@@ -1343,24 +1326,51 @@ class MptConfigChecker:
 
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
+        whitelist_in_locs = [
+            "OW263201",
+            "OW263301",
+            "OW263501",
+            "OW363601",
+            "OW363701",
+            "OW462501",
+            "OW462601",
+            "OW462901",
+            "OW463001",
+            "OW463101",
+            "OW463401",
+            "OW462601",
+        ]
         for idx, row in idmap_df.iterrows():
-            error = None
-            ext_par = [
+            in_par_row = row["internalParameter"]
+            ex_par_row = row["externalParameter"]
+            in_loc_row = row["internalLocation"]
+
+            # about 12 OW locations have a ex_par 'H' (instead of 'H.B.x' or H.G.x').
+            # roger: "Alle histtags horen altijd een volgnummer te hebben en HO of HB te zijn.
+            # Ik verwacht niet dat we in de toekomst weer zo'n fout maken, dus een IGNORE-lijst zou hier
+            # wellicht overdreven zijn en een uitzondering in de code een betere oplossing.
+            if in_loc_row in whitelist_in_locs and ex_par_row == "H":
+                continue
+
+            allowed_ex_pars = [
                 mapping["external"]
                 for mapping in constants.PARAMETER_MAPPING
-                if re.match(pattern=f'{mapping["internal"]}[0-9]', string=row["internalParameter"])
+                if re.match(pattern=f'{mapping["internal"]}[0-9]', string=in_par_row)
             ]
 
-            if ext_par:
-                if not any(re.match(pattern=par, string=row["externalParameter"]) for par in ext_par):
-                    error = "parameter mismatch"
+            error = None
+            if not allowed_ex_pars:
+                error = "in_par has no allowed ex_pars"
             else:
-                error = "pars not included in config"
-            if error:
-                par_errors["internalLocation"].append(row["internalLocation"])
-                par_errors["internalParameter"].append(row["internalParameter"])
-                par_errors["externalParameter"].append(row["externalParameter"])
-                par_errors["fout"].append(error)
+                if not any([re.match(pattern=par, string=ex_par_row) for par in allowed_ex_pars]):
+                    error = "parameter mismatch"
+            if not error:
+                continue
+
+            par_errors["internalLocation"].append(in_loc_row)
+            par_errors["internalParameter"].append(in_par_row)
+            par_errors["externalParameter"].append(ex_par_row)
+            par_errors["fout"].append(error)
 
         result_df = pd.DataFrame(data=par_errors)
 
@@ -1634,22 +1644,17 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=sheet2)
 
         self.results.add_sheet(excelsheet=self.check_ex_par_missing())
-        self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc())
+        self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
         self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
-        self.results.add_sheet(excelsheet=self.check_int_par_ex_par())
+        self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
         self.results.add_sheet(excelsheet=self.check_location_set_errors())
-
-        self.add_mpt_histtags_new_to_results()  # TODO: move this below '# add output_no_check sheets'
-
-        # TODO: @renier: remove this integration test
-        summary = {sheetname: sheet.nr_rows for sheetname, sheet in self.results.items()}
-        validate_expected_summary(new_summary=summary)
 
         # add output_no_check sheets
         self.add_tab_color_description_to_results()
         self.add_paths_to_results()
         self.add_input_files_to_results()
+        self.add_mpt_histtags_new_to_results()
 
         # write excel file with check results
         excel_writer = ExcelWriter(results=self.results)

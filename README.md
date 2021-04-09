@@ -1,25 +1,49 @@
-# HDSR meetpuntconfig
-Python scripts ter ondersteuning van het HDSR CAW FEWS:
- - het controleren van de consistentie van de configuratie met meetpunten
- - het aanvullen van attributen van locatiesets binnen de configuratie
+## Description
+A python project that:
+    - validates consistency of the HDSR FEWS-WIS meetpunt configuration;   
+    - complements the configuration's locationsets attributes.
+It outputs (default in mptconfig_checker/data/output):
+    - 1 excel_file with multiple sheets, each sheet containing the results of 1 check;
+    - a new waterstandlocaties.csv, sublocaties.csv, and eventually hoofdlocaties.csv (if sublocations holds no errors).
 
-## Test Coverage (23-3-2021)
+### Usage
+1. define all paths in class PathConstants in mptconfig_checker/mptconfig/constants
+2. run project:
 ```
----------- coverage: platform win32, python 3.7.10-final-0 -
+cd <project_root>
+main.py
+```
+
+### License 
+[MIT][mit]
+[mit]: https://github.com/hdsr-mid/mptconfig_checker/blob/main/LICENSE.txt
+
+### Releases
+None
+
+### Contributions
+All contributions, bug reports, bug fixes, documentation improvements, enhancements and ideas are
+welcome on https://github.com/hdsr-mid/mptconfig_checker/issues
+
+### Test Coverage (9-4-2021)
+most of the tests are integration tests (since lack of time): 
+the checker is tested against two FEWS configs (see mptconfig/tests/fixtures.py)
+)
+```
+---------- coverage: platform win32, python 3.7.10-final-0
 Name                          Stmts   Miss  Cover
 -------------------------------------------------
 main.py                          32     32     0%
 mptconfig\__init__.py             0      0   100%
-mptconfig\checker.py            821    157    81%
-mptconfig\constants.py          191     23    88%
+mptconfig\checker.py            839    153    82%
+mptconfig\constants.py          187     23    88%
 mptconfig\description.py          0      0   100%
 mptconfig\excel.py              183     96    48%
 mptconfig\fews_utilities.py     170     28    84%
-mptconfig\tmp.py                 30     24    20%
-mptconfig\utils.py               51     22    57%
+mptconfig\utils.py               55     22    60%
 setup.py                         10     10     0%
 -------------------------------------------------
-TOTAL                          1488    392    74%
+TOTAL                          1476    364    75%
 ```
 
 
