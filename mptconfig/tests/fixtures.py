@@ -1,7 +1,6 @@
 from enum import Enum
 from mptconfig.constants import BASE_DIR
-from mptconfig.constants import D_WIS_60_REFERENTIE_201902
-from mptconfig.constants import D_WIS_60_REFERENTIE_202002
+from mptconfig.constants import D_DRIVE
 from mptconfig.constants import PathNamedTuple
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 TEST_DATA_DIR = BASE_DIR / "mptconfig" / "tests" / "data"
+D_WIS_60_REFERENTIE_201902 = D_DRIVE / "WIS_6.0_REFERENTIE_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
+D_WIS_60_REFERENTIE_202002 = D_DRIVE / "WIS_6.0_REFERENTIE_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
 # we use a tempdir, so that all files that are created during test are deleted after a test run
 TMP_OUTPUT_DIR = Path(tempfile.tempdir)
 

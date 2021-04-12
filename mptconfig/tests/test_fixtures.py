@@ -9,6 +9,8 @@ from mptconfig.tests.fixtures import PatchedPathConstants1
 from mptconfig.tests.fixtures import PatchedPathConstants2
 from pathlib import Path
 
+import mptconfig.tests.fixtures
+
 
 # silence flake8 errors
 _patched_path_constants_1 = patched_path_constants_1
@@ -31,7 +33,7 @@ def test_patched_constants1(patched_path_constants_1):
     path1 = original_paths.fews_config.value.path
     path2 = new_paths.fews_config.value.path
     isinstance(path1, Path) and isinstance(path2, Path)
-    assert new_paths.fews_config.value.path == constants.D_WIS_60_REFERENTIE_201902
+    assert new_paths.fews_config.value.path == mptconfig.tests.fixtures.D_WIS_60_REFERENTIE_201902
     assert (
         new_paths.histtags_csv.value.path
         == BASE_DIR
@@ -51,7 +53,7 @@ def test_patched_constants2(patched_path_constants_2):
     path1 = original_paths.fews_config.value.path
     path2 = new_paths.fews_config.value.path
     isinstance(path1, Path) and isinstance(path2, Path)
-    assert new_paths.fews_config.value.path == constants.D_WIS_60_REFERENTIE_202002
+    assert new_paths.fews_config.value.path == mptconfig.tests.fixtures.D_WIS_60_REFERENTIE_202002
     assert (
         new_paths.histtags_csv.value.path
         == BASE_DIR

@@ -16,6 +16,7 @@ main.py
 
 ### License 
 [MIT][mit]
+
 [mit]: https://github.com/hdsr-mid/mptconfig_checker/blob/main/LICENSE.txt
 
 ### Releases
