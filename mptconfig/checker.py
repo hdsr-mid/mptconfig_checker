@@ -7,6 +7,7 @@ from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
+from mptconfig.utils import panda_read_csv
 from mptconfig.utils import sort_validation_attribs
 from mptconfig.utils import update_date
 from mptconfig.utils import update_h_locs
@@ -77,11 +78,10 @@ class MptConfigChecker:
             return self._histtags
         logger.info(f"reading histags: {constants.PathConstants.histtags_csv.value.path}")
         dtype_columns = ["total_min_start_dt", "total_max_end_dt"]
-        self._histtags = pd.read_csv(
-            filepath_or_buffer=constants.PathConstants.histtags_csv.value.path,
+        self._histtags = panda_read_csv(
+            path=constants.PathConstants.histtags_csv.value.path,
+            expected_columns=["serie", "total_min_start_dt", "total_max_end_dt"],
             parse_dates=dtype_columns,
-            sep=None,
-            engine="python",
         )
         for dtype_column in dtype_columns:
             if not pd.api.types.is_datetime64_dtype(self.histtags[dtype_column]):
@@ -204,12 +204,10 @@ class MptConfigChecker:
         if self._ignored_ex_loc is not None:
             return self._ignored_ex_loc
         logger.info(f"reading {constants.PathConstants.ignored_ex_loc.value.path}")
-        self._ignored_ex_loc = pd.read_csv(
-            filepath_or_buffer=constants.PathConstants.ignored_ex_loc.value.path,
-            sep=",",
-            engine="python",
+        self._ignored_ex_loc = panda_read_csv(
+            path=constants.PathConstants.ignored_ex_loc.value.path,
+            expected_columns=["externalLocation", "internalLocation"],
         )
-        assert sorted(self._ignored_ex_loc.columns) == ["externalLocation", "internalLocation"]
         return self._ignored_ex_loc
 
     @property
@@ -217,12 +215,10 @@ class MptConfigChecker:
         if self._ignored_histtag is not None:
             return self._ignored_histtag
         logger.info(f"reading {constants.PathConstants.ignored_histtag.value.path}")
-        self._ignored_histtag = pd.read_csv(
-            filepath_or_buffer=constants.PathConstants.ignored_histtag.value.path,
-            sep=";",
-            engine="python",
+        self._ignored_histtag = panda_read_csv(
+            path=constants.PathConstants.ignored_histtag.value.path,
+            expected_columns=["ENDDATE", "STARTDATE", "UNKNOWN_SERIE"],
         )
-        assert sorted(self._ignored_histtag.columns) == ["ENDDATE", "STARTDATE", "UNKNOWN_SERIE"]
         self._ignored_histtag["UNKNOWN_SERIE"] = self._ignored_histtag["UNKNOWN_SERIE"].str.replace("#", "")
         return self._ignored_histtag
 
@@ -230,17 +226,16 @@ class MptConfigChecker:
     def ignored_time_series_error(self) -> pd.DataFrame:
         if self._ignored_time_series_error is not None:
             return self._ignored_time_series_error
-        self._ignored_time_series_error = pd.read_csv(
-            filepath_or_buffer=constants.PathConstants.ignored_time_series_error.value.path,
-            sep=",",
-            engine="python",
+        logger.info(f"reading {constants.PathConstants.ignored_time_series_error.value.path}")
+        self._ignored_time_series_error = panda_read_csv(
+            path=constants.PathConstants.ignored_time_series_error.value.path,
+            expected_columns=[
+                "fout",
+                "internalLocation",
+                "mail datum",
+                "reden om te ignoren (obv mailwisseling met CAW)",
+            ],
         )
-        assert sorted(self._ignored_time_series_error.columns) == [
-            "fout",
-            "internalLocation",
-            "mail datum",
-            "reden om te ignoren (obv mailwisseling met CAW)",
-        ]
         return self._ignored_time_series_error
 
     @property
@@ -248,12 +243,10 @@ class MptConfigChecker:
         if self._ignored_ts800 is not None:
             return self._ignored_ts800
         logger.info(f"reading {constants.PathConstants.ignored_ts800.value.path}")
-        self._ignored_ts800 = pd.read_csv(
-            filepath_or_buffer=constants.PathConstants.ignored_ts800.value.path,
-            sep=",",
-            engine="python",
+        self._ignored_ts800 = panda_read_csv(
+            path=constants.PathConstants.ignored_ts800.value.path,
+            expected_columns=["externalLocation", "internalLocation"],
         )
-        assert sorted(self._ignored_ts800.columns) == ["externalLocation", "internalLocation"]
         return self._ignored_ts800
 
     @property
@@ -261,12 +254,9 @@ class MptConfigChecker:
         if self._ignored_xy is not None:
             return self._ignored_xy
         logger.info(f"reading {constants.PathConstants.ignored_xy.value.path}")
-        self._ignored_xy = pd.read_csv(
-            filepath_or_buffer=constants.PathConstants.ignored_xy.value.path,
-            sep=",",
-            engine="python",
+        self._ignored_xy = panda_read_csv(
+            path=constants.PathConstants.ignored_xy.value.path, expected_columns=["internalLocation", "x", "y"]
         )
-        assert sorted(self._ignored_xy.columns) == ["internalLocation", "x", "y"]
         return self._ignored_xy
 
     def _update_start_end_new_csv(self, location_set: constants.LocationSet) -> pd.DataFrame:
