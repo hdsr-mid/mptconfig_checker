@@ -43,7 +43,7 @@ class PathConstants(Enum):
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,
-        path=D_DRIVE / "WIS_6.0_MPTCONFIG_201902",
+        path=D_DRIVE / "WIS_6.0_MPTCONFIG_201902" / "FEWS_SA" / "config",
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")

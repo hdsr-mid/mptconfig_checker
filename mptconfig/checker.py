@@ -219,7 +219,7 @@ class MptConfigChecker:
         logger.info(f"reading {constants.PathConstants.ignored_histtag.value.path}")
         self._ignored_histtag = pd.read_csv(
             filepath_or_buffer=constants.PathConstants.ignored_histtag.value.path,
-            sep=",",
+            sep=";",
             engine="python",
         )
         assert sorted(self._ignored_histtag.columns) == ["ENDDATE", "STARTDATE", "UNKNOWN_SERIE"]
