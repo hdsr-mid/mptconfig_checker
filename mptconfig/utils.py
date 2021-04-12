@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Tuple
@@ -119,3 +120,15 @@ def equal_dataframes(expected_df: pd.DataFrame, test_df: pd.DataFrame) -> bool:
     test_df = test_df.sort_index().sort_index(axis=1)
     expected_df = expected_df.sort_index().sort_index(axis=1)
     return expected_df.equals(test_df)
+
+
+def panda_read_csv(path: Path, expected_columns: List[str], parse_dates: List[str] = None) -> pd.DataFrame:
+    """Flexible pd.read_csv that tries two separators: comma and semi-colon. It verifies the
+    panda dataframe column names."""
+    assert path.is_file()
+    separators = (None, ";") if parse_dates else (",", ";")
+    for separator in separators:
+        df = pd.read_csv(filepath_or_buffer=path, sep=separator, engine="python", parse_dates=parse_dates)
+        if sorted(df.columns) == sorted(expected_columns):
+            return df
+    raise AssertionError(f"could not read csv {path} with separators ; and ,")
