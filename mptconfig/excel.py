@@ -265,8 +265,7 @@ class ExcelWriter:
         # create and load xlsx file
         result_xlsx_path = PathConstants.result_xlsx.value.path
         logger.info(f"creating result file {PathConstants.result_xlsx.value.path}")
-        # TODO: activate this assert
-        # assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
+        assert not result_xlsx_path.exists(), f"result file should not already exist {result_xlsx_path}"
         writer = self._create_excel_writer(path=result_xlsx_path)
         if not self.results.has_content_sheet:
             self.results.create_content_sheet()

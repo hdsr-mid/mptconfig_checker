@@ -1,4 +1,5 @@
 from collections import namedtuple
+from datetime import datetime
 from enum import Enum
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
@@ -13,17 +14,24 @@ import re
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
 assert BASE_DIR.name == "mptconfig_checker"
-S_WATERBALANS_WIS_CAW_DIR = Path("S:") / "Waterbalans" / "_WIS_" / "caw"
+
+# do not change these paths
+D_DRIVE = Path("D:")
+S_DRIVE = Path("S:")
+S_WATERBALANS_WIS_CAW_DIR = S_DRIVE / "Waterbalans" / "_WIS_" / "caw"
+
+
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
-D_WIS_60_REFERENTIE_201902 = Path("D:") / "WIS_6.0_REFERENTIE_201902_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
-D_WIS_60_REFERENTIE_202002 = Path("D:") / "WIS_6.0_REFERENTIE_202002_MPTCHECKER_TEST_INPUT" / "FEWS_SA" / "config"
+YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 class PathConstants(Enum):
+    """Paths to be changes if you run the checker. """
+
     result_xlsx = PathNamedTuple(
         is_file=True,
         should_exist=False,
-        path=BASE_DIR / "data" / "output" / "result2.xlsx",
+        path=BASE_DIR / "data" / "output" / f"result_{YYYYMMDD_TODAY}.xlsx",
         description="",
     )
     histtags_csv = PathNamedTuple(
@@ -35,7 +43,7 @@ class PathConstants(Enum):
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,
-        path=D_WIS_60_REFERENTIE_202002,
+        path=D_DRIVE / "WIS_6.0_MPTCONFIG_201902",
         description="",
     )
     output_dir = PathNamedTuple(is_file=False, should_exist=True, path=BASE_DIR / "data" / "output", description="")
@@ -472,12 +480,13 @@ def check_constants_paths():
         "fews_config",
         "histtags_csv",
         "ignored_ex_loc",
+        "ignored_time_series_error",
         "ignored_histtag",
         "ignored_ts800",
         "ignored_xy",
         "output_dir",
     ]
-    assert len(all_defined_paths) == len(expected_paths) == len(set(expected_paths))
+    assert len(expected_paths) == len(set(expected_paths)), "this check makes no sense.."
     too_many = set(all_defined_paths).difference(expected_paths)
     too_few = set(expected_paths).difference(all_defined_paths)
     assert not too_many, f"too many paths {too_many}"
@@ -488,8 +497,7 @@ def check_constants_paths():
         if not isinstance(path_namedtuple.value.path, Path):
             raise AssertionError(f"{path_namedtuple.name}'s path is not of type pathlib.Path")
         if not path_namedtuple.value.should_exist:
-            # TODO: activate this assert
-            # assert not path_namedtuple.value.path.exists(), f"path {path_namedtuple.value.path} should not exist"
+            assert not path_namedtuple.value.path.exists(), f"path {path_namedtuple.value.path} should not exist"
             continue
         if path_namedtuple.value.is_file:
             assert path_namedtuple.value.path.is_file(), f"file should exist {path_namedtuple.value.path}"

@@ -2,6 +2,8 @@ from mptconfig import constants
 from mptconfig.tests.fixtures import patched_path_constants_1
 from mptconfig.tests.fixtures import patched_path_constants_2
 
+import mptconfig.tests.fixtures
+
 
 # silence flake8 errors
 _patched_path_constants_1 = patched_path_constants_1
@@ -245,7 +247,7 @@ expected_attrib_files_2 = [
 
 def test_hoofdlocationset_1(patched_path_constants_1):
     hoofdloc = constants.HoofdLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
-    assert hoofdloc.fews_config.path == constants.D_WIS_60_REFERENTIE_201902
+    assert hoofdloc.fews_config.path == mptconfig.tests.fixtures.D_WIS_60_REFERENTIE_201902
     assert hoofdloc.idmap_section_name == expected_idmap_section_name_1_and_2
     assert hoofdloc.name == expected_name_1_and_2
     assert hoofdloc.csv_filename == expected_csvfile_1_and_2
@@ -258,7 +260,7 @@ def test_hoofdlocationset_1(patched_path_constants_1):
 
 def test_hoofdlocationset_2(patched_path_constants_2):
     hoofdloc = constants.HoofdLocationSet(fews_config_path=constants.PathConstants.fews_config.value.path)
-    assert hoofdloc.fews_config.path == constants.D_WIS_60_REFERENTIE_202002
+    assert hoofdloc.fews_config.path == mptconfig.tests.fixtures.D_WIS_60_REFERENTIE_202002
     assert hoofdloc.idmap_section_name == expected_idmap_section_name_1_and_2
     assert hoofdloc.name == expected_name_1_and_2
     assert hoofdloc.csv_filename == expected_csvfile_1_and_2
