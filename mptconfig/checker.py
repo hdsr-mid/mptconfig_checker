@@ -1215,6 +1215,7 @@ class MptConfigChecker:
                 try:
                     int_loc_group = idmap_df_grouped_by_intloc.get_group(name=int_loc)
                     int_pars = int_loc_group["internalParameter"].unique()
+                    int_pars.sort(axis=-1, kind="quicksort", order=None)
                 except KeyError:
                     logger.debug(f"int_loc {int_loc} is not in IdOPVLWATER.xml")
                     int_pars = []
