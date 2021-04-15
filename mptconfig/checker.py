@@ -1204,28 +1204,20 @@ class MptConfigChecker:
         for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.mswloc, self.psloc):
             if not loc_set.validation_rules:
                 continue
-
             validation_attributes = loc_set.get_validation_attributes(int_pars=None)
             idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
             idmap_df = pd.DataFrame(data=idmaps)
-
-            data = {int_loc: [df["internalParameter"].values] for int_loc, df in idmap_df.groupby("internalLocation")}
-            params_df = pd.DataFrame.from_dict(
-                data=data,
-                orient="index",  # use 'index' so that data.keys() become df.rows (and not df.columns)
-                columns=["internalParameters"],
-            )
-
+            idmap_df_grouped_by_intloc = idmap_df.groupby("internalLocation")
             location_set_gdf = self.__create_location_set_df(loc_set)
-
             for idx, row in location_set_gdf.iterrows():
                 int_loc = row["LOC_ID"]
                 row = row.dropna()
-                if int_loc in params_df["internalParameters"]:
-                    int_pars = np.unique(params_df.loc[int_loc]["internalParameters"])
-                else:
+                try:
+                    int_loc_group = idmap_df_grouped_by_intloc.get_group(name=int_loc)
+                    int_pars = int_loc_group["internalParameter"].unique()
+                except KeyError:
+                    logger.debug(f"int_loc {int_loc} is not in IdOPVLWATER.xml")
                     int_pars = []
-
                 attribs_required = loc_set.get_validation_attributes(int_pars=int_pars)
                 attribs_too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
                 attribs_too_many = [
