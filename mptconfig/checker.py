@@ -7,7 +7,7 @@ from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
-from mptconfig.utils import panda_read_csv
+from mptconfig.utils import pd_read_csv_expect_columns
 from mptconfig.utils import sort_validation_attribs
 from mptconfig.utils import update_date
 from mptconfig.utils import update_h_locs
@@ -78,7 +78,7 @@ class MptConfigChecker:
             return self._histtags
         logger.info(f"reading histags: {constants.PathConstants.histtags_csv.value.path}")
         dtype_columns = ["total_min_start_dt", "total_max_end_dt"]
-        self._histtags = panda_read_csv(
+        self._histtags = pd_read_csv_expect_columns(
             path=constants.PathConstants.histtags_csv.value.path,
             expected_columns=["serie", "total_min_start_dt", "total_max_end_dt"],
             parse_dates=dtype_columns,
@@ -204,7 +204,7 @@ class MptConfigChecker:
         if self._ignored_ex_loc is not None:
             return self._ignored_ex_loc
         logger.info(f"reading {constants.PathConstants.ignored_ex_loc.value.path}")
-        self._ignored_ex_loc = panda_read_csv(
+        self._ignored_ex_loc = pd_read_csv_expect_columns(
             path=constants.PathConstants.ignored_ex_loc.value.path,
             expected_columns=["externalLocation", "internalLocation"],
         )
@@ -215,7 +215,7 @@ class MptConfigChecker:
         if self._ignored_histtag is not None:
             return self._ignored_histtag
         logger.info(f"reading {constants.PathConstants.ignored_histtag.value.path}")
-        self._ignored_histtag = panda_read_csv(
+        self._ignored_histtag = pd_read_csv_expect_columns(
             path=constants.PathConstants.ignored_histtag.value.path,
             expected_columns=["ENDDATE", "STARTDATE", "UNKNOWN_SERIE"],
         )
@@ -227,7 +227,7 @@ class MptConfigChecker:
         if self._ignored_time_series_error is not None:
             return self._ignored_time_series_error
         logger.info(f"reading {constants.PathConstants.ignored_time_series_error.value.path}")
-        self._ignored_time_series_error = panda_read_csv(
+        self._ignored_time_series_error = pd_read_csv_expect_columns(
             path=constants.PathConstants.ignored_time_series_error.value.path,
             expected_columns=[
                 "fout",
@@ -243,7 +243,7 @@ class MptConfigChecker:
         if self._ignored_ts800 is not None:
             return self._ignored_ts800
         logger.info(f"reading {constants.PathConstants.ignored_ts800.value.path}")
-        self._ignored_ts800 = panda_read_csv(
+        self._ignored_ts800 = pd_read_csv_expect_columns(
             path=constants.PathConstants.ignored_ts800.value.path,
             expected_columns=["externalLocation", "internalLocation"],
         )
@@ -254,7 +254,7 @@ class MptConfigChecker:
         if self._ignored_xy is not None:
             return self._ignored_xy
         logger.info(f"reading {constants.PathConstants.ignored_xy.value.path}")
-        self._ignored_xy = panda_read_csv(
+        self._ignored_xy = pd_read_csv_expect_columns(
             path=constants.PathConstants.ignored_xy.value.path, expected_columns=["internalLocation", "x", "y"]
         )
         return self._ignored_xy
@@ -1086,10 +1086,6 @@ class MptConfigChecker:
 
         for attrib_file in loc_set.attrib_files:
 
-            attribs = attrib_file["attribute"]
-            if not isinstance(attrib_file["attribute"], list):
-                attribs = [attribs]
-            attribs = [attrib["number"].replace("%", "") for attrib in attribs if "number" in attrib.keys()]
             # watch out: attrib_file_name != loc_set.value.csvfile !!!
             attrib_file_name = Path(attrib_file["csvFile"]).stem
             csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name]
@@ -1112,6 +1108,10 @@ class MptConfigChecker:
                 not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
                 assert len(not_okay) == 0, f"EIND must be > START, {len(not_okay)} wrong rows in {attrib_file_name}"
 
+            attribs = attrib_file["attribute"]
+            if not isinstance(attrib_file["attribute"], list):
+                attribs = [attribs]
+            attribs = [attrib["number"].replace("%", "") for attrib in attribs if attrib.get("number")]
             drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
             attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
             location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
@@ -1190,6 +1190,44 @@ class MptConfigChecker:
         #  zomer is >= ov
         #  ov >= winter
 
+        # onderstaande validatie csv lijstjes staan in RegionConfigFile['LocationSets']
+        hoofdlocaties_validation_csvs = [
+            "oppvlwater_hoofdloc_parameters",
+            "oppvlwater_hoofdloc_validations",
+            "oppvlwater_kunstvalidatie_streef1",
+            "oppvlwater_kunstvalidatie_streef2",
+            "oppvlwater_kunstvalidatie_streef3",
+            "oppvlwater_kentermeetdata",
+        ]
+
+        sublocaties_validation_csvs = [
+            "oppvlwater_subloc_parameters",
+            "oppvlwater_subloc_validations",
+            "oppvlwater_subloc_relatie_swm_arknzk",
+            "oppvlwater_subloc_relatie_debietmeter",
+            "oppvlwater_kunstvalidatie_debiet",
+            "oppvlwater_kunstvalidatie_freq",
+            "oppvlwater_kunstvalidatie_hefh",
+            "oppvlwater_kunstvalidatie_kruinh",
+            "oppvlwater_kunstvalidatie_schuifp",
+            "oppvlwater_kunstvalidatie_schuifp2",
+            "oppvlwater_kunstvalidatie_toert",
+            "oppvlwater_kunstvalidatie_kroos",
+            "oppvlwater_kunstvalidatie_stuur1",
+            "oppvlwater_kunstvalidatie_stuur2",
+            "oppvlwater_kunstvalidatie_stuur3",
+            "herberekeningDebietenLocsets",
+            "herberekeningDebieten",
+            "herberekeningDebieten_h",
+        ]
+
+        waterstandlocaties_validation_csvs = [
+            "oppvlwater_langsprofielen",
+            "oppvlwater_waterstanden_cacb",
+            "oppvlwater_waterstanden_validations",
+            "oppvlwater_watervalidatie",
+        ]
+
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
         valid_errors = {
@@ -1197,8 +1235,8 @@ class MptConfigChecker:
             "start": [],
             "eind": [],
             "internalParameters": [],
-            "fout_type": [],
-            "fout_beschrijving": [],
+            "error_type": [],
+            "error_description": [],
         }
 
         for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.mswloc, self.psloc):
@@ -1227,52 +1265,55 @@ class MptConfigChecker:
                     if (attrib not in attribs_required) and (attrib in row.keys())
                 ]
 
-                for key, value in {"missend": attribs_too_few, "overbodig": attribs_too_many}.items():
+                # the earlier row.dropna() dropped all empty columns (for that row)
+                # thats why dt uses row.keys() many times below
+                for key, value in {"too_few": attribs_too_few, "too_many": attribs_too_many}.items():
                     if len(value) > 0:
                         valid_errors["internalLocation"] += [int_loc]
                         valid_errors["start"] += [row["START"]]
                         valid_errors["eind"] += [row["EIND"]]
                         valid_errors["internalParameters"] += [",".join(int_pars)]
-                        valid_errors["fout_type"] += [key]
-                        valid_errors["fout_beschrijving"] += [",".join(value)]
+                        valid_errors["error_type"] += [key]
+                        valid_errors["error_description"] += [",".join(value)]
+
                 for validation_rule in loc_set.validation_rules:
-                    errors = {"fout_type": None, "fout_beschrijving": []}
-                    param = validation_rule["parameter"]
-                    if any(re.match(pattern=param, string=int_par) for int_par in int_pars):
-                        rule = validation_rule["extreme_values"]
-                        rule = sort_validation_attribs(rule)
-                        if all(key in ["hmax", "hmin"] for key in rule.keys()):
-                            for hmin, hmax in zip(rule["hmin"], rule["hmax"]):
-                                if all(attrib in row.keys() for attrib in [hmin, hmax]):
-                                    if row[hmax] < row[hmin]:
-                                        errors["fout_type"] = "waarde"
-                                        errors["fout_beschrijving"] += [f"{hmax} < {hmin}"]
+                    errors = {"error_type": None, "error_description": []}
+                    matching_int_pars = [int_par.startswith(validation_rule["parameter"]) for int_par in int_pars]
+                    if not any(matching_int_pars):
+                        continue
+                    rule = sort_validation_attribs(validation_rule["extreme_values"])
+                    if all(key in ["hmax", "hmin"] for key in rule.keys()):
+                        for hmin, hmax in zip(rule["hmin"], rule["hmax"]):
+                            if all(attrib in row.keys() for attrib in [hmin, hmax]):
+                                if row[hmax] < row[hmin]:
+                                    errors["error_type"] = "value"
+                                    errors["error_description"] += [f"{hmax} < {hmin}"]
 
-                        elif all(key in rule.keys() for key in ["hmax", "smax", "smin", "hmin"]):
-                            hmax = rule["hmax"][0]
-                            hmin = rule["hmin"][0]
-                            for smin, smax in zip(rule["smin"], rule["smax"]):
-                                if not all(attrib in row.keys() for attrib in [smin, smax]):
-                                    continue
-                                if row[smax] <= row[smin]:
-                                    errors["fout_type"] = "waarde"
-                                    errors["fout_beschrijving"] += [f"{smax} <= {smin}"]
+                    elif all(key in rule.keys() for key in ["hmax", "smax", "smin", "hmin"]):
+                        hmax = rule["hmax"][0]
+                        hmin = rule["hmin"][0]
+                        for smin, smax in zip(rule["smin"], rule["smax"]):
+                            if not all(attrib in row.keys() for attrib in [smin, smax]):
+                                continue
+                            if row[smax] <= row[smin]:
+                                errors["error_type"] = "value"
+                                errors["error_description"] += [f"{smax} <= {smin}"]
 
-                                # TODO: hiervoor al ergens checken of alle waarden in row zijn ingevuld,
-                                #  want anders keyerror...
-                                if row[hmax] < row[smax]:
-                                    errors["fout_type"] = "waarde"
-                                    errors["fout_beschrijving"] += [f"{hmax} < {smax}"]
+                            # TODO: hiervoor al ergens checken of alle waarden in row zijn ingevuld,
+                            #  want anders keyerror...
+                            if row[hmax] < row[smax]:
+                                errors["error_type"] = "value"
+                                errors["error_description"] += [f"{hmax} < {smax}"]
 
-                                if row[smin] < row[hmin]:
-                                    errors["fout_type"] = "waarde"
-                                    errors["fout_beschrijving"] += [f"{smin} < {hmin}"]
+                            if row[smin] < row[hmin]:
+                                errors["error_type"] = "value"
+                                errors["error_description"] += [f"{smin} < {hmin}"]
 
-                    valid_errors["internalLocation"] += [row["LOC_ID"]] * len(errors["fout_beschrijving"])
+                    valid_errors["internalLocation"] += [row["LOC_ID"]] * len(errors["error_description"])
 
-                    valid_errors["start"] += [row["START"]] * len(errors["fout_beschrijving"])
+                    valid_errors["start"] += [row["START"]] * len(errors["error_description"])
 
-                    valid_errors["eind"] += [row["EIND"]] * len(errors["fout_beschrijving"])
+                    valid_errors["eind"] += [row["EIND"]] * len(errors["error_description"])
 
                     # TODO: ask roger/daniel: geen idee wat hier allemaal gebeurt en waarom..
                     #  stel, int_pars = ['DD.15,F.0,H.R.0,IB.0,Q.G.0']
@@ -1280,11 +1321,11 @@ class MptConfigChecker:
                     #  dan is [",".join(int_pars)] * len(errors["fout_beschrijving"]) --> []
                     #  vraag: whuuaaat?! waarom?
 
-                    valid_errors["internalParameters"] += [",".join(int_pars)] * len(errors["fout_beschrijving"])
+                    valid_errors["internalParameters"] += [",".join(int_pars)] * len(errors["error_description"])
 
-                    valid_errors["fout_type"] += [errors["fout_type"]] * len(errors["fout_beschrijving"])
+                    valid_errors["error_type"] += [errors["error_type"]] * len(errors["error_description"])
 
-                    valid_errors["fout_beschrijving"] += errors["fout_beschrijving"]
+                    valid_errors["error_description"] += errors["error_description"]
 
         result_df = pd.DataFrame(data=valid_errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
