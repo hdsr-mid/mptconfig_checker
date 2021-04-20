@@ -122,7 +122,7 @@ def equal_dataframes(expected_df: pd.DataFrame, test_df: pd.DataFrame) -> bool:
     return expected_df.equals(test_df)
 
 
-def panda_read_csv(path: Path, expected_columns: List[str], parse_dates: List[str] = None) -> pd.DataFrame:
+def pd_read_csv_expect_columns(path: Path, expected_columns: List[str], parse_dates: List[str] = None) -> pd.DataFrame:
     """Flexible pd.read_csv that tries two separators: comma and semi-colon. It verifies the
     panda dataframe column names."""
     assert path.is_file()
