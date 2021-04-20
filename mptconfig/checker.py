@@ -1,4 +1,5 @@
 from mptconfig import constants
+from mptconfig.checker_helpers import HelperValidationRules
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
 from mptconfig.excel import ExcelSheetTypeChoices
@@ -1230,104 +1231,50 @@ class MptConfigChecker:
 
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
-        valid_errors = {
+        errors = {
             "internalLocation": [],
+            "internalParameters": [],
             "start": [],
             "eind": [],
-            "internalParameters": [],
             "error_type": [],
             "error_description": [],
         }
-
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        idmap_df = pd.DataFrame(data=idmaps)
+        idmap_df_grouped_by_intloc = idmap_df.groupby("internalLocation")
         for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.mswloc, self.psloc):
             if not loc_set.validation_rules:
                 continue
             validation_attributes = loc_set.get_validation_attributes(int_pars=None)
-            idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
-            idmap_df = pd.DataFrame(data=idmaps)
-            idmap_df_grouped_by_intloc = idmap_df.groupby("internalLocation")
             location_set_gdf = self.__create_location_set_df(loc_set)
             for idx, row in location_set_gdf.iterrows():
-                int_loc = row["LOC_ID"]
+                # drop all empty columns current row so we can use row.keys() to check if value is missing
                 row = row.dropna()
-                try:
-                    int_loc_group = idmap_df_grouped_by_intloc.get_group(name=int_loc)
-                    int_pars = int_loc_group["internalParameter"].unique()
-                    int_pars.sort(axis=-1, kind="quicksort", order=None)
-                except KeyError:
-                    logger.debug(f"int_loc {int_loc} is not in IdOPVLWATER.xml")
-                    int_pars = []
-                attribs_required = loc_set.get_validation_attributes(int_pars=int_pars)
-                attribs_too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
-                attribs_too_many = [
-                    attrib
-                    for attrib in validation_attributes
-                    if (attrib not in attribs_required) and (attrib in row.keys())
-                ]
-
-                # the earlier row.dropna() dropped all empty columns (for that row)
-                # thats why dt uses row.keys() many times below
-                for key, value in {"too_few": attribs_too_few, "too_many": attribs_too_many}.items():
-                    if len(value) > 0:
-                        valid_errors["internalLocation"] += [int_loc]
-                        valid_errors["start"] += [row["START"]]
-                        valid_errors["eind"] += [row["EIND"]]
-                        valid_errors["internalParameters"] += [",".join(int_pars)]
-                        valid_errors["error_type"] += [key]
-                        valid_errors["error_description"] += [",".join(value)]
-
+                int_pars = HelperValidationRules.get_int_pars(
+                    idmap_df_grouped_by_intloc=idmap_df_grouped_by_intloc, int_loc=row["LOC_ID"]
+                )
+                errors = HelperValidationRules.check_attributes_too_few_or_many(
+                    errors=errors,
+                    loc_set=loc_set,
+                    row=row,
+                    int_pars=int_pars,
+                    validation_attributes=validation_attributes,
+                )
                 for validation_rule in loc_set.validation_rules:
-                    errors = {"error_type": None, "error_description": []}
                     matching_int_pars = [int_par.startswith(validation_rule["parameter"]) for int_par in int_pars]
                     if not any(matching_int_pars):
                         continue
                     rule = sort_validation_attribs(validation_rule["extreme_values"])
-                    if all(key in ["hmax", "hmin"] for key in rule.keys()):
-                        for hmin, hmax in zip(rule["hmin"], rule["hmax"]):
-                            if all(attrib in row.keys() for attrib in [hmin, hmax]):
-                                if row[hmax] < row[hmin]:
-                                    errors["error_type"] = "value"
-                                    errors["error_description"] += [f"{hmax} < {hmin}"]
+                    if sorted(rule) == ["hmax", "hmin"]:
+                        errors = HelperValidationRules.check_hmax_hmin(
+                            errors=errors, rule=rule, row=row, int_pars=int_pars
+                        )
+                    elif sorted(rule) == ["hmax", "hmin", "smax", "smin"]:
+                        errors = HelperValidationRules.check_hmax_hmin_smax_smin(
+                            errors=errors, rule=rule, row=row, int_pars=int_pars
+                        )
 
-                    elif all(key in rule.keys() for key in ["hmax", "smax", "smin", "hmin"]):
-                        hmax = rule["hmax"][0]
-                        hmin = rule["hmin"][0]
-                        for smin, smax in zip(rule["smin"], rule["smax"]):
-                            if not all(attrib in row.keys() for attrib in [smin, smax]):
-                                continue
-                            if row[smax] <= row[smin]:
-                                errors["error_type"] = "value"
-                                errors["error_description"] += [f"{smax} <= {smin}"]
-
-                            # TODO: hiervoor al ergens checken of alle waarden in row zijn ingevuld,
-                            #  want anders keyerror...
-                            if row[hmax] < row[smax]:
-                                errors["error_type"] = "value"
-                                errors["error_description"] += [f"{hmax} < {smax}"]
-
-                            if row[smin] < row[hmin]:
-                                errors["error_type"] = "value"
-                                errors["error_description"] += [f"{smin} < {hmin}"]
-
-                    valid_errors["internalLocation"] += [row["LOC_ID"]] * len(errors["error_description"])
-
-                    valid_errors["start"] += [row["START"]] * len(errors["error_description"])
-
-                    valid_errors["eind"] += [row["EIND"]] * len(errors["error_description"])
-
-                    # TODO: ask roger/daniel: geen idee wat hier allemaal gebeurt en waarom..
-                    #  stel, int_pars = ['DD.15,F.0,H.R.0,IB.0,Q.G.0']
-                    #  dan is ",".join(int_pars) --> 'DD.15,F.0,H.R.0,IB.0,Q.G.0'
-                    #  dan is [",".join(int_pars)] * len(errors["fout_beschrijving"]) --> []
-                    #  vraag: whuuaaat?! waarom?
-
-                    valid_errors["internalParameters"] += [",".join(int_pars)] * len(errors["error_description"])
-
-                    valid_errors["error_type"] += [errors["error_type"]] * len(errors["error_description"])
-
-                    valid_errors["error_description"] += errors["error_description"]
-
-        result_df = pd.DataFrame(data=valid_errors).drop_duplicates(keep="first", inplace=False)
+        result_df = pd.DataFrame(data=errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
             logger.info("no missing incorrect validation rules")
         else:
