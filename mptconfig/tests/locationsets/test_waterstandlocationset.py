@@ -31,16 +31,12 @@ expected_validation_rules_1_and_2 = [
         "parameter": "H.G.",
         "extreme_values": {
             "hmax": "HARDMAX",
-            "smax": [
-                {"period": 1, "attribute": "WIN_SMAX"},
-                {"period": 2, "attribute": "OV_SMAX"},
-                {"period": 3, "attribute": "ZOM_SMAX"},
-            ],
-            "smin": [
-                {"period": 1, "attribute": "WIN_SMIN"},
-                {"period": 2, "attribute": "OV_SMIN"},
-                {"period": 3, "attribute": "ZOM_SMIN"},
-            ],
+            "smax_win": "WIN_SMAX",
+            "smax_ov": "OV_SMAX",
+            "smax_zom": "ZOM_SMAX",
+            "smin_win": "WIN_SMIN",
+            "smin_ov": "OV_SMIN",
+            "smin_zom": "ZOM_SMIN",
             "hmin": "HARDMIN",
         },
     }

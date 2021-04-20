@@ -9,7 +9,6 @@ from mptconfig.fews_utilities import xml_to_dict
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import pd_read_csv_expect_columns
-from mptconfig.utils import sort_validation_attribs
 from mptconfig.utils import update_date
 from mptconfig.utils import update_h_locs
 from mptconfig.utils import update_histtag
@@ -30,22 +29,15 @@ logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
-# TODO: remove this
-# 1. check validation rules: deze doorvoeren --> hmin <= smin < smax <= hmax
-# 2. check validation rules verbeteren: Q.G en Q.H (zie TODO in LocationSet.get_validation_attributes())
-# 3. check validation rules uitbreiden mbt (WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX, ZOM_SMIN)
-#    zie TODO check_validation_rules
-
-
 # TODO: high prio:
 #  1)
 #  Ik zie nu pas dat de XY in hoofdloc als output telkens een onnodige decimaal heeft.
 #  Zou deze “.0” voorkomen kunnen worden door het getal eerst tot integer en dan tot string te maken?
 #  2)
 #  Het lijkt erop dat Daniel een cruciaal punt in de bepaling van de start- en einddatum niet goed verwerkt heeft.
-#  Als er meerdere sublocaties zijn op een hoofdlocatie en enkele (maar niet alle) sublocaties hebben een dummy-startdatum 19000101 of dummy-einddatum 32101230,
-#  dan moeten die dummy-datums niet meegenomen worden in de bepaling van de start- en einddatum van de hoofdlocatie.
-#  Helaas gebeurt dat nu wel.
+#  Als er meerdere sublocaties zijn op een hoofdlocatie en enkele (maar niet alle) sublocaties hebben
+#  een dummy-startdatum 19000101 of dummy-einddatum 32101230, dan moeten die dummy-datums niet meegenomen
+#  worden in de bepaling van de start- en einddatum van de hoofdlocatie. Helaas gebeurt dat nu wel.
 #  Kan je kijken of je dit kan oplossen?
 
 
@@ -1149,20 +1141,20 @@ class MptConfigChecker:
         #     - We hoeven deze Oppvlwater_watervalidatie.csv niet te relateren aan sublocaties (die hebben we nu ontkoppelt)  # noqa
 
         # Roger 'hoe validatie error regel oplossen?'
-        # ps: Inke Leunk (hieronder genoemd) = tijdreeks validatie persoon van CAW
-        # "internalLocation  "start":  "eind":      "internalParameters":  "fout_type": [] fout_beschrijving
-        # KW100412	        19960401	21000101	H.R.0,Hk.0,Q.G.0	    missend	        HR1_HMAX,HR1_HMIN
+        # voorbeeld
+        # internalLocation  start       eind        internalParameters  error_type  description
+        # KW100412	        19960401    21000101    H.R.0,Hk.0,Q.G.0	too_few	    HR1_HMAX,HR1_HMIN
 
-        # if fout_type == 'waarde': daar is Inke verantwoordleijk voor (alle validatie instellingen).
-        # if fout_type == 'missend' of 'overbodig': wij eerst zelf actie ondernemen (zie hieronder):
+        # if fout_type == 'value': daar is CAW verantwoordelijk voor (alle validatie instellingen).
+        # if fout_type == 'too_few' of 'too_many': wij eerst zelf actie ondernemen (zie hieronder):
 
         # 1. edit betreffende validatie csv:
         #       OW = MapLayerFiles/oppvlwater_watervalidatie.csv
         #       KW = MapLayerFiles/oppvlwater_kunstvalidatie_<type>.csv
         #   - HR1_MAX (voorbeeld hierboven) betreft dus stuurpeil1, dus pak oppvlwater_kunstvalidatie_stuur1.csv
         #   - KW nummer + start- + einddatum invullen
-        #       start- en einddatum validatie csv is altijd 19000101 en 21000101, tenzij CAW validatie persoon (Inke)
-        #       vind dat ergens in de tijdreeks criteria in de tijd zijn veranderd: Dan maakt Inke een extra regel aan.
+        #       start- en einddatum validatie csv is altijd 19000101 en 21000101, tenzij CAW validatie persoon
+        #       vind dat ergens in de tijdreeks criteria in de tijd zijn veranderd: Dan maakt CAW een extra regel aan.
         #   - andere kolommen in validatie csv leeglaten
         # 2. wij maken mpt config klaar voor productie
         # 3. Job Verkaik upload de nieuwe kunstvalidatie csv in config middels de ConfiguratieManager
@@ -1170,76 +1162,13 @@ class MptConfigChecker:
         # 4. voor alle tijdreeksen die nog nooit zijn geimporteerd in WIS:
         #     - wij wij maken een extract van historie, die geven we aan Job Verkaik: "hier heb je 1 xml die al die
         #       historosiche data nog een keer bevat
-        # 5. Nu kan Inke pas fatsoenlijk validatie regels vastellen (want WIS bevat nu de gehele tijdreeks)
+        # 5. Nu kan CAW persoon pas fatsoenlijk validatie regels vastellen (want WIS bevat nu de gehele tijdreeks)
         #   - harde grenzen (bijv HMAX, HMIN):
         #       - voor met name water- en stuwstanden vastellen obv CAW sensorbereik onderstation van een kunstwerk.
         #       - voor streef en stuur: geen idee
         #   - zachte grenzen (bijv SMAX, SMIN):
         #       - vaststellen obv tijdreeks zelf
         # 6. WIS gebruikt deze bandbreedtes om tijdseries te vlaggen.
-
-        # roger:
-        # - waarde MIN mag gelijk zijn aan waarde MIN
-        # - waarde MAX mag gelijk zijn aan waarde MAX
-        # - waarde MIN mag niet groter dan waarde MAX
-        # TODO: hoe zit dit met Hard en Soft?
-        #  nu error als:
-        #  - row[hmax] < row[hmin]
-        #  - row[smax] <= row[smin]
-        #  - row[smin] < row[hmin]
-        #  renier
-        #  volgorde  uitzondering
-        #  hmax
-        #  smax      mag gelijk zijn aan hmax
-        #  smin      mag gelijk zijn aan hmin (dit zei je vorige keer)
-        #  hmin
-        #  zo ja, dan error als niet:
-        #  hmin <= smin < smax <= hmax
-
-        # TODO
-        #  voor waterstanden is winter zomer en overgangs variant
-        #  WIN_SMAX	WIN_SMIN	OV_SMAX	OV_SMIN	ZOM_SMAX	ZOM_SMIN
-        #  oppvlwater_watervalidatie.csv
-        #  zomer is >= ov
-        #  ov >= winter
-
-        # onderstaande validatie csv lijstjes staan in RegionConfigFile['LocationSets']
-        hoofdlocaties_validation_csvs = [
-            "oppvlwater_hoofdloc_parameters",
-            "oppvlwater_hoofdloc_validations",
-            "oppvlwater_kunstvalidatie_streef1",
-            "oppvlwater_kunstvalidatie_streef2",
-            "oppvlwater_kunstvalidatie_streef3",
-            "oppvlwater_kentermeetdata",
-        ]
-
-        sublocaties_validation_csvs = [
-            "oppvlwater_subloc_parameters",
-            "oppvlwater_subloc_validations",
-            "oppvlwater_subloc_relatie_swm_arknzk",
-            "oppvlwater_subloc_relatie_debietmeter",
-            "oppvlwater_kunstvalidatie_debiet",
-            "oppvlwater_kunstvalidatie_freq",
-            "oppvlwater_kunstvalidatie_hefh",
-            "oppvlwater_kunstvalidatie_kruinh",
-            "oppvlwater_kunstvalidatie_schuifp",
-            "oppvlwater_kunstvalidatie_schuifp2",
-            "oppvlwater_kunstvalidatie_toert",
-            "oppvlwater_kunstvalidatie_kroos",
-            "oppvlwater_kunstvalidatie_stuur1",
-            "oppvlwater_kunstvalidatie_stuur2",
-            "oppvlwater_kunstvalidatie_stuur3",
-            "herberekeningDebietenLocsets",
-            "herberekeningDebieten",
-            "herberekeningDebieten_h",
-        ]
-
-        waterstandlocaties_validation_csvs = [
-            "oppvlwater_langsprofielen",
-            "oppvlwater_waterstanden_cacb",
-            "oppvlwater_waterstanden_validations",
-            "oppvlwater_watervalidatie",
-        ]
 
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
         logger.info(f"start {self.check_validation_rules.__name__}")
@@ -1265,6 +1194,7 @@ class MptConfigChecker:
                 int_pars = HelperValidationRules.get_int_pars(
                     idmap_df_grouped_by_intloc=idmap_df_grouped_by_intloc, int_loc=row["LOC_ID"]
                 )
+
                 errors = HelperValidationRules.check_attributes_too_few_or_many(
                     errors=errors,
                     loc_set=loc_set,
@@ -1276,13 +1206,13 @@ class MptConfigChecker:
                     matching_int_pars = [int_par.startswith(validation_rule["parameter"]) for int_par in int_pars]
                     if not any(matching_int_pars):
                         continue
-                    rule = sort_validation_attribs(validation_rule["extreme_values"])
-                    if sorted(rule) == ["hmax", "hmin"]:
-                        errors = HelperValidationRules.check_hmax_hmin(
+                    rule = validation_rule["extreme_values"]
+                    if loc_set in (self.hoofdloc, self.subloc):
+                        errors = HelperValidationRules.check_hoofd_and_sub_loc(
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
-                    elif sorted(rule) == ["hmax", "hmin", "smax", "smin"]:
-                        errors = HelperValidationRules.check_hmax_hmin_smax_smin(
+                    elif loc_set == self.waterstandloc:
+                        errors = HelperValidationRules.check_waterstandstand_loc(
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 

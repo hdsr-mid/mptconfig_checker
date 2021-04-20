@@ -319,16 +319,12 @@ class WaterstandLocationSet(LocationSet):
                 "parameter": "H.G.",
                 "extreme_values": {
                     "hmax": "HARDMAX",
-                    "smax": [
-                        {"period": 1, "attribute": "WIN_SMAX"},
-                        {"period": 2, "attribute": "OV_SMAX"},
-                        {"period": 3, "attribute": "ZOM_SMAX"},
-                    ],
-                    "smin": [
-                        {"period": 1, "attribute": "WIN_SMIN"},
-                        {"period": 2, "attribute": "OV_SMIN"},
-                        {"period": 3, "attribute": "ZOM_SMIN"},
-                    ],
+                    "smax_win": "WIN_SMAX",
+                    "smax_ov": "OV_SMAX",
+                    "smax_zom": "ZOM_SMAX",
+                    "smin_win": "WIN_SMIN",
+                    "smin_ov": "OV_SMIN",
+                    "smin_zom": "ZOM_SMIN",
                     "hmin": "HARDMIN",
                 },
             }
@@ -503,3 +499,68 @@ def check_constants_paths():
             assert path_namedtuple.value.path.is_file(), f"file should exist {path_namedtuple.value.path}"
         else:
             assert path_namedtuple.value.path.is_dir(), f"dir should exists {path_namedtuple.value.path}"
+
+
+HLOC_SLOC_VALIDATION_LOGIC = [
+    # one general rules written out in statements
+    # 1) hmin <= smin < smax <= hmax
+    # - hmin
+    ("hmin", "<=", "smin"),
+    ("hmin", "<", "smax"),
+    ("hmin", "<", "hmax"),
+    # - smin
+    ("smin", "<", "smax"),
+    ("smin", "<", "hmax"),
+    # - smax
+    ("smax", "<=", "hmax"),
+]
+WLOC_VALIDATION_LOGIC = [
+    # two general rules combined written out in statements
+    # 1) hmin <= smin < smax <= hmax
+    # 2) WIN <= OV <= ZOM
+    # - hmin
+    ("hmin", "<=", "smin_zom"),
+    ("hmin", "<=", "smin_ov"),
+    ("hmin", "<=", "smin_win"),
+    #
+    ("hmin", "<", "smax_zom"),
+    ("hmin", "<", "smax_ov"),
+    ("hmin", "<", "smax_win"),
+    #
+    ("hmin", "<", "hmax"),
+    # - smin_win
+    ("smin_win", "<=", "smin_ov"),
+    ("smin_win", "<=", "smin_zom"),
+    #
+    ("smin_win", "<", "smax_win"),
+    ("smin_win", "<", "smax_ov"),
+    ("smin_win", "<", "smax_zom"),
+    #
+    ("smin_win", "<", "h_max"),
+    #
+    # - smin_ov
+    ("smin_ov", "<=", "smin_zom"),
+    #
+    ("smin_ov", "<", "smax_win"),
+    ("smin_ov", "<", "smax_ov"),
+    ("smin_ov", "<", "smax_zom"),
+    #
+    ("smin_ov", "<", "h_max"),
+    # - smin_zom
+    ("smin_zom", "<", "smax_win"),
+    ("smin_zom", "<", "smax_ov"),
+    ("smin_zom", "<", "smin_zom"),
+    #
+    ("smin_zom", "<", "h_max"),
+    # - smax_win
+    ("smax_win", "<=", "smax_ov"),
+    ("smax_win", "<=", "smax_zom"),
+    #
+    ("smax_win", "<=", "h_max"),
+    # - smax_ov
+    ("smax_ov", "<=", "smax_zom"),
+    #
+    ("smax_ov", "<=", "h_max"),
+    # - smax_zom
+    ("smax_zom", "<=", "h_max"),
+]

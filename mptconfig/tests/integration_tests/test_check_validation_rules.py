@@ -22,7 +22,7 @@ def test_check_validation_rules_1(patched_path_constants_1):
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 273
+    assert excelsheet.nr_rows == 815
     assert equal_dataframes(expected_df=expected_df_1, test_df=excelsheet.df)
 
 
@@ -33,5 +33,5 @@ def test_check_validation_rules_2(patched_path_constants_2):
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
-    assert excelsheet.nr_rows == 321
+    assert excelsheet.nr_rows == 862
     assert equal_dataframes(expected_df=expected_df_2, test_df=excelsheet.df)
