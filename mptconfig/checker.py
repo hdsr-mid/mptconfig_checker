@@ -37,6 +37,18 @@ pd.options.mode.chained_assignment = None
 #    zie TODO check_validation_rules
 
 
+# TODO: high prio:
+#  1)
+#  Ik zie nu pas dat de XY in hoofdloc als output telkens een onnodige decimaal heeft.
+#  Zou deze “.0” voorkomen kunnen worden door het getal eerst tot integer en dan tot string te maken?
+#  2)
+#  Het lijkt erop dat Daniel een cruciaal punt in de bepaling van de start- en einddatum niet goed verwerkt heeft.
+#  Als er meerdere sublocaties zijn op een hoofdlocatie en enkele (maar niet alle) sublocaties hebben een dummy-startdatum 19000101 of dummy-einddatum 32101230,
+#  dan moeten die dummy-datums niet meegenomen worden in de bepaling van de start- en einddatum van de hoofdlocatie.
+#  Helaas gebeurt dat nu wel.
+#  Kan je kijken of je dit kan oplossen?
+
+
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
     The main property of the class is 'self.results' which is:
