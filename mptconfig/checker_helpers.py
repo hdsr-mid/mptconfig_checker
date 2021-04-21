@@ -1,4 +1,6 @@
 from mptconfig import constants
+from mptconfig.fews_utilities import FewsConfig
+from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import TypeVar
@@ -169,3 +171,41 @@ class HelperValidationRules:
         errors["error_type"] += [error_type]
         errors["error_description"] += [description]
         return errors
+
+    @classmethod
+    def create_location_set_df(cls, loc_set: constants.LocationSet, fews_config: FewsConfig) -> pd.DataFrame:
+        assert isinstance(loc_set, constants.LocationSet)
+        location_set_df = loc_set.geo_df
+
+        for attrib_file in loc_set.attrib_files:
+
+            # watch out: attrib_file_name != loc_set.value.csvfile !!!
+            attrib_file_name = Path(attrib_file["csvFile"]).stem
+            csv_file_path = fews_config.MapLayerFiles[attrib_file_name]
+            attrib_df = pd.read_csv(
+                filepath_or_buffer=csv_file_path,
+                sep=None,
+                engine="python",
+            )
+            join_id = attrib_file["id"].replace("%", "")
+            attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
+
+            # TODO: ask roger which validation csvs must have unique LOC_ID? No csv at all right?
+            #  Moreover, unique_together is {LOC_ID, STARTDATE, ENDDATE} right?
+            # if not attrib_df["LOC_ID"].is_unique:
+            #     logger.warning(f"LOC_ID is not unique in {attrib_file_name}")
+            # TODO: check dates somewhere else (separate check?): validation_rules may eg not overlap (1 KW can have
+            #  >1 validation_rule with own period.
+            assert "END" not in attrib_df.columns, f"expected EIND, not END... {csv_file_path}"
+            if ("START" and "EIND") in attrib_df.columns:
+                not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
+                assert len(not_okay) == 0, f"EIND must be > START, {len(not_okay)} wrong rows in {attrib_file_name}"
+
+            attribs = attrib_file["attribute"]
+            if not isinstance(attrib_file["attribute"], list):
+                attribs = [attribs]
+            attribs = [attrib["number"].replace("%", "") for attrib in attribs if attrib.get("number")]
+            drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
+            attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
+            location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
+        return location_set_df

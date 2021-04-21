@@ -1,5 +1,5 @@
 """
-1
+1 = check_missing_pars
 inpar = internal parameter
 - alle id_mapping.xml inpars (bijv ‘H.R.0’) in de id_mapping.xml moeten voorkomen in RegionConfigFiles/parameters.xml
 - check_missing_pars()
@@ -33,7 +33,7 @@ inloc+inpar per HistTag
 - Bijv. 1 stuurpeil op 2 pompen (in 1 gemaalhuis) (alternerend sturing, beide maar halve toeren)
 - M.a.w.: deze check geeft niet een oplossing, maar wel of er mogelijk iets aan de hand is
 
-6
+6 = check_validation_rules
 Inloc in validatie-CSV’s
 - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs voor
 - In Validatie csv staan validatie criteria per type tijdreeks

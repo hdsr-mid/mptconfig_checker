@@ -1085,43 +1085,6 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def __create_location_set_df(self, loc_set: constants.LocationSet) -> pd.DataFrame:
-        assert isinstance(loc_set, constants.LocationSet)
-        location_set_df = loc_set.geo_df
-
-        for attrib_file in loc_set.attrib_files:
-
-            # watch out: attrib_file_name != loc_set.value.csvfile !!!
-            attrib_file_name = Path(attrib_file["csvFile"]).stem
-            csv_file_path = self.fews_config.MapLayerFiles[attrib_file_name]
-            attrib_df = pd.read_csv(
-                filepath_or_buffer=csv_file_path,
-                sep=None,
-                engine="python",
-            )
-            join_id = attrib_file["id"].replace("%", "")
-            attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
-
-            # TODO: ask roger which validation csvs must have unique LOC_ID? No csv at all right?
-            #  Moreover, unique_together is {LOC_ID, STARTDATE, ENDDATE} right?
-            # if not attrib_df["LOC_ID"].is_unique:
-            #     logger.warning(f"LOC_ID is not unique in {attrib_file_name}")
-            # TODO: check dates somewhere else (separate check?): validation_rules may eg not overlap (1 KW can have
-            #  >1 validation_rule with own period.
-            assert "END" not in attrib_df.columns, f"expected EIND, not END... {csv_file_path}"
-            if ("START" and "EIND") in attrib_df.columns:
-                not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
-                assert len(not_okay) == 0, f"EIND must be > START, {len(not_okay)} wrong rows in {attrib_file_name}"
-
-            attribs = attrib_file["attribute"]
-            if not isinstance(attrib_file["attribute"], list):
-                attribs = [attribs]
-            attribs = [attrib["number"].replace("%", "") for attrib in attribs if attrib.get("number")]
-            drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
-            attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
-            location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
-        return location_set_df
-
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent."""
         # Roger 'algemeen validatie csvs'
@@ -1136,7 +1099,7 @@ class MptConfigChecker:
         # - ff zij-stapje: alle validatie csvs kunnen meerdere validatie perioden hebben per kunstwerk:
         #     - 1 meetpunt kan meerdere validatie periode hebben
         #     - Locatie.csv heeft start end: zegt iets over geldigheid van de locatie
-        #     - Oppvlwater_watervalidatie.csv heeft ook start endate: is start eind van validatie periode
+        #     - Oppvlwater_watervalidatie.csv heeft ook start- en endate: is start eind van validatie periode
         #     - Per definitie zijn deze validatie periode aansluitend (nooit een gat of overlappend!)
         #     - We hoeven deze Oppvlwater_watervalidatie.csv niet te relateren aan sublocaties (die hebben we nu ontkoppelt)  # noqa
 
@@ -1187,7 +1150,9 @@ class MptConfigChecker:
             if not loc_set.validation_rules:
                 continue
             validation_attributes = loc_set.get_validation_attributes(int_pars=None)
-            location_set_gdf = self.__create_location_set_df(loc_set)
+            location_set_gdf = HelperValidationRules.create_location_set_df(
+                loc_set=loc_set, fews_config=self.fews_config
+            )
             for idx, row in location_set_gdf.iterrows():
                 # drop all empty columns current row so we can use row.keys() to check if value is missing
                 row = row.dropna()
@@ -1239,6 +1204,11 @@ class MptConfigChecker:
 
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
+
+        # about 12 OW locations have a ex_par 'H' (instead of 'H.B.x' or H.G.x').
+        # roger: "Alle histtags horen altijd een volgnummer te hebben en HO of HB te zijn.
+        # Ik verwacht niet dat we in de toekomst weer zo'n fout maken, dus een IGNORE-lijst zou hier
+        # wellicht overdreven zijn en een uitzondering in de code een betere oplossing.
         whitelist_in_locs = [
             "OW263201",
             "OW263301",
@@ -1258,10 +1228,6 @@ class MptConfigChecker:
             ex_par_row = row["externalParameter"]
             in_loc_row = row["internalLocation"]
 
-            # about 12 OW locations have a ex_par 'H' (instead of 'H.B.x' or H.G.x').
-            # roger: "Alle histtags horen altijd een volgnummer te hebben en HO of HB te zijn.
-            # Ik verwacht niet dat we in de toekomst weer zo'n fout maken, dus een IGNORE-lijst zou hier
-            # wellicht overdreven zijn en een uitzondering in de code een betere oplossing.
             if in_loc_row in whitelist_in_locs and ex_par_row == "H":
                 continue
 
@@ -1428,7 +1394,7 @@ class MptConfigChecker:
                         error["type"] = sub_type
                         error["functie"] = loc_functie
 
-                if loc_set == self.hoofdloc:
+                elif loc_set == self.hoofdloc:
                     if not re.match(pattern=f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*", string=loc_name):
                         error["name_error"] = True
 
