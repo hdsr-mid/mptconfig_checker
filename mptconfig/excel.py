@@ -214,7 +214,7 @@ class ExcelWriter:
     def __init__(self, results: ExcelSheetCollector):
         self.results = results
         assert isinstance(self.results, ExcelSheetCollector), "results is not a ExcelSheetCollector"
-        assert self.results.has_sheets, "cannot create excel file if no sheets exists"
+        assert self.results.has_sheets, "cannot create excel file as no checks have been executed (so no sheets)"
 
     def _set_sheet_style(
         self, df: pd.DataFrame, worksheet: openpyxl_worksheet, tab_color: ExcelTabColorChoices = None
