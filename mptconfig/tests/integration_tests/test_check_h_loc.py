@@ -162,7 +162,7 @@ expected_df_2 = pd.DataFrame(
 def test_check_h_loc_1(patched_path_constants_1):
     """integration test with patched paths 1"""
     meetpunt_config = MptConfigChecker()
-    excelsheet = meetpunt_config.check_h_loc(sheet_name="blabla")
+    excelsheet = meetpunt_config.check_s_loc_consistency(sheet_name="blabla")
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check
@@ -172,7 +172,7 @@ def test_check_h_loc_1(patched_path_constants_1):
 def test_check_h_loc_2(patched_path_constants_2):
     """integration test with patched paths 2"""
     meetpunt_config = MptConfigChecker()
-    excelsheet = meetpunt_config.check_h_loc(sheet_name="blabla")
+    excelsheet = meetpunt_config.check_s_loc_consistency(sheet_name="blabla")
     assert isinstance(excelsheet, ExcelSheet)
     assert excelsheet.name == "blabla"
     assert excelsheet.sheet_type == ExcelSheetTypeChoices.output_check

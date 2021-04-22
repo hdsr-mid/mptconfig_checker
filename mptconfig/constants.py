@@ -8,8 +8,11 @@ from typing import Dict
 from typing import List
 
 import geopandas as gpd
+import logging
 import re
 
+
+logger = logging.getLogger(__name__)
 
 # Handy constant for building relative paths
 BASE_DIR = Path(__file__).parent.parent
@@ -182,7 +185,7 @@ class LocationSet:
         return self._attrib_files
 
     def get_validation_attributes(self, int_pars: List[str] = None) -> List[str]:
-        """Get attributes (as a list) from validation rules (nested dict).
+        """Get attributes (as a list) from validation rules (list with nested dicts).
 
         Example:
             validation_rules = [
@@ -197,23 +200,16 @@ class LocationSet:
                     etc..
                 ]
 
-            get_validation_attributes(int_pars=None) returns: ['HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN',]
+            get_validation_attributes(int_pars=None) returns: ['HR1_HMAX', 'HR1_HMIN', 'HR2_HMAX', 'HR2_HMIN']
         """
-        if int_pars is None:
+        if not int_pars:
+            logger.debug(f"returning all validation parameters for locationset {self.name}")
             int_pars = [rule["parameter"] for rule in self.validation_rules]
         result = []
         for rule in self.validation_rules:
-            if rule.get("type", "") == "debietmeter":
-                # TODO: debieter (QB en QG) wel voor oppvlwater_kunstvalidatie_debiet.csv checken!!
-                #  als er een nieuwe debietmeter komt in het veld, dan moet deze wel validatieregels hebben in deze csv
-                continue
             if not any(re.match(pattern=rule["parameter"], string=int_par) for int_par in int_pars):
                 continue
-            for attribute in rule["extreme_values"].values():
-                if isinstance(attribute, list):
-                    result += [value["attribute"] for value in attribute]
-                else:
-                    result += [attribute]
+            result.extend(rule["extreme_values"].values())
         return result
 
 
@@ -266,16 +262,6 @@ class SubLocationSet(LocationSet):
             {"parameter": "H.R.", "extreme_values": {"hmax": "HR1_HMAX", "hmin": "HR1_HMIN"}},
             {"parameter": "H2.R.", "extreme_values": {"hmax": "HR2_HMAX", "hmin": "HR2_HMIN"}},
             {"parameter": "H3.R.", "extreme_values": {"hmax": "HR3_HMAX", "hmin": "HR3_HMIN"}},
-            {
-                "parameter": "Q.B.",
-                "type": "debietmeter",
-                "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
-            },
-            {
-                "parameter": "Q.G.",
-                "type": "debietmeter",
-                "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
-            },
             {"parameter": "F.", "extreme_values": {"hmax": "FRQ_HMAX", "hmin": "FRQ_HMIN"}},
             {"parameter": "Hh.", "extreme_values": {"hmax": "HEF_HMAX", "hmin": "HEF_HMIN"}},
             {
@@ -292,6 +278,13 @@ class SubLocationSet(LocationSet):
                 },
             },
             {"parameter": "TT.", "extreme_values": {"hmax": "TT_HMAX", "hmin": "TT_HMIN"}},
+            # HDSR does not yet have validation CSVs for berekend debiet
+            # {"parameter": "Q.B.",
+            #  "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"}},
+            {
+                "parameter": "Q.G.",
+                "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
+            },
         ]
 
 

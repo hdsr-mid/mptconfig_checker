@@ -37,7 +37,7 @@ class HelperValidationRules:
             int_loc_group = idmap_df_grouped_by_intloc.get_group(name=int_loc)
             int_pars = sorted(int_loc_group["internalParameter"].unique().tolist())
         except KeyError:
-            logger.debug(f"no problem, int_loc {int_loc} is not in this specific idmapping xml")
+
             int_pars = []
         return int_pars
 
@@ -48,20 +48,18 @@ class HelperValidationRules:
         loc_set: constants.LocationSet,
         row: pd.Series,
         int_pars: List[str],
-        validation_attributes,
     ) -> Dict:
+        attribs_all = loc_set.get_validation_attributes(int_pars=None)
         attribs_required = loc_set.get_validation_attributes(int_pars=int_pars)
-        attribs_too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
-        attribs_too_many = [
-            attrib for attrib in validation_attributes if (attrib not in attribs_required) and (attrib in row.keys())
-        ]
-        if attribs_too_few:
+        too_few = [attrib for attrib in attribs_required if attrib not in row.keys()]
+        too_many = [attrib for attrib in attribs_all if (attrib not in attribs_required) and (attrib in row.keys())]
+        if too_few:
             errors = cls.__add_one_error(
-                row=row, int_pars=int_pars, error_type="too_few", description=",".join(attribs_too_few), errors=errors
+                row=row, int_pars=int_pars, error_type="too_few", description=",".join(too_few), errors=errors
             )
-        if attribs_too_many:
+        if too_many:
             errors = cls.__add_one_error(
-                row=row, int_pars=int_pars, error_type="too_many", description=",".join(attribs_too_many), errors=errors
+                row=row, int_pars=int_pars, error_type="too_many", description=",".join(too_many), errors=errors
             )
         return errors
 
@@ -173,10 +171,15 @@ class HelperValidationRules:
         return errors
 
     @classmethod
-    def create_location_set_df(cls, loc_set: constants.LocationSet, fews_config: FewsConfig) -> pd.DataFrame:
+    def get_df_merged_validation_csvs(cls, loc_set: constants.LocationSet, fews_config: FewsConfig) -> pd.DataFrame:
+        """Merge all validation csv per location set. Which validation csv must be merged is determined by:
+        1) getting the attribute_file_names from RegionConfigFiles['LocationSets']
+        2) getting csvfile_paths from MapLayerFiles[attribute_file_name]
+        """
         assert isinstance(loc_set, constants.LocationSet)
         location_set_df = loc_set.geo_df
 
+        merged_csv_file_names = []
         for attrib_file in loc_set.attrib_files:
 
             # watch out: attrib_file_name != loc_set.value.csvfile !!!
@@ -204,8 +207,13 @@ class HelperValidationRules:
             attribs = attrib_file["attribute"]
             if not isinstance(attrib_file["attribute"], list):
                 attribs = [attribs]
-            attribs = [attrib["number"].replace("%", "") for attrib in attribs if attrib.get("number")]
-            drop_cols = [col for col in attrib_df if col not in attribs + ["LOC_ID"]]
+            desired_attribs = [attrib.get("number", "").replace("%", "") for attrib in attribs]
+            if not any(desired_attribs):
+                continue
+            drop_cols = [col for col in attrib_df if col not in desired_attribs + ["LOC_ID"]]
             attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
             location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
+            merged_csv_file_names.append(attrib_file_name)
+        logger.info(f"merged {len(merged_csv_file_names)} csvs into {loc_set.name} validation location_set_df:")
+        logger.info(f"{merged_csv_file_names}")
         return location_set_df

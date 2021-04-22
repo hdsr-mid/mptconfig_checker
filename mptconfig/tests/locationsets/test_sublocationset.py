@@ -35,6 +35,10 @@ expected_validation_attributes_1_and_2 = [
     "PERC2_HMIN",
     "TT_HMAX",
     "TT_HMIN",
+    "Q_HMAX",
+    "Q_SMAX",
+    "Q_SMIN",
+    "Q_HMIN",
 ]
 
 
@@ -42,16 +46,6 @@ expected_validation_rules_1_and_2 = [
     {"parameter": "H.R.", "extreme_values": {"hmax": "HR1_HMAX", "hmin": "HR1_HMIN"}},
     {"parameter": "H2.R.", "extreme_values": {"hmax": "HR2_HMAX", "hmin": "HR2_HMIN"}},
     {"parameter": "H3.R.", "extreme_values": {"hmax": "HR3_HMAX", "hmin": "HR3_HMIN"}},
-    {
-        "parameter": "Q.B.",
-        "type": "debietmeter",
-        "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
-    },
-    {
-        "parameter": "Q.G.",
-        "type": "debietmeter",
-        "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
-    },
     {"parameter": "F.", "extreme_values": {"hmax": "FRQ_HMAX", "hmin": "FRQ_HMIN"}},
     {"parameter": "Hh.", "extreme_values": {"hmax": "HEF_HMAX", "hmin": "HEF_HMIN"}},
     {
@@ -63,7 +57,9 @@ expected_validation_rules_1_and_2 = [
         "extreme_values": {"hmax": "PERC2_HMAX", "smax": "PERC2_SMAX", "smin": "PERC2_SMIN", "hmin": "PERC2_HMIN"},
     },
     {"parameter": "TT.", "extreme_values": {"hmax": "TT_HMAX", "hmin": "TT_HMIN"}},
+    {"parameter": "Q.G.", "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"}},
 ]
+
 
 expected_csvfile_meta_1_and_2 = {
     "file": "oppvlwater_subloc",
