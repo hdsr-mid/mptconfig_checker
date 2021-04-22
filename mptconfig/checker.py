@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 
+
 # TODO: high prio:
 #  1)
 #  Ik zie nu pas dat de XY in hoofdloc als output telkens een onnodige decimaal heeft.
@@ -1097,31 +1098,22 @@ class MptConfigChecker:
         1. Per loc_set wordt er gelooped over de validatie csvs (df_merged_validation_csvs).
         2. Voor elke int_loc in csv wordt 0 of meerdere int_pars uit de IdOPVLWATER.xml gehaald
             - Bijv van 'KW101310' naar ['H.S.0', 'H2.S.0']
-        # TODO andere idmappings worden niet gedaan, is dat okay? Zo niet, hoge of lage prio?)
+            - we doen bewust alleen IdOPVLWATER.xml want de validatie-CSV’s gelden alleen voor oppervlaktewater
+              in het noneq-tijdperk na 2011, dus IdOPVLWATER.xml is toereikend.
         3. Als er 0 int_pars wordt gevonden dan naar skippen naar volgende regel in validatie csv
         4. Obv int_pars wordt dan de betreffende validatie_rules opgehaald:
             - all (voor hoofdloc) = ['HS1_HMAX', 'HS1_HMIN', 'HS2_HMAX', 'HS2_HMIN', 'HS3_HMAX', 'HS3_HMIN']
-                - required = ['HS1_HMAX', 'HS1_HMIN', 'HS2_HMAX', 'HS2_HMIN']
+            - required = ['HS1_HMAX', 'HS1_HMIN', 'HS2_HMAX', 'HS2_HMIN']
             - verschil (all en required) = ['HS3_HMAX', 'HS3_HMIN']
         5. De validatie regel:
             - mag dan niet iets bevatten uit verschil
-            - moet alles bevatten in required
+            - moet alles van required bevatten
 
-        # TODO: er wordt dus niet gekeken of een intloc in idmapping wel voor komt in betreffende
-        validatie.csv. Is dit wat jij betreft een hoge prio?
+        NOTE: validatie rules check voor par=Q.B (berekend debiet) wordt overgeslagen, want er zijn
+        nog geen validatieregels voor Q.B
         """
 
-        # TODO: roger: oppervlaktewater_kunstvalidatie_debiet.csv bevat 20 debietmeters
-        #  1. ik verwacht wel dat al onze debietmeters daar in voorkomen! Anders fout
-        #  2. de waarde moeten ook vergeleken worden ook met (hmin <= smin < smax <= hmax)
-        #  3. Q.B. is inderdaad debietmeter, maar die kan nu (nog) niet voorkomen:
-        #   - B is berekend, terwijl onze debietmeters bevatten alleen maar gemeten waarden
-        #   - Inke heeft de wens geuit dat er ook validatieregels worden opgesteld voor de berekende debieten, maar
-        #     daar ligt nog een disussie met HKV. Er zijn nu helemaal geen csvs met Q.B validatieregels
-        #  4. Renier: volgens mij wordt nu niet gechecked dat int_loc wel in een validatie csv is opgenomen
-        #   - roger: als het goed is wel. Bijvoorbeeld er als op een subloc een parameter streefpeil wordt gementen,
-        #     dan moet deze ook in kunstvalidatie_streefpeil.csv voorkomen! Zo niet, dan error
-
+        # TODO: verify no overlapping validation periods for the same {in_loc, in_par} exists
         # Roger 'algemeen validatie csvs'
         # Inloc in validatie-CSV’s
         # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs
@@ -1181,6 +1173,8 @@ class MptConfigChecker:
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
         idmap_df_grouped_by_intloc = idmap_df.groupby("internalLocation")
+        idmap_df["is_in_a_validation"] = False
+
         for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.mswloc, self.psloc):
             if not loc_set.validation_rules:
                 continue
@@ -1188,6 +1182,13 @@ class MptConfigChecker:
             df_merged_validation_csvs = HelperValidationRules.get_df_merged_validation_csvs(
                 loc_set=loc_set, fews_config=self.fews_config
             )
+
+            # keep track of idmapping int_locs that are in df_merged_validation_csvs
+            mask = idmap_df["internalLocation"].isin(df_merged_validation_csvs["LOC_ID"])
+            assert len(mask) == len(idmap_df)
+            # update idmap_df['is_in_a_validation'] to True when mask is True (never True to False!)
+            idmap_df.loc[mask, "is_in_a_validation"] = True
+
             for idx, row in df_merged_validation_csvs.iterrows():
                 # drop all empty columns current row so we can use row.keys() to check if value is missing
                 row = row.dropna()
@@ -1219,6 +1220,7 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
+        errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)
         result_df = pd.DataFrame(data=errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
             logger.info("no missing incorrect validation rules")

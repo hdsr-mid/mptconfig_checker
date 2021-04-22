@@ -42,6 +42,19 @@ class HelperValidationRules:
         return int_pars
 
     @classmethod
+    def check_idmapping_int_loc_in_a_validation(cls, errors: Dict, idmap_df: pd.DataFrame) -> Dict:
+        for idx, row in idmap_df.iterrows():
+            if row["is_in_a_validation"]:
+                continue
+            errors["internalLocation"] += [row["internalLocation"]]
+            errors["start"] += [""]
+            errors["eind"] += [""]
+            errors["internalParameters"] += [row["internalParameter"]]
+            errors["error_type"] += ["not in any validation csv"]
+            errors["error_description"] += [f'exloc={row["externalLocation"]}, expar={row["externalParameter"]}']
+        return errors
+
+    @classmethod
     def check_attributes_too_few_or_many(
         cls,
         errors: Dict,
