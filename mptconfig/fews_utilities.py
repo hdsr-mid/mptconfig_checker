@@ -104,6 +104,7 @@ def xml_to_dict(xml_filepath: Path, section_start: str = None, section_end: str 
 class FewsConfig:
 
     geo_datum = {"Rijks Driehoekstelsel": "epsg:28992"}
+    Z_NODATA_VALUE = -9999
 
     def __init__(self, path: Path):
         self.path = path
@@ -197,8 +198,9 @@ class FewsConfig:
                 result[parameter["id"]]["groupId"] = result[parameter["id"]].pop("id")
         return result
 
-    @staticmethod
+    @classmethod
     def add_geometry_column(
+        cls,
         gdf: gpd.GeoDataFrame,
         filepath: Path,
         x_attrib: str,
@@ -209,12 +211,12 @@ class FewsConfig:
         If column z_attrib exists, then we fill empty cells ('') with z_value_default.
         If column z_attrib does not exists? then we use z_value_default -9999 for all rows.
         """
-        z_value_default = -9999
+
         assert (x_attrib and y_attrib) in gdf.columns, f"x={x_attrib} and y={y_attrib} must be in df"
         if z_attrib:
-            nr_empty_rows_before = len(gdf[gdf[z_attrib] == ""])
-            gdf[z_attrib].replace("", z_value_default, inplace=True)
-            logger.debug(f"replaced {nr_empty_rows_before} gdf rows column {z_attrib} from '' to {z_value_default}")
+            empty_rows_z = len(gdf[gdf[z_attrib] == ""])
+            gdf[z_attrib].replace("", cls.Z_NODATA_VALUE, inplace=True)
+            logger.debug(f"replaced {empty_rows_z} gdf rows column {z_attrib} from '' to {cls.Z_NODATA_VALUE}")
         try:
             if z_attrib:
                 gdf["geometry"] = gdf.apply(
@@ -229,7 +231,7 @@ class FewsConfig:
                 )
             else:
                 gdf["geometry"] = gdf.apply(
-                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(z_value_default))),
+                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(cls.Z_NODATA_VALUE))),
                     axis=1,
                 )
             return gdf
@@ -237,7 +239,7 @@ class FewsConfig:
             # get rows where conversion error occurs (most likely because of empty cells)
             if z_attrib:
                 # first make sure the problem is not in z column
-                assert gdf[z_attrib].astype(float), f"the xyz problem is within the {z_attrib} column"
+                assert gdf[z_attrib].astype(float), f"the xyz problem is within the {z_attrib} column, file={filepath}"
             # now search through x_attrib and y_attrib
             empty_xy_rows = []
             for column in [x_attrib, y_attrib]:

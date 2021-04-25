@@ -16,9 +16,9 @@ from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Tuple
 
+import geopandas as gpd
 import logging
 import numpy as np  # noqa numpy comes with geopandas
 import pandas as pd  # noqa pandas comes with geopandas
@@ -32,9 +32,6 @@ pd.options.mode.chained_assignment = None
 
 # TODO: high prio:
 #  1)
-#  Ik zie nu pas dat de XY in hoofdloc als output telkens een onnodige decimaal heeft.
-#  Zou deze “.0” voorkomen kunnen worden door het getal eerst tot integer en dan tot string te maken?
-#  2)
 #  Het lijkt erop dat Daniel een cruciaal punt in de bepaling van de start- en einddatum niet goed verwerkt heeft.
 #  Als er meerdere sublocaties zijn op een hoofdlocatie en enkele (maar niet alle) sublocaties hebben
 #  een dummy-startdatum 19000101 of dummy-einddatum 32101230, dan moeten die dummy-datums niet meegenomen
@@ -99,7 +96,7 @@ class MptConfigChecker:
 
     @property
     def hoofdloc(self) -> constants.LocationSet:
-        """Get the latest version of hoofdlocation: hoofdloc_new if it exists or else hoofdloc"""
+        """Get HoofdLocationSet. The property .geo_df has eventually been updated."""
         if self._hoofdloc_new is not None:
             assert self._hoofdloc and isinstance(self._hoofdloc, constants.LocationSet)
             assert isinstance(self._hoofdloc_new, pd.DataFrame)
@@ -261,50 +258,91 @@ class MptConfigChecker:
         )
         return self._ignored_xy
 
-    def _update_start_end_new_csv(self, location_set: constants.LocationSet) -> pd.DataFrame:
-        assert isinstance(location_set, constants.LocationSet), f"location_set {location_set} is not a LocationSet"
+    def _update_start_end_new_csv(self, df: pd.DataFrame) -> pd.DataFrame:
         date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
-        gdf = location_set.geo_df
-        df = gdf.drop("geometry", axis=1)
         df[["START", "EIND"]] = df.apply(
             func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
         )
         return df
 
     @staticmethod
-    def df_to_csv(df: pd.DataFrame, file_name: str) -> None:
+    def _df_to_csv(df: pd.DataFrame, file_name: str) -> None:
         csv_file_path = constants.PathConstants.output_dir.value.path / file_name
         if csv_file_path.suffix == "":
             csv_file_path = Path(f"{csv_file_path}.csv")
         if csv_file_path.is_file():
-            f"overwriting existing file with path {csv_file_path}"
+            logger.warning(f"overwriting existing file with path {csv_file_path}")
         df.to_csv(path_or_buf=csv_file_path.as_posix(), index=False)
-        logger.debug(f"created {file_name}")
+        logger.info(f"created {file_name}")
 
-    def create_opvlwater_hoofdloc_csv_new(self) -> None:
+    @staticmethod
+    def _validate_geom(gdf: gpd.GeoDataFrame) -> pd.DataFrame:
+        """
+        1. Validate geom columns names and dtypes
+        2. Ensure column 'geometry' == Point('X','Y','Z')
+        3. Ensure no decimal in column X, Y
+        """
+        assert isinstance(gdf, gpd.GeoDataFrame)
+        # check column names
+        assert "geometry" in gdf.columns
+        assert ("X" and "Y") in gdf.columns
+
+        # check dtypes
+        assert gdf["X"].dtype == np.float64
+        assert gdf["Y"].dtype == np.float64
+        has_column_z = "Z" in gdf.columns
+        if has_column_z:
+            assert gdf["Z"].dtype == "O"
+
+        # ensure geom == column(X,Y,Z)
+        for idx, row in gdf.iterrows():
+            assert row["geometry"].x == gdf["X"][idx]
+            assert row["geometry"].y == gdf["Y"][idx]
+            # if the original csv had no Z column or the Z value was missing we set it to -9999 in geometry
+            assert row["geometry"].z == FewsConfig.Z_NODATA_VALUE or -50 < row["geometry"].z < 50
+            if not has_column_z:
+                continue
+            assert row["geometry"].z == float(gdf["Z"][idx])
+
+        # ensure no decimal in column X, Y (go from 137319.0 to 137319)
+        gdf["X"] = gdf["X"].astype(np.int32)
+        gdf["Y"] = gdf["X"].astype(np.int32)
+        df = gdf.drop("geometry", axis=1)
+        return df
+
+    def _create_opvlwater_hoofdloc_csv_new(self) -> None:
+        """Write HoofdLocationSet.geo_df to csv. This .geo_df was eventually
+        updated during check_s_loc_consistency() in _create_hoofdloc_new()."""
+        if self._hoofdloc_new is None:
+            logger.info(f"skipping {self.hoofdloc.name}.csv as hoofdloc was not updated")
+            return
         logger.info(f"creating new csv {self.hoofdloc.name}")
-        df = self._update_start_end_new_csv(location_set=self.hoofdloc)
-        # get existing fews config file name
-        self.df_to_csv(df=df, file_name=self.hoofdloc.name)
+        df = self._validate_geom(gdf=self.hoofdloc.geo_df)
+        df = self._update_start_end_new_csv(df=df)
+        self._df_to_csv(df=df, file_name=self.hoofdloc.name)
 
-    def create_opvlwater_subloc_csv_new(self) -> None:
+    def _create_opvlwater_subloc_csv_new(self) -> None:
+        """ Write SubLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.subloc.name}")
-        df = self._update_start_end_new_csv(location_set=self.subloc)
+        df = self._validate_geom(gdf=self.subloc.geo_df)
+        df = self._update_start_end_new_csv(df=df)
         grouper = df.groupby(["PAR_ID"])
         par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
         df["PAR_ID"] = df["LOC_ID"].str[0:-1] + "0"
         df["ALLE_TYPES"] = df["PAR_ID"].apply(func=lambda x: par_types_df.loc[x])
         df[["HBOVPS", "HBENPS"]] = df.apply(func=self._update_staff_gauge, axis=1, result_type="expand")
         # get existing fews config file name
-        self.df_to_csv(df=df, file_name=self.subloc.name)
+        self._df_to_csv(df=df, file_name=self.subloc.name)
 
-    def create_waterstandlocaties_csv_new(self) -> None:
+    def _create_waterstandlocaties_csv_new(self) -> None:
+        """ Write WaterstandLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.waterstandloc.name}")
-        df = self._update_start_end_new_csv(location_set=self.waterstandloc)
+        df = self._validate_geom(gdf=self.waterstandloc.geo_df)
+        df = self._update_start_end_new_csv(df=df)
         grouper = self.mpt_histtags.groupby(["fews_locid"])
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
-        self.df_to_csv(df=df, file_name=self.waterstandloc.name)
+        self._df_to_csv(df=df, file_name=self.waterstandloc.name)
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
         """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
@@ -334,10 +372,11 @@ class MptConfigChecker:
         par_gdf = pd.DataFrame(data=par_dict)
         columns = list(self.hoofdloc.geo_df.columns)
         drop_cols = [col for col in columns if col in par_gdf.columns and col != "LOC_ID"]
-        drop_cols = drop_cols + ["geometry"]
         new_geo_df = self.hoofdloc.geo_df.drop(drop_cols, axis=1, inplace=False)
         new_geo_df = par_gdf.merge(new_geo_df, on="LOC_ID")
-        new_geo_df["geometry"] = new_geo_df.apply(func=(lambda x: Point(int(x["X"]), int(x["Y"]))), axis=1)
+        new_geo_df["geometry"] = new_geo_df.apply(
+            func=(lambda x: Point(float(x["X"]), float(x["Y"]), float(x["Z"]))), axis=1
+        )
         new_geo_df = new_geo_df[columns]
         self._hoofdloc_new = new_geo_df
 
@@ -1317,7 +1356,7 @@ class MptConfigChecker:
             "csv_file": [],
             "location_name": [],
             "type": [],
-            "functie": [],
+            "function": [],
             "name_error": [],
             "caw_name_inconsistent": [],
             "missing_in_map": [],
@@ -1352,7 +1391,7 @@ class MptConfigChecker:
                     "caw_name_inconsistent": False,
                     "missing_in_map": False,
                     "type": "",
-                    "functie": "",
+                    "function": "",
                     "missing_in_set": False,
                     "missing_peilschaal": False,
                     "missing_hbov": False,
@@ -1377,7 +1416,7 @@ class MptConfigChecker:
                     # TODO: moet dit wel hoofdlocaties zijn?
                     #  par_gdf = self.location_sets["hoofdlocaties"]["gdf"]
                     par_gdf = self.hoofdloc.geo_df
-                    loc_functie = row["FUNCTIE"]
+                    loc_function = row["FUNCTIE"]
                     sub_type = row["TYPE"]
 
                     if sub_type in [
@@ -1391,7 +1430,7 @@ class MptConfigChecker:
 
                     else:
                         if not re.match(
-                            pattern=f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*-{sub_type}[0-9]_{loc_functie}",
+                            pattern=f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*-{sub_type}[0-9]_{loc_function}",
                             string=loc_name,
                         ):
                             error["name_error"] = True
@@ -1425,14 +1464,13 @@ class MptConfigChecker:
                             [re.match(pattern=loc, string=loc_id) for loc in self.ignored_xy["internalLocation"]]
                         ):
                             par_gdf_row = par_gdf[par_gdf["LOC_ID"] == row["PAR_ID"]]
-                            par_gdf_xy = par_gdf_row["geometry"].values[0]
-                            row_xy = row["geometry"]
-                            if not par_gdf_xy.equals(row_xy):
+                            par_gdf_geom = par_gdf_row["geometry"].values[0]
+                            if not par_gdf_geom.equals(row["geometry"]):
                                 error["xy_not_same"] = True
 
                     if any(error.values()):
                         error["type"] = sub_type
-                        error["functie"] = loc_functie
+                        error["function"] = loc_function
 
                 elif loc_set == self.hoofdloc:
                     if not re.match(pattern=f"[A-Z0-9 ]*_{caw_code}-K_[A-Z0-9 ]*", string=loc_name):
@@ -1476,7 +1514,7 @@ class MptConfigChecker:
         )
         return excel_sheet
 
-    def add_input_files_to_results(self) -> None:
+    def _add_input_files_to_results(self) -> None:
         """each input files is a excel sheet with type is input, as opposeded to check results results which are
         excel sheets with type is output."""
         self.results.add_sheet(
@@ -1512,7 +1550,7 @@ class MptConfigChecker:
             )
         )
 
-    def add_paths_to_results(self) -> None:
+    def _add_paths_to_results(self) -> None:
         columns = ["name", "path", "description"]
         data = [
             (path_constant.name, path_constant.value.path.as_posix(), path_constant.value.description)
@@ -1527,7 +1565,7 @@ class MptConfigChecker:
         )
         self.results.add_sheet(excelsheet=excelsheet)
 
-    def add_tab_color_description_to_results(self):
+    def _add_tab_color_description_to_results(self):
         data = ExcelSheetTypeChoices.tab_color_description()
         columns = ["description", "color"]
         description_df = pd.DataFrame(data=data, columns=columns)
@@ -1539,7 +1577,7 @@ class MptConfigChecker:
         )
         self.results.add_sheet(excelsheet=excelsheet)
 
-    def add_mpt_histtags_new_to_results(self):
+    def _add_mpt_histtags_new_to_results(self):
         excelsheet = ExcelSheet(
             name="mpt_histtags_new",
             df=self.mpt_histtags_new,
@@ -1550,36 +1588,36 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
-        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        # self.results.add_sheet(excelsheet=self.check_missing_pars())
-        # self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
+        self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
+        self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        self.results.add_sheet(excelsheet=self.check_missing_pars())
+        self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
 
         # check returns two results
-        # sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
-        # self.results.add_sheet(excelsheet=sheet1)
-        # self.results.add_sheet(excelsheet=sheet2)
-        #
-        # self.results.add_sheet(excelsheet=self.check_ex_par_missing())
-        # self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
-        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
+        self.results.add_sheet(excelsheet=sheet1)
+        self.results.add_sheet(excelsheet=sheet2)
+
+        self.results.add_sheet(excelsheet=self.check_ex_par_missing())
+        self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
+        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
-        # self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
-        # self.results.add_sheet(excelsheet=self.check_location_set_errors())
-        #
-        # # add output_no_check sheets
-        # self.add_tab_color_description_to_results()
-        # self.add_paths_to_results()
-        # self.add_input_files_to_results()
-        # self.add_mpt_histtags_new_to_results()
-        #
-        # # write excel file with check results
+        self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
+        self.results.add_sheet(excelsheet=self.check_location_set_errors())
+
+        # add output_no_check sheets
+        self._add_tab_color_description_to_results()
+        self._add_paths_to_results()
+        self._add_input_files_to_results()
+        self._add_mpt_histtags_new_to_results()
+
+        # write excel file with check results
         excel_writer = ExcelWriter(results=self.results)
         excel_writer.write()
 
         # write new csv files
-        # self.create_opvlwater_hoofdloc_csv_new()
-        # self.create_opvlwater_subloc_csv_new()
-        # self.create_waterstandlocaties_csv_new()
+        self._create_opvlwater_hoofdloc_csv_new()
+        self._create_opvlwater_subloc_csv_new()
+        self._create_waterstandlocaties_csv_new()
