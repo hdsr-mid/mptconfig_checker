@@ -130,6 +130,7 @@ class LocationSet:
         if self._geo_df is not None:
             return self._geo_df
         self._geo_df = self.fews_config.get_locations(location_set_key=self.fews_name)
+        assert isinstance(self._geo_df, gpd.GeoDataFrame)
         return self._geo_df
 
     @property
