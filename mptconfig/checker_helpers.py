@@ -227,6 +227,6 @@ class HelperValidationRules:
             attrib_df.drop(columns=drop_cols, axis=1, inplace=True)
             location_set_df = location_set_df.merge(attrib_df, on="LOC_ID", how="outer")
             merged_csv_file_names.append(attrib_file_name)
-        logger.info(f"merged {len(merged_csv_file_names)} csvs into {loc_set.name} validation location_set_df:")
-        logger.info(f"{merged_csv_file_names}")
+        logger.debug(f"merged {len(merged_csv_file_names)} csvs into {loc_set.name} validation location_set_df:")
+        logger.debug(f"{merged_csv_file_names}")
         return location_set_df

@@ -273,14 +273,15 @@ class MptConfigChecker:
         if csv_file_path.is_file():
             logger.warning(f"overwriting existing file with path {csv_file_path}")
         df.to_csv(path_or_buf=csv_file_path.as_posix(), index=False)
-        logger.info(f"created {file_name}")
+        logger.info(f"created new csv {file_name}")
 
     @staticmethod
     def _validate_geom(gdf: gpd.GeoDataFrame) -> pd.DataFrame:
         """
-        1. Validate geom columns names and dtypes
-        2. Ensure column 'geometry' == Point('X','Y','Z')
-        3. Ensure no decimal in column X, Y
+        Turn a GeoDataFrame into DataFrame and:
+            1. Validate geom columns names and dtypes
+            2. Ensure column 'geometry' == Point('X','Y','Z')
+            3. Ensure no decimal in column X, Y
         """
         assert isinstance(gdf, gpd.GeoDataFrame)
         # check column names
@@ -288,16 +289,16 @@ class MptConfigChecker:
         assert ("X" and "Y") in gdf.columns
 
         # check dtypes
-        assert gdf["X"].dtype == np.float64
-        assert gdf["Y"].dtype == np.float64
+        assert gdf["X"].dtype in (np.float64, "float64", "O")
+        assert gdf["Y"].dtype in (np.float64, "float64", "O")
         has_column_z = "Z" in gdf.columns
         if has_column_z:
             assert gdf["Z"].dtype == "O"
 
         # ensure geom == column(X,Y,Z)
         for idx, row in gdf.iterrows():
-            assert row["geometry"].x == gdf["X"][idx]
-            assert row["geometry"].y == gdf["Y"][idx]
+            assert row["geometry"].x == float(gdf["X"][idx])
+            assert row["geometry"].y == float(gdf["Y"][idx])
             # if the original csv had no Z column or the Z value was missing we set it to -9999 in geometry
             assert row["geometry"].z == FewsConfig.Z_NODATA_VALUE or -50 < row["geometry"].z < 50
             if not has_column_z:
@@ -378,7 +379,9 @@ class MptConfigChecker:
             func=(lambda x: Point(float(x["X"]), float(x["Y"]), float(x["Z"]))), axis=1
         )
         new_geo_df = new_geo_df[columns]
-        self._hoofdloc_new = new_geo_df
+        self._hoofdloc_new = gpd.GeoDataFrame(new_geo_df)
+        # , geometry=new_geo_df['geometry'])
+        # self._hoofdloc_new = gpd.GeoDataFrame(new_geo_df, geometry=new_geo_df['geometry'])
 
     def _update_staff_gauge(self, row: pd.Series) -> Tuple[str, str]:
         """Assign upstream and downstream staff gauges to subloc."""
