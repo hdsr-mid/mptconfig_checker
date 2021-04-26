@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Dict
 from typing import List
@@ -13,6 +14,15 @@ import pandas as pd  # noqa pandas comes with geopandas
 PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")
 
 logger = logging.getLogger(__name__)
+
+# TODO: handle end_date dummy check same as start_date
+#  below is a tmp work-around because pd.Timestamp(year=3210, month=12, day=30) results in OutOfBoundsDatetime
+#  luckily, datetime.date(year=3210, month=12, day=30) is possible. Saves us string comparison mayhem
+# TODO: @ask roger: come up with better names
+# sublocs without timeseries are unmeasered (dutch 'onbemeten locaties') and have dummy dates
+dummy_start_date_unmeasured_loc = pd.Timestamp(year=1900, month=1, day=1)
+dummy_end_date_unmeasured_loc = date(year=3210, month=12, day=30)
+dummy_end_date_measured_loc = pd.Timestamp(year=2100, month=1, day=1)
 
 
 def flatten_nested_list(_list: List[List]) -> List:
@@ -32,12 +42,35 @@ def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
     return fews_locs if fews_locs else np.NaN
 
 
-def update_h_locs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> Tuple[pd.Timestamp, pd.Timestamp]:
-    """Add startdate and enddate op hoofdloc dataframe with df.apply() method."""
-    if not bool(np.isin(row["LOC_ID"], h_locs)):
+def update_h_locs_start_end(
+    row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame
+) -> Tuple[pd.Timestamp, pd.Timestamp]:
+    """Add startdate and enddate op hoofdloc dataframe with df.apply() method.
+    If"""
+    # TODO: high prio:
+    #  Het lijkt erop dat Daniel een cruciaal punt in de bepaling van de start- en einddatum niet goed verwerkt heeft.
+    #  Als er meerdere sublocaties zijn op een hoofdlocatie en enkele (maar niet alle) sublocaties hebben
+    #  een dummy-startdatum 19000101 of dummy-einddatum 32101230, dan moeten die dummy-datums niet meegenomen
+    #  worden in de bepaling van de start- en einddatum van de hoofdlocatie. Helaas gebeurt dat nu wel.
+    #  Kan je kijken of je dit kan oplossen?
+    int_loc = row["LOC_ID"]
+    if not bool(np.isin(int_loc, h_locs)):
+        logger.debug(f"skip update start end as {int_loc} is not a h_loc")
         return row["STARTDATE"], row["ENDDATE"]
     # get all locs at this location:
-    brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(row["LOC_ID"][0:-1])]
+    brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(int_loc[0:-1])]
+    if any(brothers_df["STARTDATE"].isin([dummy_start_date_unmeasured_loc])):
+        if not all(brothers_df["STARTDATE"].isin([dummy_start_date_unmeasured_loc])):
+            logger.debug(f"found some (but not all) dummy_start dates for hloc {int_loc}")
+            unmeasured_brothers_df = brothers_df[brothers_df["STARTDATE"] == dummy_start_date_unmeasured_loc]
+            # ensure enddate is also a dummy date
+            # TODO: activate this assert as soon we come up with a better dummy_end_date_unmeasured_loc
+            # assert all(x.to_pydatetime() == dummy_end_date_unmeasured_loc for x in unmeasured_brothers_df["ENDDATE"])
+            # remove unmeasured locs
+            measured_brothers_df = brothers_df[brothers_df["STARTDATE"] != dummy_start_date_unmeasured_loc]
+            earliest_start_date = measured_brothers_df["STARTDATE"].dropna().min()
+            latest_end_date = measured_brothers_df["ENDDATE"].dropna().max()
+            return earliest_start_date, latest_end_date
     earliest_start_date = brothers_df["STARTDATE"].dropna().min()
     latest_end_date = brothers_df["ENDDATE"].dropna().max()
     return earliest_start_date, latest_end_date
@@ -46,12 +79,20 @@ def update_h_locs(row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame) -> T
 def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timestamp) -> Tuple[str, str]:
     """Return start and end-date, e.g. ('19970101', '21000101'), in df.apply() method."""
     int_loc = row["LOC_ID"]
-    # TODO: fix index
-    if int_loc in mpt_df.index:
-        start_date = mpt_df.loc[int_loc]["STARTDATE"].strftime("%Y%m%d")
-        end_date = mpt_df.loc[int_loc]["ENDDATE"]
+    # check if int_loc is in pd.Series mpt_df['LOC_ID']
+    # watch out! avoid this: "if int_loc in mpt_df['LOC_ID']"
+    int_loc_df = mpt_df[mpt_df["LOC_ID"] == int_loc]
+    assert len(int_loc_df) in (0, 1)
+    if len(int_loc_df) == 1:
+        # from series to list
+        start_date_list = int_loc_df["STARTDATE"].to_list()
+        assert len(start_date_list) == 1
+        start_date = start_date_list[0].strftime("%Y%m%d")
+        end_date_list = int_loc_df["ENDDATE"].to_list()
+        assert len(end_date_list) == 1
+        end_date = start_date_list[0]
         if end_date > date_threshold:
-            end_date = pd.Timestamp(year=2100, month=1, day=1)
+            end_date = dummy_end_date_measured_loc
         end_date = end_date.strftime("%Y%m%d")
     else:
         start_date = row["START"]

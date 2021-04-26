@@ -10,7 +10,7 @@ from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import pd_read_csv_expect_columns
 from mptconfig.utils import update_date
-from mptconfig.utils import update_h_locs
+from mptconfig.utils import update_h_locs_start_end
 from mptconfig.utils import update_histtag
 from pathlib import Path
 from shapely.geometry import Point  # noqa shapely comes with geopandas
@@ -30,13 +30,14 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-# TODO: high prio:
-#  1)
-#  Het lijkt erop dat Daniel een cruciaal punt in de bepaling van de start- en einddatum niet goed verwerkt heeft.
-#  Als er meerdere sublocaties zijn op een hoofdlocatie en enkele (maar niet alle) sublocaties hebben
-#  een dummy-startdatum 19000101 of dummy-einddatum 32101230, dan moeten die dummy-datums niet meegenomen
-#  worden in de bepaling van de start- en einddatum van de hoofdlocatie. Helaas gebeurt dat nu wel.
-#  Kan je kijken of je dit kan oplossen?
+# TODO: come up with better name then 'MAX_DIFF' and move to constants
+MAX_DIFF = pd.Timedelta(weeks=26)
+# 26 weken = 6 maanden
+# Bestaat dat meetpunt nog? Is het nog operationeel?
+# -	kijken naar alle gekoppelde tijdreeksen (startenddate) van dat punt
+# -	Roger geeft niet zomaar eindpunt aan een meetpunt (wellicht werkzaamheden aan meetpunt).
+#   Door schade en schande hanteert Roger nu 6 maanden geen tijdreeks?
+#   Na 6 maanden geen tijdreeks data meer ontvangen? Dan eindpunt toekennen.
 
 
 class MptConfigChecker:
@@ -150,7 +151,10 @@ class MptConfigChecker:
     @property
     def mpt_histtags_new(self) -> pd.DataFrame:
         """Convert histTag-ids to mpt-ids. Alle meetpunt ids uitgelezen uit de histTags.csv, die niet
-        in de ignore staan en in de idmapping zijn opgenomen."""
+        in de ignore staan en in de idmapping zijn opgenomen.
+        mpt_histtags_new is used when creating new csvs (hoofdloc, subloc, and waterstandloc) to determine
+        start- and enddate.
+        """
         # TODO: ask Roger what is the purpose of this selection? and why is it in excel output
         #  file (as separate tab 'mpt_histtags_new')?.
         if self._mpt_histtags_new is not None:
@@ -178,18 +182,18 @@ class MptConfigChecker:
         kw_locs = list(mpt_df[mpt_df["LOC_ID"].str.startswith("KW")]["LOC_ID"])
         # H_LOC ends with a 0 (e.g if subloc = KW106013, then h_loc becomes KW106010)
         h_locs = np.unique([f"{kw_loc[0:-1]}0" for kw_loc in kw_locs])
-        h_locs_missing = [loc for loc in h_locs if loc not in mpt_df["LOC_ID"].to_list()]
-        h_locs_df = pd.DataFrame(
+        missing_h_locs = [loc for loc in h_locs if loc not in mpt_df["LOC_ID"].to_list()]
+        missing_h_locs_df = pd.DataFrame(
             data={
-                "LOC_ID": h_locs_missing,
-                "STARTDATE": [pd.NaT] * len(h_locs_missing),
-                "ENDDATE": [pd.NaT] * len(h_locs_missing),
+                "LOC_ID": missing_h_locs,
+                "STARTDATE": [pd.NaT] * len(missing_h_locs),
+                "ENDDATE": [pd.NaT] * len(missing_h_locs),
             }
         )
-        mpt_df = pd.concat([mpt_df, h_locs_df], axis=0)
+        mpt_df = pd.concat([mpt_df, missing_h_locs_df], axis=0)
         assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after pd.concat"
         mpt_df[["STARTDATE", "ENDDATE"]] = mpt_df.apply(
-            func=update_h_locs, args=[h_locs, mpt_df], axis=1, result_type="expand"
+            func=update_h_locs_start_end, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
         assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after update_h_locs"
         assert not mpt_df["STARTDATE"].hasnans, "mpt_df column STARTDATE should not have nans"
@@ -259,7 +263,7 @@ class MptConfigChecker:
         return self._ignored_xy
 
     def _update_start_end_new_csv(self, df: pd.DataFrame) -> pd.DataFrame:
-        date_threshold = self.mpt_histtags_new["ENDDATE"].max() - pd.Timedelta(weeks=26)
+        date_threshold = self.mpt_histtags_new["ENDDATE"].max() - MAX_DIFF
         df[["START", "EIND"]] = df.apply(
             func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
         )
@@ -315,7 +319,7 @@ class MptConfigChecker:
         """Write HoofdLocationSet.geo_df to csv. This .geo_df was eventually
         updated during check_s_loc_consistency() in _create_hoofdloc_new()."""
         if self._hoofdloc_new is None:
-            logger.info(f"skipping {self.hoofdloc.name}.csv as hoofdloc was not updated")
+            logger.warning(f"skipping {self.hoofdloc.name}.csv as hoofdloc was not updated")
             return
         logger.info(f"creating new csv {self.hoofdloc.name}")
         df = self._validate_geom(gdf=self.hoofdloc.geo_df)
