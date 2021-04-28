@@ -9,6 +9,7 @@ from typing import List
 
 import geopandas as gpd
 import logging
+import pandas as pd  # noqa pandas comes with geopandas
 import re
 
 
@@ -28,6 +29,25 @@ PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "descri
 YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+# TODO: @ask roger: come up with better names
+# sublocs without timeseries are unmeasered (in dutch 'onbemeten locaties') and have dummy dates
+DUMMY_STARTDATE_UNMEASURED_LOC = pd.Timestamp(year=1900, month=1, day=1)
+DUMMY_ENDDATE_UNMEASURED_LOC = pd.Timestamp(
+    year=2222, month=1, day=1
+)  # 32101230 is not possible anymore as pd.Timestamp.max = '2262-04-11'
+DUMMY_ENDDATE_MEASURED_LOC = pd.Timestamp(year=2100, month=1, day=1)
+
+
+# TODO: come up with better name then 'MAX_DIFF' and move to constants
+MAX_DIFF = pd.Timedelta(weeks=26)
+# 26 weken = 6 maanden
+# Bestaat dat meetpunt nog? Is het nog operationeel?
+# -	kijken naar alle gekoppelde tijdreeksen (startenddate) van dat punt
+# -	Roger geeft niet zomaar eindpunt aan een meetpunt (wellicht werkzaamheden aan meetpunt).
+#   Door schade en schande hanteert Roger nu 6 maanden geen tijdreeks?
+#   Na 6 maanden geen tijdreeks data meer ontvangen? Dan eindpunt toekennen.
+
+
 class PathConstants(Enum):
     """Paths to be changes if you run the checker. """
 
@@ -43,6 +63,7 @@ class PathConstants(Enum):
         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
         description="",
     )
+
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,
