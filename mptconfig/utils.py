@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # TODO: @ask roger: come up with better names
 # sublocs without timeseries are unmeasered (dutch 'onbemeten locaties') and have dummy dates
 dummy_start_date_unmeasured_loc = pd.Timestamp(year=1900, month=1, day=1)
-dummy_end_date_unmeasured_loc = date(year=3210, month=12, day=30)
+dummy_end_date_unmeasured_loc = pd.Timestamp(year=2222, month=1, day=1)  # pd.Timestamp.max = '2262-04-11'
 dummy_end_date_measured_loc = pd.Timestamp(year=2100, month=1, day=1)
 
 
