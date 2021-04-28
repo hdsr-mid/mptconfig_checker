@@ -395,6 +395,7 @@ class MptConfigChecker:
             f"{constants.MIN_DATE_ALLOWED.strftime('%Y%m%d')}. Onbemeten locatie moet beide dummy datums "
             f"hebben. START moet eerder dan EIND zijn."
         )
+        logger.info(f"start {self.check_dates_loc_sets.__name__} with sheet_name={sheet_name}")
 
         date_errors = {"internalLocation": [], "error_type": [], "error": []}
         start_col = "START"
@@ -485,7 +486,7 @@ class MptConfigChecker:
     def check_idmap_sections(self, sheet_name: str = "idmap section error") -> ExcelSheet:
         """Check if all KW/OW locations are in the correct section."""
         description = "Idmaps die niet in de juiste sectie zijn opgenomen"
-        logger.info(f"start {self.check_idmap_sections.__name__}")
+        logger.info(f"start {self.check_idmap_sections.__name__} with sheet_name={sheet_name}")
         result_df = pd.DataFrame(
             columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
@@ -534,7 +535,7 @@ class MptConfigChecker:
     ) -> ExcelSheet:
         """Check if ignored histTags do match with idmap."""
         description = "hisTags uit de histTag_ignore die wél in de idmaps zijn opgenomen"
-        logger.info(f"start {self.check_ignored_histtags.__name__}")
+        logger.info(f"start {self.check_ignored_histtags.__name__} with sheet_name={sheet_name}")
         assert isinstance(idmap_files, List) if idmap_files else True, "idmap_files must be a List"
         if not idmap_files:
             idmap_files = ["IdOPVLWATER"]
@@ -579,7 +580,7 @@ class MptConfigChecker:
         description = (
             "hisTags die niet konden worden gemapped naar interne locatie en niet in de hisTag_ignore zijn opgenomen"
         )
-        logger.info(f"start double{self.check_histtags_nomatch.__name__}")
+        logger.info(f"start double{self.check_histtags_nomatch.__name__} with sheet_name={sheet_name}")
         histtags_df = self.histtags.copy()
         idmaps = self._get_idmaps()
         histtags_df["fews_locid"] = self.histtags.apply(func=idmap2tags, args=[idmaps], axis=1)
@@ -625,7 +626,7 @@ class MptConfigChecker:
         # dat gebeurt niet hier Roger! :)
 
         description = "idmaps die dubbel in de dubbel gedefinieerd staan in de idmap-files"
-        logger.info(f"start {self.check_double_idmaps.__name__}")
+        logger.info(f"start {self.check_double_idmaps.__name__} with sheet_name={sheet_name}")
         result_df = pd.DataFrame(
             columns=["bestand", "externalLocation", "externalParameter", "internalLocation", "internalParameter"]
         )
@@ -633,7 +634,7 @@ class MptConfigChecker:
             idmaps = self._get_idmaps(idmap_files=[idmap_file])
             idmap_doubles = [idmap for idmap in idmaps if idmaps.count(idmap) > 1]
             if not idmap_doubles:
-                logger.info(f"No double idmaps in {idmap_file}")
+                logger.info(f"No double idmaps in {idmap_file} ")
                 continue
             idmap_doubles = list({idmap["externalLocation"]: idmap for idmap in idmap_doubles}.values())
             logger.warning(f"{len(idmap_doubles)} double idmaps in {idmap_file}")
@@ -656,7 +657,7 @@ class MptConfigChecker:
         """Check if internal parameters in idmaps are missing in parameters.xml.
         All id_mapping.xml inpars (e.g. ‘H.R.0’) must exists in RegionConfigFiles/parameters.xml"""
         description = "controle of interne parameters missen in paramters.xml"
-        logger.info(f"start {self.check_missing_pars.__name__}")
+        logger.info(f"start {self.check_missing_pars.__name__} with sheet_name={sheet_name}")
         config_parameters = list(self.fews_config.get_parameters(dict_keys="parameters").keys())
 
         idmaps = self._get_idmaps()
@@ -676,7 +677,7 @@ class MptConfigChecker:
     def check_s_loc_consistency(self, sheet_name: str = "s_locs not consistent") -> ExcelSheet:
         """Check if all sub_locs of the same h_loc have consistent parameters: xy, rayon, systeem, kompas."""
         description = "fouten in CAW sublocatie-groepen waardoor hier geen hoofdlocaties.csv uit kan worden geschreven"
-        logger.info(f"start {self.check_s_loc_consistency.__name__}")
+        logger.info(f"start {self.check_s_loc_consistency.__name__} with sheet_name={sheet_name}")
 
         h_loc_errors = {
             "LOC_ID": [],
@@ -802,7 +803,9 @@ class MptConfigChecker:
         ex_par_description = "locaties waar foute externe parameters aan zijn gekoppeld"
         int_loc_description = "interne locaties in de idmap die niet zijn opgenomen in locatiesets"
 
-        logger.info(f"start {self.check_ex_par_errors_int_loc_missing.__name__}")
+        logger.info(
+            f"start {self.check_ex_par_errors_int_loc_missing.__name__} with 2 sheet_names={ex_par_sheet_name} and {int_loc_sheet_name}"
+        )
 
         ex_par_errors = {
             "internalLocation": [],
@@ -964,7 +967,7 @@ class MptConfigChecker:
     def check_ex_par_missing(self, sheet_name: str = "ex_par missing") -> ExcelSheet:
         """Check if external parameters are missing on locations."""
         description = "locaties waar externe parameters missen"
-        logger.info(f"start {self.check_ex_par_missing.__name__}")
+        logger.info(f"start {self.check_ex_par_missing.__name__} with sheet_name={sheet_name}")
         ex_par_missing = {
             "internalLocation": [],
             "ex_pars": [],
@@ -1009,7 +1012,7 @@ class MptConfigChecker:
     def check_ex_loc_int_loc_mismatch(self, sheet_name: str = "ex_loc int_loc mismatch") -> ExcelSheet:
         """Check if external locations are consistent with internal locations."""
         description = "externe locaties die niet passen bij interne locatie"
-        logger.info(f"start {self.check_ex_loc_int_loc_mismatch.__name__}")
+        logger.info(f"start {self.check_ex_loc_int_loc_mismatch.__name__} with sheet_name={sheet_name}")
         ex_loc_errors = {"internalLocation": [], "externalLocation": []}
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
@@ -1073,7 +1076,7 @@ class MptConfigChecker:
     def check_timeseries_logic(self, sheet_name: str = "time_series error") -> ExcelSheet:
         """Check if timeseries are consistent with internal locations and parameters."""
         description = "tijdseries die niet logisch zijn gekoppeld aan interne locaties en parameters"
-        logger.info(f"start {self.check_timeseries_logic.__name__}")
+        logger.info(f"start {self.check_timeseries_logic.__name__} with sheet_name={sheet_name}")
 
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
@@ -1286,7 +1289,7 @@ class MptConfigChecker:
         # 6. WIS gebruikt deze bandbreedtes om tijdseries te vlaggen.
 
         description = "controle of attributen van validatieregels overbodig zijn/missen óf verkeerde waarden bevatten"
-        logger.info(f"start {self.check_validation_rules.__name__}")
+        logger.info(f"start {self.check_validation_rules.__name__} with sheet_name={sheet_name}")
         errors = {
             "internalLocation": [],
             "internalParameters": [],
@@ -1359,7 +1362,7 @@ class MptConfigChecker:
     def check_int_par_ex_par_mismatch(self, sheet_name: str = "int_par ex_par mismatch") -> ExcelSheet:
         """Check if internal and external parameters are consistent."""
         description = "controle of externe parameters en interne parameters logisch aan elkaar gekoppeld zijn"
-        logger.info(f"start {self.check_int_par_ex_par_mismatch.__name__}")
+        logger.info(f"start {self.check_int_par_ex_par_mismatch.__name__} with sheet_name={sheet_name}")
         par_errors = {
             "internalLocation": [],
             "internalParameter": [],
@@ -1433,7 +1436,7 @@ class MptConfigChecker:
             "controle of alle locatiesets logisch zijn opgebouwd, de juiste attribuut-verwijzingen"
             " hebben én consistent zijn per CAW-locatie"
         )
-        logger.info(f"start {self.check_location_set_errors.__name__}")
+        logger.info(f"start {self.check_location_set_errors.__name__} with sheet_name={sheet_name}")
 
         loc_set_errors = {
             "locationId": [],
@@ -1675,24 +1678,24 @@ class MptConfigChecker:
 
     def run(self):
         self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
-        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
-        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        # self.results.add_sheet(excelsheet=self.check_missing_pars())
+        self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
+        self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        self.results.add_sheet(excelsheet=self.check_missing_pars())
         self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
-        #
-        # # check returns two results
-        # sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
-        # self.results.add_sheet(excelsheet=sheet1)
-        # self.results.add_sheet(excelsheet=sheet2)
-        #
-        # self.results.add_sheet(excelsheet=self.check_ex_par_missing())
-        # self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
-        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
-        # self.results.add_sheet(excelsheet=self.check_validation_rules())
-        # self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
-        # self.results.add_sheet(excelsheet=self.check_location_set_errors())
+
+        # check returns two results
+        sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
+        self.results.add_sheet(excelsheet=sheet1)
+        self.results.add_sheet(excelsheet=sheet2)
+
+        self.results.add_sheet(excelsheet=self.check_ex_par_missing())
+        self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
+        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        self.results.add_sheet(excelsheet=self.check_validation_rules())
+        self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
+        self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         # add output_no_check sheets
         self._add_tab_color_description_to_results()
