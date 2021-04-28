@@ -1,6 +1,6 @@
 from datetime import date
-from mptconfig.constants import DUMMY_ENDDATE_UNMEASURED_LOC
-from mptconfig.constants import DUMMY_STARTDATE_UNMEASURED_LOC
+from mptconfig.constants import ENDDATE_UNMEASURED_LOC
+from mptconfig.constants import STARTDATE_UNMEASURED_LOC
 from mptconfig.utils import is_unmeasured_location
 from mptconfig.utils import update_h_locs_start_end
 
@@ -52,12 +52,12 @@ def test_update_h_locs_start_end_1_unmeasured_sub_locs():
         data={
             "LOC_ID": {0: "KW100111", 5: "KW100112", 6: "KW100110"},
             "STARTDATE": {
-                0: DUMMY_STARTDATE_UNMEASURED_LOC,
+                0: STARTDATE_UNMEASURED_LOC,
                 5: pd.Timestamp("2013-05-05 00:00:00"),
                 6: pd.Timestamp("1999-12-01 00:00:00"),
             },
             "ENDDATE": {
-                0: DUMMY_ENDDATE_UNMEASURED_LOC,
+                0: ENDDATE_UNMEASURED_LOC,
                 5: pd.Timestamp("2020-09-30 23:45:00"),
                 6: pd.Timestamp("2020-09-30 23:45:00"),
             },
@@ -82,20 +82,20 @@ def test_update_h_locs_start_end_only_unmeasured_sub_locs():
         data={
             "LOC_ID": {0: "KW100111", 5: "KW100112", 6: "KW100110"},
             "STARTDATE": {
-                0: DUMMY_STARTDATE_UNMEASURED_LOC,
-                5: DUMMY_STARTDATE_UNMEASURED_LOC,
-                6: DUMMY_STARTDATE_UNMEASURED_LOC,
+                0: STARTDATE_UNMEASURED_LOC,
+                5: STARTDATE_UNMEASURED_LOC,
+                6: STARTDATE_UNMEASURED_LOC,
             },
             "ENDDATE": {
-                0: DUMMY_ENDDATE_UNMEASURED_LOC,
-                5: DUMMY_ENDDATE_UNMEASURED_LOC,
-                6: DUMMY_ENDDATE_UNMEASURED_LOC,
+                0: ENDDATE_UNMEASURED_LOC,
+                5: ENDDATE_UNMEASURED_LOC,
+                6: ENDDATE_UNMEASURED_LOC,
             },
         }
     )
     start_date, end_date = update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
-    assert start_date == DUMMY_STARTDATE_UNMEASURED_LOC
-    assert end_date == DUMMY_ENDDATE_UNMEASURED_LOC
+    assert start_date == STARTDATE_UNMEASURED_LOC
+    assert end_date == ENDDATE_UNMEASURED_LOC
 
 
 def test_is_unmeasured_location():
