@@ -231,7 +231,7 @@ class FewsConfig:
                 )
             else:
                 gdf["geometry"] = gdf.apply(
-                    func=(lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(cls.Z_NODATA_VALUE))),
+                    func=lambda x: Point(float(x[x_attrib]), float(x[y_attrib]), float(cls.Z_NODATA_VALUE)),
                     axis=1,
                 )
             return gdf

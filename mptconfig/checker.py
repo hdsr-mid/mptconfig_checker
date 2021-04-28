@@ -1,5 +1,6 @@
 from mptconfig import constants
 from mptconfig.checker_helpers import HelperValidationRules
+from mptconfig.constants import MAX_DIFF
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
 from mptconfig.excel import ExcelSheetTypeChoices
@@ -8,6 +9,7 @@ from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
+from mptconfig.utils import is_unmeasured_location
 from mptconfig.utils import pd_read_csv_expect_columns
 from mptconfig.utils import update_date
 from mptconfig.utils import update_h_locs_start_end
@@ -30,16 +32,6 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-# TODO: come up with better name then 'MAX_DIFF' and move to constants
-MAX_DIFF = pd.Timedelta(weeks=26)
-# 26 weken = 6 maanden
-# Bestaat dat meetpunt nog? Is het nog operationeel?
-# -	kijken naar alle gekoppelde tijdreeksen (startenddate) van dat punt
-# -	Roger geeft niet zomaar eindpunt aan een meetpunt (wellicht werkzaamheden aan meetpunt).
-#   Door schade en schande hanteert Roger nu 6 maanden geen tijdreeks?
-#   Na 6 maanden geen tijdreeks data meer ontvangen? Dan eindpunt toekennen.
-
-
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
     The main property of the class is 'self.results' which is:
@@ -51,7 +43,6 @@ class MptConfigChecker:
         self.results = ExcelSheetCollector()
         self._location_sets = None
         self._histtags = None
-        self._updated_opvlwater_hoofdloc = None
         self._hoofdloc = None
         self._hoofdloc_new = None
         self._subloc = None
@@ -152,11 +143,9 @@ class MptConfigChecker:
     def mpt_histtags_new(self) -> pd.DataFrame:
         """Convert histTag-ids to mpt-ids. Alle meetpunt ids uitgelezen uit de histTags.csv, die niet
         in de ignore staan en in de idmapping zijn opgenomen.
-        mpt_histtags_new is used when creating new csvs (hoofdloc, subloc, and waterstandloc) to determine
+        mpt_histtags_new is used to create new csvs (hoofdloc, subloc, and waterstandloc) to determine
         start- and enddate.
         """
-        # TODO: ask Roger what is the purpose of this selection? and why is it in excel output
-        #  file (as separate tab 'mpt_histtags_new')?.
         if self._mpt_histtags_new is not None:
             return self._mpt_histtags_new
         logger.debug("creating mpt_histtags_new")
@@ -369,10 +358,6 @@ class MptConfigChecker:
     def _create_hoofdloc_new(self, par_dict: Dict) -> None:
         """Create a new hoofdloc from sublocs in case no errors found during
         check_h_loc_consistency in case all sublocs of same h_loc have consistent parameters."""
-        # TODO: what is diff between hoofdloc_new and updated_opvlwater_hoofdloc??
-
-        # TODO: roger: Ik zie nu pas dat de XY in hoofdloc als output telkens een onnodige decimaal heeft.
-        #  Zou deze “.0” voorkomen kunnen worden door het getal eerst tot integer en dan tot string te maken?
         assert isinstance(par_dict, dict), f"par_dict should be a dictionary, not a {type(par_dict)}"
         par_gdf = pd.DataFrame(data=par_dict)
         columns = list(self.hoofdloc.geo_df.columns)
@@ -380,12 +365,10 @@ class MptConfigChecker:
         new_geo_df = self.hoofdloc.geo_df.drop(drop_cols, axis=1, inplace=False)
         new_geo_df = par_gdf.merge(new_geo_df, on="LOC_ID")
         new_geo_df["geometry"] = new_geo_df.apply(
-            func=(lambda x: Point(float(x["X"]), float(x["Y"]), float(x["Z"]))), axis=1
+            func=lambda x: Point(float(x["X"]), float(x["Y"]), float(x["Z"])), axis=1
         )
         new_geo_df = new_geo_df[columns]
         self._hoofdloc_new = gpd.GeoDataFrame(new_geo_df)
-        # , geometry=new_geo_df['geometry'])
-        # self._hoofdloc_new = gpd.GeoDataFrame(new_geo_df, geometry=new_geo_df['geometry'])
 
     def _update_staff_gauge(self, row: pd.Series) -> Tuple[str, str]:
         """Assign upstream and downstream staff gauges to subloc."""
@@ -995,7 +978,7 @@ class MptConfigChecker:
         idmap_subloc_df = idmap_df[idmap_df["internalLocation"].isin(values=self.subloc.geo_df["LOC_ID"].values)]
 
         idmap_subloc_df["type"] = idmap_subloc_df["internalLocation"].apply(
-            func=(lambda x: self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == x]["TYPE"].values[0])
+            func=lambda x: self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == x]["TYPE"].values[0]
         )
 
         idmap_subloc_df["loc_group"] = idmap_subloc_df["internalLocation"].str[0:-1]
@@ -1006,8 +989,8 @@ class MptConfigChecker:
             "internalParameters": [],
             "externalParameters": [],
             "externalLocations": [],
-            "type": [],
-            "fout": [],
+            "error_type": [],
+            "error": [],
         }
 
         for loc_group, group_df in idmap_subloc_df.groupby("loc_group"):
@@ -1034,39 +1017,36 @@ class MptConfigChecker:
             if len(org_uniques) == 1 and len(split_ts) == 1:
                 ex_locs_dict = {k: (org_uniques[0] if k in split_ts else v) for (k, v) in ex_locs_dict.items()}
 
-            group_df["ex_loc_group"] = group_df["externalLocation"].apply(func=(lambda x: ex_locs_dict[x]))
+            group_df["ex_loc_group"] = group_df["externalLocation"].apply(func=lambda x: ex_locs_dict[x])
 
             for int_loc, loc_df in group_df.groupby("internalLocation"):
 
                 if int_loc in self.ignored_time_series_error["internalLocation"].values:
                     continue
 
-                sub_type = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == int_loc]["TYPE"].values[0]
-                date_str = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == int_loc]["EIND"].values[0]
-                try:
-                    end_time = pd.to_datetime(date_str)
-                except pd.errors.OutOfBoundsDatetime as err:
-                    # TODO: 32101230 is een fictieve datum voor onbemeten locaties
-                    #  pandas kan dat niet converteren naar datum, want:
-                    #  Timestamp.max = Timestamp('2262-04-11 23:47:16.854775807')
-                    #  maw: wellicht niet 32101230 gebruiken, maar 22220101
-                    #  sowieso ergens definieren wat 19000101, 21000101, en 22220101 zijn
-                    logger.warning(
-                        f"fffffffffffffiiiiiiiiiiiiiiiixxxxx this: subloc contains out of bound "
-                        f"date '{date_str}' cannot be converted, err={err}"
-                    )
+                int_loc_df = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == int_loc]
+                sub_type = int_loc_df["TYPE"].values[0]
+                startdate_str = int_loc_df["START"].values[0]
+                enddate_str = int_loc_df["EIND"].values[0]
+
+                # TODO: verify with Roger: is it ok to skip check_timeseries_logic for unmeasured locations
+                if is_unmeasured_location(startdate=startdate_str, enddate=enddate_str):
+                    continue
+
+                end_time = pd.to_datetime(enddate_str)
                 ex_pars = np.unique(loc_df["externalParameter"].values)
                 int_pars = np.unique(loc_df["internalParameter"].values)
                 ex_locs = np.unique(loc_df["externalLocation"].values)
                 if sub_type in ["krooshek", "debietmeter"]:
+                    # krooshek and debietmeter can not have stuurpeil ('HR.') as external parameter
                     if any([re.match(pattern="HR.", string=ex_par) for ex_par in ex_pars]):
                         ts_errors["internalLocation"].append(int_loc)
                         ts_errors["eind"].append(end_time)
                         ts_errors["internalParameters"].append(",".join(int_pars))
                         ts_errors["externalParameters"].append(",".join(ex_pars))
                         ts_errors["externalLocations"].append(",".join(ex_locs))
-                        ts_errors["type"].append(sub_type)
-                        ts_errors["fout"].append(f"{sub_type} met stuurpeil")
+                        ts_errors["error_type"].append(sub_type)
+                        ts_errors["error"].append(f"{sub_type} met stuurpeil")
 
                 else:
                     if not any([re.match(pattern="HR.", string=ex_par) for ex_par in ex_pars]):
@@ -1086,8 +1066,8 @@ class MptConfigChecker:
                                     ts_errors["internalParameters"].append(",".join(int_pars))
                                     ts_errors["externalParameters"].append(",".join(ex_pars))
                                     ts_errors["externalLocations"].append(",".join(ex_locs))
-                                    ts_errors["type"].append(sub_type)
-                                    ts_errors["fout"].append(f"{sub_type} zonder stuurpeil {','.join(sp_locs)} wel")
+                                    ts_errors["error_type"].append(sub_type)
+                                    ts_errors["error"].append(f"{sub_type} zonder stuurpeil {','.join(sp_locs)} wel")
                     else:
                         time_series = loc_df.groupby(["ex_loc_group", "externalParameter"])
                         sp_series = [
@@ -1101,13 +1081,11 @@ class MptConfigChecker:
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
                                 ts_errors["internalParameters"].append(",".join(int_pars))
-
                                 ts_errors["externalParameters"].append(",".join(ex_pars))
-
                                 ts_errors["externalLocations"].append(",".join(ex_locs))
-                                ts_errors["type"].append(sub_type)
-                                fout_msg = f'{",".join(int_par)} coupled to 1 sp-series (ex_par:{ex_par}, ex_loc(s):{",".join(ex_locs)})'  # noqa
-                                ts_errors["fout"].append(fout_msg)
+                                ts_errors["error_type"].append(sub_type)
+                                error_msg = f'{",".join(int_par)} coupled to 1 sp-series (ex_par:{ex_par}, ex_loc(s):{",".join(ex_locs)})'  # noqa
+                                ts_errors["error"].append(error_msg)
                             other_series = [series for idy, series in enumerate(sp_series) if idy != idx]
 
                             other_int_pars = [np.unique(series[1]["internalParameter"]) for series in other_series]
@@ -1121,13 +1099,11 @@ class MptConfigChecker:
                                 ts_errors["internalLocation"].append(int_loc)
                                 ts_errors["eind"].append(end_time)
                                 ts_errors["internalParameters"].append(",".join(int_pars))
-
                                 ts_errors["externalParameters"].append(",".join(ex_pars))
-
                                 ts_errors["externalLocations"].append(",".join(ex_locs))
-                                ts_errors["type"].append(sub_type)
-                                fout_msg = f'{",".join(conflicting_pars)} coupled to sp-serie (ex_par:{ex_par}, ex_loc(s):{",".join(ex_locs)})'  # noqa
-                                ts_errors["fout"].append(fout_msg)
+                                ts_errors["error_type"].append(sub_type)
+                                error_msg = f'{",".join(conflicting_pars)} coupled to sp-serie (ex_par:{ex_par}, ex_loc(s):{",".join(ex_locs)})'  # noqa
+                                ts_errors["error"].append(error_msg)
         result_df = pd.DataFrame(data=ts_errors)
         if len(result_df) == 0:
             logger.info("logical coupling of all timeseries to internal locations/parameters")
@@ -1181,8 +1157,8 @@ class MptConfigChecker:
         # internalLocation  start       eind        internalParameters  error_type  description
         # KW100412	        19960401    21000101    H.R.0,Hk.0,Q.G.0	too_few	    HR1_HMAX,HR1_HMIN
 
-        # if fout_type == 'value': daar is CAW verantwoordelijk voor (alle validatie instellingen).
-        # if fout_type == 'too_few' of 'too_many': wij eerst zelf actie ondernemen (zie hieronder):
+        # if error_type == 'value': daar is CAW verantwoordelijk voor (alle validatie instellingen).
+        # if error_type == 'too_few' of 'too_many': wij eerst zelf actie ondernemen (zie hieronder):
 
         # 1. edit betreffende validatie csv:
         #       OW = MapLayerFiles/oppvlwater_watervalidatie.csv
@@ -1595,24 +1571,24 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
-        self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        self.results.add_sheet(excelsheet=self.check_missing_pars())
+        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
+        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        # self.results.add_sheet(excelsheet=self.check_missing_pars())
         self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
-
-        # check returns two results
-        sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
-        self.results.add_sheet(excelsheet=sheet1)
-        self.results.add_sheet(excelsheet=sheet2)
-
-        self.results.add_sheet(excelsheet=self.check_ex_par_missing())
-        self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
-        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
-        self.results.add_sheet(excelsheet=self.check_validation_rules())
-        self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
-        self.results.add_sheet(excelsheet=self.check_location_set_errors())
+        #
+        # # check returns two results
+        # sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
+        # self.results.add_sheet(excelsheet=sheet1)
+        # self.results.add_sheet(excelsheet=sheet2)
+        #
+        # self.results.add_sheet(excelsheet=self.check_ex_par_missing())
+        # self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
+        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        # self.results.add_sheet(excelsheet=self.check_validation_rules())
+        # self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
+        # self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         # add output_no_check sheets
         self._add_tab_color_description_to_results()

@@ -305,7 +305,7 @@ expected_df_1 = pd.DataFrame(
             54: "394,4394",
             55: "4407",
         },
-        "type": {
+        "error_type": {
             0: "stuw",
             1: "pompvijzel",
             2: "stuw",
@@ -363,7 +363,7 @@ expected_df_1 = pd.DataFrame(
             54: "pompvijzel",
             55: "pompvijzel",
         },
-        "fout": {
+        "error": {
             0: "stuw zonder stuurpeil KW100411 wel",
             1: "pompvijzel zonder stuurpeil KW100922 wel",
             2: "stuw zonder stuurpeil KW101011 wel",
@@ -431,8 +431,8 @@ expected_df_2 = pd.DataFrame(
         "internalParameters": {0: "ES.0,POS.0,Q.G.0"},
         "externalParameters": {0: "ES3,Q4,SP5"},
         "externalLocations": {0: "2186"},
-        "type": {0: "schuif"},
-        "fout": {0: "schuif zonder stuurpeil KW218611,KW218612 wel"},
+        "error_type": {0: "schuif"},
+        "error": {0: "schuif zonder stuurpeil KW218611,KW218612 wel"},
     }
 )
 
