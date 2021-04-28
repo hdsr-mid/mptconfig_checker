@@ -1,6 +1,6 @@
-from mptconfig.constants import DUMMY_ENDDATE_MEASURED_LOC
-from mptconfig.constants import DUMMY_ENDDATE_UNMEASURED_LOC
-from mptconfig.constants import DUMMY_STARTDATE_UNMEASURED_LOC
+from mptconfig.constants import ENDDATE_MEASURED_LOC
+from mptconfig.constants import ENDDATE_UNMEASURED_LOC
+from mptconfig.constants import STARTDATE_UNMEASURED_LOC
 from pathlib import Path
 from typing import Dict
 from typing import List
@@ -18,23 +18,6 @@ PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy"
 
 logger = logging.getLogger(__name__)
 
-# TODO: date checks
-#  1) onbemeten locaties
-#   - als STARTDATE == dummy_start_date_unmeasured_loc, dan ENDATE == dummy_end_date_unmeasured_loc
-#   - als ENDATE == dummy_end_date_unmeasured_loc, dan STARTDATE == dummy_start_date_unmeasured_loc
-#   - uitzondering is KW1077 = vispassage caspergouw (heeft CAW inmiddels ook alweer uitgezet)
-#  2) confirm with Roger: STARTDATE mag nooit dummy_end_date_measured_loc zijn
-#  3) confirm with Roger: overige dates moeten logisch zijn (1990 tot nu oid.)
-
-# TODO: validation_rule_check
-#  1) automatisch nieuwe validatie csvs opbouwen
-#   - mapping bouwen (bijv van H2.S.0 naar streef2)
-#   - nieuwe sorteren en dan lege regles onderaan zetten, want:
-#       1) FEWS vindt dat validatie csvs regels die >=1 waarde hebben gesorteerd moeten zijn
-#       2) voor Inke is het makkelijker als lege regels onderaan staan
-#  2) validatie perioden vandezelfde subloc mogen niet overlappen
-#  3) zijn STARTDATE en ENDDATE logisch? (tussen 1990 en NU)
-
 
 def flatten_nested_list(_list: List[List]) -> List:
     return [item for sublist in _list for item in sublist]
@@ -47,15 +30,15 @@ def is_unmeasured_location(
     a dummy start- and enddate in the location csvs"""
     # TODO: remove work-around (3 lines below): 32101230 should be replaced with 22220101 in mpt config csvs
     if str(enddate) in ("32101230", "3210-12-30"):
-        assert pd.to_datetime(startdate) == DUMMY_STARTDATE_UNMEASURED_LOC
+        assert pd.to_datetime(startdate) == STARTDATE_UNMEASURED_LOC
         return True
     pd_startdate = pd.to_datetime(startdate)
     pd_enddate = pd.to_datetime(enddate)
-    start_is_unmeasured = pd_startdate == DUMMY_STARTDATE_UNMEASURED_LOC
-    end_is_unmeasured = pd_enddate == DUMMY_ENDDATE_UNMEASURED_LOC
-    assert (
-        start_is_unmeasured == end_is_unmeasured
-    ), f"fatal mpt config error: fix unmeasured location with start={pd_startdate} and end={end_is_unmeasured}"
+    start_is_unmeasured = pd_startdate == STARTDATE_UNMEASURED_LOC
+    end_is_unmeasured = pd_enddate == ENDDATE_UNMEASURED_LOC
+    if start_is_unmeasured != end_is_unmeasured:
+        # this is reported in check_dates_loc_sets()
+        logger.warning(f"found start={pd_startdate}, end={end_is_unmeasured}")
     return start_is_unmeasured
 
 
@@ -88,7 +71,7 @@ def update_h_locs_start_end(
     )
     if any(brothers_df["is_unmeasured"]) and not all(brothers_df["is_unmeasured"]):
         logger.debug(f"some - but not all - sub_locs are unmeasured for hoofdloc {int_loc}")
-        # continue only with rows where is_unmeasured is False
+        # continue only with measured locations (rows where is_unmeasured is False)
         brothers_df = brothers_df[brothers_df["is_unmeasured"] == False]  # noqa
     earliest_start_date = brothers_df["STARTDATE"].dropna().min()
     latest_end_date = brothers_df["ENDDATE"].dropna().max()
@@ -117,7 +100,7 @@ def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timesta
     end_date = start_date_list[0]
 
     if end_date > date_threshold:
-        end_date = DUMMY_ENDDATE_MEASURED_LOC
+        end_date = ENDDATE_MEASURED_LOC
     end_date = end_date.strftime("%Y%m%d")
     return start_date, end_date
 

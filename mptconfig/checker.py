@@ -32,6 +32,16 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
+# TODO: validation_rule_check
+#  1) automatisch nieuwe validatie csvs opbouwen
+#   - mapping bouwen (bijv van H2.S.0 naar streef2)
+#   - nieuwe sorteren en dan lege regles onderaan zetten, want:
+#       1) FEWS vindt dat validatie csvs regels die >=1 waarde hebben gesorteerd moeten zijn
+#       2) voor Inke is het makkelijker als lege regels onderaan staan
+#  2) validatie perioden vandezelfde subloc mogen niet overlappen
+#  3) zijn STARTDATE en ENDDATE logisch? (tussen 1990 en NU)
+
+
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
     The main property of the class is 'self.results' which is:
@@ -379,6 +389,99 @@ class MptConfigChecker:
                 result[key] = df["PEILSCHAAL"].values[0]
         return result["HBOV"], result["HBEN"]
 
+    def check_dates_loc_sets(self, sheet_name: str = "loc_set date errors") -> ExcelSheet:
+        description = (
+            f"datums moet in logische range vallen {constants.MIN_DATE_ALLOWED.strftime('%Y%m%d')}-"
+            f"{constants.MIN_DATE_ALLOWED.strftime('%Y%m%d')}. Onbemeten locatie moet beide dummy datums "
+            f"hebben. START moet eerder dan EIND zijn."
+        )
+
+        date_errors = {"internalLocation": [], "error_type": [], "error": []}
+        start_col = "START"
+        end_col = "EIND"
+        pd_start_col = "pd_start"
+        pd_end_col = "pd_end"
+        assert (start_col and end_col) not in self.mswloc.geo_df.columns
+        for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.psloc):
+            assert (start_col and end_col and "LOC_ID") in loc_set.geo_df.columns
+            df = loc_set.geo_df
+            df[pd_start_col] = pd.to_datetime(df[start_col], format="%Y%m%d", errors="coerce")
+            df[pd_end_col] = pd.to_datetime(df[end_col], format="%Y%m%d", errors="coerce")
+
+            # check 1: can dates be converted?
+            # find all rows where nans (pd.to_datetime unsuccessful): save row as error and drop row
+            for col in (pd_start_col, pd_end_col):
+                if not df[col].hasnans:
+                    continue
+                for idx, row in df.iterrows():
+                    if not pd.isna(row[col]):
+                        continue
+                    date_errors["internalLocation"] += [row["LOC_ID"]]
+                    date_errors["error_type"] += ["conversion"]
+                    date_errors["error"] += [f"start={row[start_col]}, end={row[end_col]}"]
+                # drop rows, continue where row notna
+                df = df[df[col].notna()]
+
+            # check 2: measured vs unmeasured
+            # if startdate indicates a unmeasured location, then enddate must do also (and vice-versa)
+            df["start_is_unmeasured"] = df[pd_start_col] == constants.STARTDATE_UNMEASURED_LOC
+            df["end_is_unmeasured"] = df[pd_end_col] == constants.ENDDATE_UNMEASURED_LOC
+            if any(df[df["start_is_unmeasured"] != df["end_is_unmeasured"]]):
+                for idx, row in df.iterrows():
+                    if row["start_is_unmeasured"] == row["end_is_unmeasured"]:
+                        continue
+                    date_errors["internalLocation"] += [row["LOC_ID"]]
+                    date_errors["error_type"] += ["unmeasured loc?"]
+                    date_errors["error"] += [f"start={row[start_col]}, end={row[end_col]}"]
+                # drop rows, continue only where 2 cols are equal
+                df = df[df["start_is_unmeasured"] == df["end_is_unmeasured"]]
+
+            # check 3: startdate must be smaller then or equal to enddate
+            df["wrong order"] = df[pd_start_col] > df[pd_end_col]
+            if any(df["wrong order"]):
+                for idx, row in df.iterrows():
+                    if not row["wrong order"]:
+                        continue
+                    date_errors["internalLocation"] += [row["LOC_ID"]]
+                    date_errors["error_type"] += ["wrong order"]
+                    date_errors["error"] += [f"start={row[start_col]}, end={row[end_col]}"]
+
+            # check 4: dates in allowed range?
+            # start in allowed range?
+            df_start_is_outside = df[
+                (df[pd_start_col] < constants.MIN_DATE_ALLOWED) | (df[pd_start_col] > constants.MAX_DATE_ALLOWED)
+            ]
+            if not df_start_is_outside.empty:
+                for idx, row in df.iterrows():
+                    if not row["start_is_unmeasured"]:
+                        # only wrong if it not a unmeasured location
+                        continue
+                    date_errors["internalLocation"] += [row["LOC_ID"]]
+                    date_errors["error_type"] += ["start out of range date"]
+                    date_errors["error"] += [f"start={row[start_col]}, end={row[end_col]}"]
+            # end in allowed range?
+            df_end_is_outside = df[
+                (df[pd_end_col] < constants.MIN_DATE_ALLOWED) | (df[pd_end_col] > constants.MAX_DATE_ALLOWED)
+            ]
+            if not df_end_is_outside.empty:
+                for idx, row in df.iterrows():
+                    if not row["end_is_unmeasured"]:
+                        # only wrong if it not a unmeasured location
+                        continue
+                    date_errors["internalLocation"] += [row["LOC_ID"]]
+                    date_errors["error_type"] += ["end out of range date"]
+                    date_errors["error"] += [f"start={row[start_col]}, end={row[end_col]}"]
+
+        result_df = pd.DataFrame(data=date_errors)
+        if result_df.empty:
+            logger.info("now wrong dates found")
+        else:
+            logger.warning(f"{len(result_df)} wrong dates found")
+        excel_sheet = ExcelSheet(
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
+        )
+        return excel_sheet
+
     def check_idmap_sections(self, sheet_name: str = "idmap section error") -> ExcelSheet:
         """Check if all KW/OW locations are in the correct section."""
         description = "Idmaps die niet in de juiste sectie zijn opgenomen"
@@ -702,7 +805,7 @@ class MptConfigChecker:
         logger.info(f"start {self.check_ex_par_errors_int_loc_missing.__name__}")
 
         ex_par_errors = {
-            "internalLocation": [],  # TODO: can this be changed to int_loc, of flikkeren er dan weer dingen om..
+            "internalLocation": [],
             "locationType": [],
             "ex_par_error": [],
             "types": [],
@@ -806,7 +909,7 @@ class MptConfigChecker:
                     ex_par_errors[key].append(value)
 
         # Roger:
-        # niet veranderen, maar wel sidenote bij intepreter van result_df:
+        # niet veranderen, maar wel sidenote bij interpreteren van result_df:
         # 1) laatste vier kolomen van ex_par_result_df ("FQ", "I.X", "IX", "SS./SM) zijn niet
         #    beetje raar op het eerste zicht:
         #    eerste 3 zijn nl niet relevant als types == schuif
@@ -1571,6 +1674,7 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
+        self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
         # self.results.add_sheet(excelsheet=self.check_idmap_sections())
         # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
         # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())

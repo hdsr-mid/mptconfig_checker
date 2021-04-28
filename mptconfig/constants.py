@@ -31,12 +31,14 @@ YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # TODO: @ask roger: come up with better names
 # sublocs without timeseries are unmeasered (in dutch 'onbemeten locaties') and have dummy dates
-DUMMY_STARTDATE_UNMEASURED_LOC = pd.Timestamp(year=1900, month=1, day=1)
-DUMMY_ENDDATE_UNMEASURED_LOC = pd.Timestamp(
+STARTDATE_UNMEASURED_LOC = pd.Timestamp(year=1900, month=1, day=1)
+ENDDATE_UNMEASURED_LOC = pd.Timestamp(
     year=2222, month=1, day=1
-)  # 32101230 is not possible anymore as pd.Timestamp.max = '2262-04-11'
-DUMMY_ENDDATE_MEASURED_LOC = pd.Timestamp(year=2100, month=1, day=1)
-
+)  # noqa 32101230 is not possible anymore as pd.Timestamp.max = '2262-04-11'
+ENDDATE_MEASURED_LOC = pd.Timestamp(year=2100, month=1, day=1)
+# TODO ask Roger: are MIN_DATE_ALLOWED and MAX_DATE_ALLOWED reasonable?
+MIN_DATE_ALLOWED = pd.Timestamp(year=1990, month=1, day=1)
+MAX_DATE_ALLOWED = pd.Timestamp.now()
 
 # TODO: come up with better name then 'MAX_DIFF' and move to constants
 MAX_DIFF = pd.Timedelta(weeks=26)
