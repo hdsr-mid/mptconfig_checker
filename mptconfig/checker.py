@@ -7,6 +7,7 @@ from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
+from mptconfig.idmapping_choices import IntLocChoices
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import is_unmeasured_location
@@ -38,8 +39,22 @@ pd.options.mode.chained_assignment = None
 #   - nieuwe sorteren en dan lege regles onderaan zetten, want:
 #       1) FEWS vindt dat validatie csvs regels die >=1 waarde hebben gesorteerd moeten zijn
 #       2) voor Inke is het makkelijker als lege regels onderaan staan
-#  2) validatie perioden vandezelfde subloc mogen niet overlappen
+#  2) validatie perioden vandezelfde subloc mogen
+#       - niet overlappen
+#       - geen gaten
 #  3) zijn STARTDATE en ENDDATE logisch? (tussen 1990 en NU)
+
+
+class NewValidationCsv:
+    def __init__(self, filepath: Path, df: pd.DataFrame):
+        self.filepath = filepath
+        self.df = df
+        self.validate_constructor()
+
+    def validate_constructor(self):
+        assert isinstance(self.filepath, Path)
+        assert isinstance(self.df, pd.DataFrame)
+        assert not self.df.empty
 
 
 class MptConfigChecker:
@@ -61,6 +76,7 @@ class MptConfigChecker:
         self._psloc = None
         self._mpt_histtags = None
         self._mpt_histtags_new = None
+        self._validation_csvs_new = None
         self._fews_config = None
         self._ignored_ex_loc = None
         self._ignored_histtag = None
@@ -200,6 +216,10 @@ class MptConfigChecker:
         self._mpt_histtags_new = mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=False)
         assert sorted(self._mpt_histtags_new.columns) == ["ENDDATE", "LOC_ID", "STARTDATE"]
         return self._mpt_histtags_new
+
+    @property
+    def validation_csvs_new(self) -> List[NewValidationCsv]:
+        return self._validation_csvs_new
 
     @property
     def ignored_ex_loc(self) -> pd.DataFrame:
@@ -804,7 +824,8 @@ class MptConfigChecker:
         int_loc_description = "interne locaties in de idmap die niet zijn opgenomen in locatiesets"
 
         logger.info(
-            f"start {self.check_ex_par_errors_int_loc_missing.__name__} with 2 sheet_names={ex_par_sheet_name} and {int_loc_sheet_name}"
+            f"start {self.check_ex_par_errors_int_loc_missing.__name__} with 2 "
+            f"sheet_names={ex_par_sheet_name} and {int_loc_sheet_name}"
         )
 
         ex_par_errors = {
@@ -1046,8 +1067,7 @@ class MptConfigChecker:
                         int_loc for int_loc in int_locs if not bool(re.match(pattern=f"..{ex_loc}..$", string=int_loc))
                     ]
 
-            # TODO: @renier: what is backup if no self.ignored_ex_loc?
-            assert self.ignored_ex_loc is not None
+            assert self.ignored_ex_loc is not None, "this should not happen"
             if int(ex_loc) in self.ignored_ex_loc["externalLocation"].values:
                 int_loc_error = [
                     int_loc
@@ -1135,7 +1155,6 @@ class MptConfigChecker:
                 startdate_str = int_loc_df["START"].values[0]
                 enddate_str = int_loc_df["EIND"].values[0]
 
-                # TODO: verify with Roger: is it ok to skip check_timeseries_logic for unmeasured locations
                 if is_unmeasured_location(startdate=startdate_str, enddate=enddate_str):
                     continue
 
@@ -1348,7 +1367,90 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
+        validation_csv_config = []
+        for filename in self.fews_config.MapLayerFiles.keys():
+            if "validatie" not in filename:
+                continue
+            validation_csv_config.append(filename)
+
+        validation_csv_constants = []
+        for key, value in constants.INTPAR_2_VALIDATION_CSV_MAPPER.items():
+            if isinstance(value, str):
+                validation_csv_constants.append(value)
+            elif isinstance(value, dict):
+                for _key, _value in value.items():
+                    validation_csv_constants.append(_value)
+        too_few = set(validation_csv_constants).difference(set(validation_csv_config))
+        assert not too_few, f"too few validation csvs found in config {too_few}"
+
+        # fill new validation csvs
+        validation_csv_constants = dict.fromkeys(validation_csv_constants, [])
+        constant_int_pars = list(constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys())
+        for idx, row in idmap_df.iterrows():
+            if row["is_in_a_validation"]:
+                continue
+            row_int_par = row["internalParameter"]
+            row_int_loc = row["internalLocation"]
+            match = [int_par for int_par in constant_int_pars if re.match(pattern=int_par, string=row_int_par)]
+            if not match:
+                continue
+            assert len(match) == 1
+            validation_target = constants.INTPAR_2_VALIDATION_CSV_MAPPER.get(match[0])
+            if isinstance(validation_target, str):
+                filename = validation_target
+                validation_csv_constants[filename] += row_int_loc
+            if isinstance(validation_target, dict):
+                # start simple
+                if "waterstand" in validation_target.keys() and IntLocChoices.is_ow(row_int_loc):
+                    filename = validation_target["waterstand"]
+                    validation_csv_constants[filename] += row_int_loc
+                # not so simple anymore. Determine int_loc type (krooshek, debietmeter, etc)
+                elif "krooshek" in validation_target.keys():
+                    logger.debug(f"find out if {row_int_loc} is a krooshek")
+                    # krooshek is always a sub loc
+                    if IntLocChoices.is_kw_sub(row_int_loc):
+                        print('hoi')
+                elif "debietmeter" in validation_target.keys():
+                    logger.debug(f"find out if {row_int_loc} is a debietmeter")
+
+            renier
+
+                else:
+                    raise AssertionError("please configure sub_loc type here and in INTPAR_2_VALIDATION_CSV_MAPPER")
+
+            # else:
+            #     assert isinstance(validation_target, str)
+
+
+
+            int_loc = row["internalLocation"]
+            # for constant_int_par in constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys():
+            #     if not re.match(pattern=int_par, string=constant_int_par):
+            #         continue
+            # if not any([re.match(pattern=int_par, string=intpar) for intpar in constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys()]):
+            #     continue
+            #
+            # int_par = row["internalParameter"]
+            # int_loc = row["internalLocation"]
+            # if "Q" in int_par:
+            #     print('hoi')
+            #     # alleen toevoegen (aan oppvlwater_kunstvalidatie_debiet) als het een debietmeter is
+            # if ("H" and "G") in int_par:
+            #     # alleen toevoegen als:
+            #     #   - aan oppvlwater_watervalidatie als het een OW locatie is
+            #     #   - aan oppvlwater_kunstvalidatie_kroos als het een krooshek is
+            #     if IntLocChoices.is_ow(int_loc=int_loc):
+            #         pass
+
+
+
+                # int_par = 'H.G.0'
+                # int_loc = 'OW760001'
+
+
+
         errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)
+
         result_df = pd.DataFrame(data=errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
             logger.info("no missing incorrect validation rules")

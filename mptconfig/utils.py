@@ -1,4 +1,4 @@
-from mptconfig.constants import ENDDATE_MEASURED_LOC
+from mptconfig.constants import MAX_ENDDATE_MEASURED_LOC
 from mptconfig.constants import ENDDATE_UNMEASURED_LOC
 from mptconfig.constants import STARTDATE_UNMEASURED_LOC
 from pathlib import Path
@@ -26,8 +26,9 @@ def flatten_nested_list(_list: List[List]) -> List:
 def is_unmeasured_location(
     startdate: Union[str, pd.Timestamp, datetime.date], enddate: Union[str, pd.Timestamp, datetime.date]
 ) -> bool:
-    """A unmeasured (in dutch 'onbemeten') location has no timeseries. This location has been marked with both
-    a dummy start- and enddate in the location csvs"""
+    """A unmeasured (in dutch 'onbemeten') id in subloc that is not in idmapping: no timeseries mapped to it
+    = location without a timeseries. This location has been marked with both a dummy start- and enddate in the location csvs
+    """
     # TODO: remove work-around (3 lines below): 32101230 should be replaced with 22220101 in mpt config csvs
     if str(enddate) in ("32101230", "3210-12-30"):
         assert pd.to_datetime(startdate) == STARTDATE_UNMEASURED_LOC
@@ -100,7 +101,7 @@ def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timesta
     end_date = start_date_list[0]
 
     if end_date > date_threshold:
-        end_date = ENDDATE_MEASURED_LOC
+        end_date = MAX_ENDDATE_MEASURED_LOC
     end_date = end_date.strftime("%Y%m%d")
     return start_date, end_date
 

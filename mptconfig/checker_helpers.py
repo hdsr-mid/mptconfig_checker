@@ -206,12 +206,6 @@ class HelperValidationRules:
             join_id = attrib_file["id"].replace("%", "")
             attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
 
-            # TODO: ask roger which validation csvs must have unique LOC_ID? No csv at all right?
-            #  Moreover, unique_together is {LOC_ID, STARTDATE, ENDDATE} right?
-            # if not attrib_df["LOC_ID"].is_unique:
-            #     logger.warning(f"LOC_ID is not unique in {attrib_file_name}")
-            # TODO: check dates somewhere else (separate check?): validation_rules may eg not overlap (1 KW can have
-            #  >1 validation_rule with own period.
             assert "END" not in attrib_df.columns, f"expected EIND, not END... {csv_file_path}"
             if ("START" and "EIND") in attrib_df.columns:
                 not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
