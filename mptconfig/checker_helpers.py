@@ -50,6 +50,7 @@ class NewValidationCsvCreator:
         self.subloc = subloc
         self.waterstandloc = waterstandloc
         self.idmap_df = idmap_df
+        assert "is_in_a_validation" in self.idmap_df.columns
         self.ensure_config_matches_constants()
 
     def ensure_config_matches_constants(self) -> None:
@@ -72,7 +73,7 @@ class NewValidationCsvCreator:
 
     def get_new_csv_data(self) -> pd.DataFrame:
         """Gather new validation csv data: filename, int_loc, startdate, enddate for location sets. """
-        self.idmap_df["is_in_a_mpt_csv"] = True
+        self.idmap_df["added_to_new_validation"] = False
         row_collector = []
         df_new_validation_rows = None
         for idx, row in self.idmap_df.iterrows():
@@ -87,8 +88,8 @@ class NewValidationCsvCreator:
                 startdate = row["STARTDATE"]
                 enddate = row["ENDDATE"]
             else:
-                self.idmap_df["is_in_a_mpt_csv"][idx] = False
                 if not IntLocChoices.is_ow(row_int_loc):
+                    self.idmap_df["added_to_new_validation"][idx] = False
                     logger.debug(f"no validation csv for int_loc={row_int_loc}, int_par={row_int_par}")
                     continue
                 loc_type = "waterstand"
@@ -96,6 +97,7 @@ class NewValidationCsvCreator:
                 enddate = constants.MAX_ENDDATE_MEASURED_LOC
             filename = constants.ValidationCsvChoices.get_validation_csv_name(int_par=row_int_par, loc_type=loc_type)
             if not filename:
+                self.idmap_df["added_to_new_validation"][idx] = False
                 continue
             row_collector.append(
                 {"filename": filename, "int_loc": row_int_loc, "startdate": startdate, "enddate": enddate}
@@ -171,7 +173,7 @@ class HelperValidationRules:
         for idx, row in idmap_df.iterrows():
             if row["is_in_a_validation"]:
                 continue
-            if row["is_in_a_mpt_csv"]:
+            if row["added_to_new_validation"]:
                 description = "added to new validation csvs"
             else:
                 description = "not added to new validation csvs, as int_loc not in mpt csvs"
