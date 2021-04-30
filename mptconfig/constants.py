@@ -113,15 +113,15 @@ class PathConstants(Enum):
 
 
 class SubLocTypeChoices(Enum):
-    pompvijzel = 'pompvijzel'
-    krooshek = 'krooshek'
-    stuw = 'stuw'
+    pompvijzel = "pompvijzel"
+    krooshek = "krooshek"
+    stuw = "stuw"
     totaal = "totaal"
-    vispassage = 'vispassage'
-    schuif = 'schuif'
-    debietmeter = 'debietmeter'
-    overlaat = 'overlaat'
-    afsluiter = 'afsluiter'
+    vispassage = "vispassage"
+    schuif = "schuif"
+    debietmeter = "debietmeter"
+    overlaat = "overlaat"
+    afsluiter = "afsluiter"
 
 
 class LocationSet:
@@ -448,7 +448,7 @@ SECTION_TYPE_PREFIX_MAPPER = {
 
 EXTERNAL_PARAMETERS_ALLOWED = {
     "pompvijzel": ["FQ.$", "I.B$", "IB.$", "I.H$", "IH.$", "I.L$", "IL.$", "Q.$", "TT.$"],
-    "stuw": ["SW.$", "Q.$"],
+    "stuw": ["SW.$", "Q.$", "ES.$"],
     "schuif": ["ES.$", "SP.$", "SS.$", "Q.$", "SM.$"],
     "afsluiter": ["ES.$"],
     "debietmeter": ["Q.$"],
@@ -551,7 +551,10 @@ PARAMETER_MAPPING = [
     {"internal": "Q2.S.", "external": "QS2"},
     {"internal": "Q3.R.", "external": "QR3"},
     {"internal": "Q3.S.", "external": "QS3"},
-    {"internal": "Qipcl.G.", "external": "Q."},  # Qipcl.G = gemeten Intern PLC debiet (vorige CAW systeem, debiet werd toen niet op onderstation berekend op een paar uitzondering na: en dat noemde men intern PLC
+    {
+        "internal": "Qipcl.G.",
+        "external": "Q.",
+    },  # Qipcl.G = gemeten Intern PLC debiet (vorige CAW systeem, debiet werd toen niet op onderstation berekend op een paar uitzondering na: en dat noemde men intern PLC
     {"internal": "TT.", "external": "TT."},  # TT = toerental
     {"internal": "WR.", "external": "WR"},  # Windrichting
     {"internal": "WS.", "external": "WS"},  # Windsnelheid
@@ -659,6 +662,3 @@ WLOC_VALIDATION_LOGIC = [
     # - smax_zom
     ("smax_zom", "<=", "h_max"),
 ]
-
-
-

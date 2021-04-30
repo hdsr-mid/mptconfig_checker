@@ -409,6 +409,81 @@ class MptConfigChecker:
                 result[key] = df["PEILSCHAAL"].values[0]
         return result["HBOV"], result["HBEN"]
 
+    def check_idmap_int_loc_in_csv(self, sheet_name: str = "idmap int_loc in csv error") -> ExcelSheet:
+        """Check if IdOPVLWATER.xml int_locs are in correct (hoofdloc/subloc/ow) csv."""
+        description = (
+            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juist mpt csv (hoofd/sub/ow). "
+            "Int_low type wordt bepaald obv Int_low's OW/KW en laatste nummer."
+        )
+        logger.info(f"start {self.check_idmap_int_loc_in_csv.__name__} with sheet_name={sheet_name}")
+
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        errors = {
+            "int_locs": [],
+            "error_type": [],
+        }
+        idmap_df = pd.DataFrame(data=idmaps)
+        idmap_df["is_ow"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_ow(x))
+        idmap_df["is_kw_hoofd"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_kw_hoofd(x))
+        idmap_df["is_kw_sub"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_kw_sub(x))
+        idmap_df["in_hoofd_csv"] = idmap_df["internalLocation"].isin(self.hoofdloc.geo_df["LOC_ID"])
+        idmap_df["in_sub_csv"] = idmap_df["internalLocation"].isin(self.subloc.geo_df["LOC_ID"])
+        idmap_df["in_ow_csv"] = idmap_df["internalLocation"].isin(self.waterstandloc.geo_df["LOC_ID"])
+        idmap_df["nr_in_a_csv"] = sum([idmap_df["in_hoofd_csv"], idmap_df["in_sub_csv"], idmap_df["in_ow_csv"]])
+
+        # check 1: not in csv at all
+        int_locs_not_in_csv = idmap_df[
+            (idmap_df["in_hoofd_csv"] == False)  # noqa
+            & (idmap_df["in_sub_csv"] == False)  # noqa
+            & (idmap_df["in_ow_csv"] == False)  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_not_in_csv:
+            errors["int_locs"] += int_locs_not_in_csv
+            errors["error_type"] += ["not in any csv"] * len(int_locs_not_in_csv)
+
+        # check 2: in multiple csvs
+        int_locs_in_multi_csv = idmap_df[idmap_df["nr_in_a_csv"] > 1]["internalLocation"].to_list()
+        if int_locs_in_multi_csv:
+            errors["int_locs"] += int_locs_in_multi_csv
+            errors["error_type"] += ["not in any csv"] * len(int_locs_in_multi_csv)
+
+        # check 3: ow in sub or hoofd csv
+        int_locs_ow_wrong = idmap_df[
+            (idmap_df["is_ow"] == True)  # noqa
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_sub_csv"] == True))  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_ow_wrong:
+            errors["int_locs"] += int_locs_ow_wrong
+            errors["error_type"] += ["ow in wrong csv"] * len(int_locs_ow_wrong)
+
+        # check 4: hoofd in sub or ow csv
+        int_locs_hoofd_wrong = idmap_df[
+            (idmap_df["is_kw_hoofd"] == True)  # noqa
+            & ((idmap_df["in_sub_csv"] == True) | (idmap_df["in_ow_csv"] == True))  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_hoofd_wrong:
+            errors["int_locs"] += int_locs_hoofd_wrong
+            errors["error_type"] += ["hoofd in wrong csv"] * len(int_locs_hoofd_wrong)
+
+        # check 5: sub in hoofd or ow csv
+        int_locs_sub_wrong = idmap_df[
+            (idmap_df["is_kw_sub"] == True)  # noqa
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_ow_csv"] == True))  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_sub_wrong:
+            errors["int_locs"] += int_locs_sub_wrong
+            errors["error_type"] += ["sub in wrong csv"] * len(int_locs_sub_wrong)
+
+        result_df = pd.DataFrame(data=errors)
+        if result_df.empty:
+            logger.info("all idmaps int_locs in correct csv")
+        else:
+            logger.warning(f"{len(result_df)} idmaps int_locs not in any/correct csv")
+        excel_sheet = ExcelSheet(
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
+        )
+        return excel_sheet
+
     def check_dates_loc_sets(self, sheet_name: str = "loc_set date errors") -> ExcelSheet:
         description = (
             f"datums moet in logische range vallen {constants.MIN_DATE_ALLOWED.strftime('%Y%m%d')}-"
@@ -1384,6 +1459,7 @@ class MptConfigChecker:
         assert not too_few, f"too few validation csvs found in config {too_few}"
 
         # fill new validation csvs
+        idmaps_not_in_loc_csv = []
         validation_csv_constants = dict.fromkeys(validation_csv_constants, [])
         constant_int_pars = list(constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys())
         for idx, row in idmap_df.iterrows():
@@ -1404,26 +1480,27 @@ class MptConfigChecker:
                 if "waterstand" in validation_target.keys() and IntLocChoices.is_ow(row_int_loc):
                     filename = validation_target["waterstand"]
                     validation_csv_constants[filename] += row_int_loc
-                # not so simple anymore. Determine int_loc type (krooshek, debietmeter, etc)
-                elif "krooshek" in validation_target.keys():
-                    logger.debug(f"find out if {row_int_loc} is a krooshek")
-                    # krooshek is always a sub loc
-                    if IntLocChoices.is_kw_sub(row_int_loc):
-                        print('hoi')
-                elif "debietmeter" in validation_target.keys():
-                    logger.debug(f"find out if {row_int_loc} is a debietmeter")
+                    continue
+                # not so simple anymore. Determine sub_loc type (krooshek, debietmeter, etc)
+                int_loc_df = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == row_int_loc]
+                if int_loc_df.empty:
+                    idmaps_not_in_loc_csv.append(row_int_loc)
+                    # skip for now as this is checked in other check? (that idmap row is not in (hoofdloc, subloc, etc)
+                    continue
+                sub_type = int_loc_df["TYPE"].values[0]
 
-            renier
-
+                if sub_type in validation_target.keys():
+                    print("hoi")
                 else:
-                    raise AssertionError("please configure sub_loc type here and in INTPAR_2_VALIDATION_CSV_MAPPER")
+                    print("hoi")
+
+                # else:
+                #     raise AssertionError("please configure sub_loc type here and in INTPAR_2_VALIDATION_CSV_MAPPER")
 
             # else:
             #     assert isinstance(validation_target, str)
 
-
-
-            int_loc = row["internalLocation"]
+            # int_loc = row["internalLocation"]
             # for constant_int_par in constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys():
             #     if not re.match(pattern=int_par, string=constant_int_par):
             #         continue
@@ -1442,12 +1519,8 @@ class MptConfigChecker:
             #     if IntLocChoices.is_ow(int_loc=int_loc):
             #         pass
 
-
-
-                # int_par = 'H.G.0'
-                # int_loc = 'OW760001'
-
-
+            # int_par = 'H.G.0'
+            # int_loc = 'OW760001'
 
         errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)
 
@@ -1779,6 +1852,7 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
+        self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
         self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
         self.results.add_sheet(excelsheet=self.check_idmap_sections())
         self.results.add_sheet(excelsheet=self.check_ignored_histtags())

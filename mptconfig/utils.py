@@ -1,5 +1,5 @@
-from mptconfig.constants import MAX_ENDDATE_MEASURED_LOC
 from mptconfig.constants import ENDDATE_UNMEASURED_LOC
+from mptconfig.constants import MAX_ENDDATE_MEASURED_LOC
 from mptconfig.constants import STARTDATE_UNMEASURED_LOC
 from pathlib import Path
 from typing import Dict
