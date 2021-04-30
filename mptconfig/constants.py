@@ -28,7 +28,9 @@ S_WATERBALANS_WIS_CAW_DIR = S_DRIVE / "Waterbalans" / "_WIS_" / "caw"
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-
+# TODO: ask roger: veel locaties hebben start=19000101 en end=21000101 (bijv in validatie csv): dus
+#  start=STARTDATE_UNMEASURED_LOC, end=MAX_ENDDATE_MEASURED_LOC. Echter, dan klopt die naam van die
+#  dummy dates niet. Wat zijn betere namen?
 # sublocs without timeseries are unmeasered (in dutch 'onbemeten locaties') and have dummy dates
 STARTDATE_UNMEASURED_LOC = pd.Timestamp(year=1900, month=1, day=1)
 ENDDATE_UNMEASURED_LOC = pd.Timestamp(
@@ -458,7 +460,7 @@ EXTERNAL_PARAMETERS_ALLOWED = {
 }
 
 
-class ValidationCsvChoice(Enum):
+class ValidationCsvChoices(Enum):
     oppvlwater_kunstvalidatie_debiet = "oppvlwater_kunstvalidatie_debiet"
     oppvlwater_watervalidatie = "oppvlwater_watervalidatie"
     oppvlwater_kunstvalidatie_kroos = "oppvlwater_kunstvalidatie_kroos"
@@ -475,29 +477,52 @@ class ValidationCsvChoice(Enum):
     oppvlwater_kunstvalidatie_stuur3 = "oppvlwater_kunstvalidatie_stuur3"
     oppvlwater_kunstvalidatie_toert = "oppvlwater_kunstvalidatie_toert"
 
+    @classmethod
+    def get_validation_csv_name(cls, int_par: str, loc_type: str) -> str:
+        match = [
+            int_par_regex
+            for int_par_regex in INTPAR_2_VALIDATION_CSV.keys()
+            if re.match(pattern=int_par_regex, string=int_par)
+        ]
+        if not match:
+            logger.debug(f"no validation csv found: int_par={int_par} not in INTPAR_2_VALIDATION_CSV.keys")
+            return ""
+        assert len(match) == 1
+        mapper = INTPAR_2_VALIDATION_CSV[match[0]]
+        filename = mapper.get(loc_type, None)
+        if not filename:
+            logger.debug(
+                f"no validation csv found: int_par={int_par} has only loc_types={mapper.keys()}, no {loc_type}"
+            )
+        return filename
+
 
 INTPAR_2_VALIDATION_CSV = {
-    "Q.G.": {
-        # we only have validation discharge validation rules for debietmeters
-        "debietmeter": ValidationCsvChoice.oppvlwater_kunstvalidatie_debiet.value
-    },
     "H.G.": {
-        "waterstand": ValidationCsvChoice.oppvlwater_watervalidatie.value,
-        "krooshek": ValidationCsvChoice.oppvlwater_kunstvalidatie_kroos.value,
+        "waterstand": ValidationCsvChoices.oppvlwater_watervalidatie.value,
+        "krooshek": ValidationCsvChoices.oppvlwater_kunstvalidatie_kroos.value,
     },
-    "F.": ValidationCsvChoice.oppvlwater_kunstvalidatie_freq.value,
-    "Hh.": ValidationCsvChoice.oppvlwater_kunstvalidatie_hefh.value,
-    "Hk.": ValidationCsvChoice.oppvlwater_kunstvalidatie_kruinh.value,
-    "POS.": ValidationCsvChoice.oppvlwater_kunstvalidatie_schuifp.value,
-    "POS2.": ValidationCsvChoice.oppvlwater_kunstvalidatie_schuifp2.value,
-    "H.S.": ValidationCsvChoice.oppvlwater_kunstvalidatie_streef1.value,
-    "H2.S.": ValidationCsvChoice.oppvlwater_kunstvalidatie_streef2.value,
-    "H3.S.": ValidationCsvChoice.oppvlwater_kunstvalidatie_streef3.value,
-    "H.R.": ValidationCsvChoice.oppvlwater_kunstvalidatie_stuur1.value,
-    "H2.R.": ValidationCsvChoice.oppvlwater_kunstvalidatie_stuur2.value,
-    "H3.R.": ValidationCsvChoice.oppvlwater_kunstvalidatie_stuur3.value,
-    "TT.": ValidationCsvChoice.oppvlwater_kunstvalidatie_toert.value,
+    "Hh.": {
+        "schuif": ValidationCsvChoices.oppvlwater_kunstvalidatie_hefh.value,
+        "vispassage": ValidationCsvChoices.oppvlwater_kunstvalidatie_hefh.value,
+    },
+    "Q.G.": {
+        # we only validate it for debietmeters (not schuif, vispassage, pompvijzel, stuw)
+        "debietmeter": ValidationCsvChoices.oppvlwater_kunstvalidatie_debiet.value
+    },
+    "F.": {"pompvijzel": ValidationCsvChoices.oppvlwater_kunstvalidatie_freq.value},
+    "Hk.": {"stuw": ValidationCsvChoices.oppvlwater_kunstvalidatie_kruinh.value},
+    "POS.": {"schuif": ValidationCsvChoices.oppvlwater_kunstvalidatie_schuifp.value},
+    "POS2.": {"schuif": ValidationCsvChoices.oppvlwater_kunstvalidatie_schuifp2.value},
+    "H.S.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_streef1.value},
+    "H2.S.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_streef2.value},
+    "H3.S.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_streef3.value},
+    "H.R.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_stuur1.value},
+    "H2.R.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_stuur2.value},
+    "H3.R.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_stuur3.value},
+    "TT.": {"pompvijzel": ValidationCsvChoices.oppvlwater_kunstvalidatie_toert.value},
 }
+
 
 """
 {"internal": "DD.", "external": "I.B"}, --> wordt niet gevalideerd
@@ -515,7 +540,7 @@ INTPAR_2_VALIDATION_CSV = {
 # {"internal": "H2.S.", "external": "HS."},
 # {"internal": "H3.R.", "external": "HR."},
 # {"internal": "H3.S.", "external": "HS."},
-{"internal": "Hastr.", "external": "HA"}, # astronomisch peil (komt bij MSW 1x voor), msw reeks wordt niet gevalideerd, want externe reeks
+{"internal": "Hastr.", "external": "HA"}, # noqa astronomisch peil (komt bij MSW 1x voor), msw reeks wordt niet gevalideerd, want externe reeks
 # {"internal": "Hh.", "external": "SM."},
 # {"internal": "Hh.", "external": "SS."},
 # {"internal": "Hk.", "external": "SW."},
@@ -524,7 +549,7 @@ INTPAR_2_VALIDATION_CSV = {
 {"internal": "IBL.", "external": "IL."}, --> wordt niet gevalideerd, want 0/1
 # {"internal": "POS.", "external": "SP."},
 # {"internal": "POS2.", "external": "SP."},
-{"internal": "Q.G.", "external": "Q."}, # debiet CAW beschouwen we in wis als .. (in kunstvalidatie_debiet.csv staan alleen debietmeters!)
+{"internal": "Q.G.", "external": "Q."}, # noqa debiet CAW beschouwen we in wis als .. (in kunstvalidatie_debiet.csv staan alleen debietmeters!)
 {"internal": "Q.R.", "external": "QR1"},
 {"internal": "Q.S.", "external": "QS1"},
 {"internal": "Q2.R.", "external": "QR2"},
@@ -533,8 +558,8 @@ INTPAR_2_VALIDATION_CSV = {
 {"internal": "Q3.S.", "external": "QS3"},
 {"internal": "Qipcl.G.", "external": "Q."},
 # {"internal": "TT.", "external": "TT."},
-{"internal": "WR.", "external": "WR"}, --> wordt niet gevalideerd
-{"internal": "WS.", "external": "WS"}, --> wordt niet gevalideerd
+{"internal": "WR.", "external": "WR"}, --> windrichting wordt niet gevalideerd
+{"internal": "WS.", "external": "WS"}, --> windsnelheid wordt niet gevalideerd
 """
 
 
@@ -573,7 +598,7 @@ PARAMETER_MAPPING = [
     {
         "internal": "Qipcl.G.",
         "external": "Q.",
-    },  # Qipcl.G = gemeten Intern PLC debiet (vorige CAW systeem, debiet werd toen niet op onderstation berekend op een paar uitzondering na: en dat noemde men intern PLC
+    },  # noqa Qipcl.G = gemeten Intern PLC debiet (vorige CAW systeem, debiet werd toen niet op onderstation berekend op een paar uitzondering na: en dat noemde men intern PLC
     {"internal": "TT.", "external": "TT."},  # TT = toerental
     {"internal": "WR.", "external": "WR"},  # Windrichting
     {"internal": "WS.", "external": "WS"},  # Windsnelheid
