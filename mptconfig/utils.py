@@ -27,7 +27,8 @@ def is_unmeasured_location(
     startdate: Union[str, pd.Timestamp, datetime.date], enddate: Union[str, pd.Timestamp, datetime.date]
 ) -> bool:
     """A unmeasured (in dutch 'onbemeten') id in subloc that is not in idmapping: no timeseries mapped to it
-    = location without a timeseries. This location has been marked with both a dummy start- and enddate in the location csvs
+    = location without a timeseries. This location has been marked with both a dummy start- and enddate in
+    the location csvs
     """
     # TODO: remove work-around (3 lines below): 32101230 should be replaced with 22220101 in mpt config csvs
     if str(enddate) in ("32101230", "3210-12-30"):

@@ -457,27 +457,46 @@ EXTERNAL_PARAMETERS_ALLOWED = {
     "waterstand": ["HB.$", "HO.$", "H.$"],
 }
 
-INTPAR_2_VALIDATION_CSV_MAPPER = {
+
+class ValidationCsvChoice(Enum):
+    oppvlwater_kunstvalidatie_debiet = "oppvlwater_kunstvalidatie_debiet"
+    oppvlwater_watervalidatie = "oppvlwater_watervalidatie"
+    oppvlwater_kunstvalidatie_kroos = "oppvlwater_kunstvalidatie_kroos"
+    oppvlwater_kunstvalidatie_freq = "oppvlwater_kunstvalidatie_freq"
+    oppvlwater_kunstvalidatie_hefh = "oppvlwater_kunstvalidatie_hefh"
+    oppvlwater_kunstvalidatie_kruinh = "oppvlwater_kunstvalidatie_kruinh"
+    oppvlwater_kunstvalidatie_schuifp = "oppvlwater_kunstvalidatie_schuifp"
+    oppvlwater_kunstvalidatie_schuifp2 = "oppvlwater_kunstvalidatie_schuifp2"
+    oppvlwater_kunstvalidatie_streef1 = "oppvlwater_kunstvalidatie_streef1"
+    oppvlwater_kunstvalidatie_streef2 = "oppvlwater_kunstvalidatie_streef2"
+    oppvlwater_kunstvalidatie_streef3 = "oppvlwater_kunstvalidatie_streef3"
+    oppvlwater_kunstvalidatie_stuur1 = "oppvlwater_kunstvalidatie_stuur1"
+    oppvlwater_kunstvalidatie_stuur2 = "oppvlwater_kunstvalidatie_stuur2"
+    oppvlwater_kunstvalidatie_stuur3 = "oppvlwater_kunstvalidatie_stuur3"
+    oppvlwater_kunstvalidatie_toert = "oppvlwater_kunstvalidatie_toert"
+
+
+INTPAR_2_VALIDATION_CSV = {
     "Q.G.": {
         # we only have validation discharge validation rules for debietmeters
-        "debietmeter": "oppvlwater_kunstvalidatie_debiet"
+        "debietmeter": ValidationCsvChoice.oppvlwater_kunstvalidatie_debiet.value
     },
     "H.G.": {
-        "waterstand": "oppvlwater_watervalidatie",
-        "krooshek": "oppvlwater_kunstvalidatie_kroos",
+        "waterstand": ValidationCsvChoice.oppvlwater_watervalidatie.value,
+        "krooshek": ValidationCsvChoice.oppvlwater_kunstvalidatie_kroos.value,
     },
-    "F.": "oppvlwater_kunstvalidatie_freq",
-    "Hh.": "oppvlwater_kunstvalidatie_hefh",
-    "Hk.": "oppvlwater_kunstvalidatie_kruinh",
-    "POS.": "oppvlwater_kunstvalidatie_schuifp",
-    "POS2.": "oppvlwater_kunstvalidatie_schuifp2",
-    "H.S.": "oppvlwater_kunstvalidatie_streef1",
-    "H2.S.": "oppvlwater_kunstvalidatie_streef2",
-    "H3.S.": "oppvlwater_kunstvalidatie_streef3",
-    "H.R.": "oppvlwater_kunstvalidatie_stuur1",
-    "H2.R.": "oppvlwater_kunstvalidatie_stuur2",
-    "H3.R.": "oppvlwater_kunstvalidatie_stuur3",
-    "TT.": "oppvlwater_kunstvalidatie_toert",
+    "F.": ValidationCsvChoice.oppvlwater_kunstvalidatie_freq.value,
+    "Hh.": ValidationCsvChoice.oppvlwater_kunstvalidatie_hefh.value,
+    "Hk.": ValidationCsvChoice.oppvlwater_kunstvalidatie_kruinh.value,
+    "POS.": ValidationCsvChoice.oppvlwater_kunstvalidatie_schuifp.value,
+    "POS2.": ValidationCsvChoice.oppvlwater_kunstvalidatie_schuifp2.value,
+    "H.S.": ValidationCsvChoice.oppvlwater_kunstvalidatie_streef1.value,
+    "H2.S.": ValidationCsvChoice.oppvlwater_kunstvalidatie_streef2.value,
+    "H3.S.": ValidationCsvChoice.oppvlwater_kunstvalidatie_streef3.value,
+    "H.R.": ValidationCsvChoice.oppvlwater_kunstvalidatie_stuur1.value,
+    "H2.R.": ValidationCsvChoice.oppvlwater_kunstvalidatie_stuur2.value,
+    "H3.R.": ValidationCsvChoice.oppvlwater_kunstvalidatie_stuur3.value,
+    "TT.": ValidationCsvChoice.oppvlwater_kunstvalidatie_toert.value,
 }
 
 """

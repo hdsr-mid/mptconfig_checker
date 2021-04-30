@@ -1,5 +1,6 @@
 from mptconfig import constants
 from mptconfig.checker_helpers import HelperValidationRules
+from mptconfig.checker_helpers import NewValidationCsv
 from mptconfig.constants import MAX_DIFF
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
@@ -43,18 +44,6 @@ pd.options.mode.chained_assignment = None
 #       - niet overlappen
 #       - geen gaten
 #  3) zijn constants.MIN_DATE_ALLOWED en constants.MAX_DATE_ALLOWED
-
-
-class NewValidationCsv:
-    def __init__(self, filepath: Path, df: pd.DataFrame):
-        self.filepath = filepath
-        self.df = df
-        self.validate_constructor()
-
-    def validate_constructor(self):
-        assert isinstance(self.filepath, Path)
-        assert isinstance(self.df, pd.DataFrame)
-        assert not self.df.empty
 
 
 class MptConfigChecker:
@@ -334,7 +323,7 @@ class MptConfigChecker:
         df = gdf.drop("geometry", axis=1)
         return df
 
-    def _create_opvlwater_hoofdloc_csv_new(self) -> None:
+    def _write_new_opvlwater_hoofdloc_csv(self) -> None:
         """Write HoofdLocationSet.geo_df to csv. This .geo_df was eventually
         updated during check_s_loc_consistency() in _create_hoofdloc_new()."""
         if self._hoofdloc_new is None:
@@ -345,7 +334,7 @@ class MptConfigChecker:
         df = self._update_start_end_new_csv(df=df)
         self._df_to_csv(df=df, file_name=self.hoofdloc.name)
 
-    def _create_opvlwater_subloc_csv_new(self) -> None:
+    def _write_new_opvlwater_subloc_csv(self) -> None:
         """ Write SubLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.subloc.name}")
         df = self._validate_geom(gdf=self.subloc.geo_df)
@@ -358,7 +347,7 @@ class MptConfigChecker:
         # get existing fews config file name
         self._df_to_csv(df=df, file_name=self.subloc.name)
 
-    def _create_waterstandlocaties_csv_new(self) -> None:
+    def _write_new_waterstandlocaties_csv(self) -> None:
         """ Write WaterstandLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.waterstandloc.name}")
         df = self._validate_geom(gdf=self.waterstandloc.geo_df)
@@ -367,6 +356,12 @@ class MptConfigChecker:
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
         self._df_to_csv(df=df, file_name=self.waterstandloc.name)
+
+    def _write_new_validation_csv(self) -> None:
+        for new_validation_csv in self.validation_csvs_new:
+            filename = new_validation_csv.orig_filepath.name
+            logger.info(f"creating new csv {filename}")
+            self._df_to_csv(df=new_validation_csv.df, file_name=filename)
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
         """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
@@ -1314,6 +1309,17 @@ class MptConfigChecker:
         )
         return excel_sheet
 
+    def __get_int_loc_row_from_hoofd_sub_ow_loc_set(self, int_loc: str) -> pd.Series:
+        row = None
+        for loc_set_df in (self.hoofdloc.geo_df, self.subloc.geo_df, self.waterstandloc.geo_df):
+            int_loc_df = loc_set_df[loc_set_df["LOC_ID"] == int_loc]
+            if int_loc_df.empty:
+                continue
+            if row:
+                logger.error(f"we expected only 1 row for int_loc {int_loc} in all mpt csvs. Returnng last found")
+            row = int_loc_df
+        return row
+
     def check_validation_rules(self, sheet_name: str = "validation error") -> ExcelSheet:
         """Check if validation rules are consistent.
 
@@ -1442,86 +1448,56 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
-        validation_csv_config = []
-        for filename in self.fews_config.MapLayerFiles.keys():
-            if "validatie" not in filename:
-                continue
-            validation_csv_config.append(filename)
-
-        validation_csv_constants = []
-        for key, value in constants.INTPAR_2_VALIDATION_CSV_MAPPER.items():
-            if isinstance(value, str):
-                validation_csv_constants.append(value)
-            elif isinstance(value, dict):
-                for _key, _value in value.items():
-                    validation_csv_constants.append(_value)
-        too_few = set(validation_csv_constants).difference(set(validation_csv_config))
+        config_validation_csv_filenames = [x for x in self.fews_config.MapLayerFiles.keys() if "validatie" in x]
+        expected_validation_csv_filenames = [x.value for x in constants.ValidationCsvChoice]
+        too_few = set(expected_validation_csv_filenames).difference(set(config_validation_csv_filenames))
         assert not too_few, f"too few validation csvs found in config {too_few}"
 
         # fill new validation csvs
-        idmaps_not_in_loc_csv = []
-        validation_csv_constants = dict.fromkeys(validation_csv_constants, [])
-        constant_int_pars = list(constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys())
+        idmap_df["is_in_a_mpt_csv"] = True
+        new_validation_csvs = {key: [] for key in expected_validation_csv_filenames}
         for idx, row in idmap_df.iterrows():
             if row["is_in_a_validation"]:
                 continue
             row_int_par = row["internalParameter"]
             row_int_loc = row["internalLocation"]
-            match = [int_par for int_par in constant_int_pars if re.match(pattern=int_par, string=row_int_par)]
+            match = [
+                int_par
+                for int_par in constants.INTPAR_2_VALIDATION_CSV.keys()
+                if re.match(pattern=int_par, string=row_int_par)
+            ]
             if not match:
+                logger.debug(f"no validation csv expected for int_par {row_int_par}")
                 continue
             assert len(match) == 1
-            validation_target = constants.INTPAR_2_VALIDATION_CSV_MAPPER.get(match[0])
+            validation_target = constants.INTPAR_2_VALIDATION_CSV[match[0]]
             if isinstance(validation_target, str):
                 filename = validation_target
-                validation_csv_constants[filename] += row_int_loc
-            if isinstance(validation_target, dict):
+                new_validation_csvs[filename] += row_int_loc
+                continue
+            elif isinstance(validation_target, dict):
                 # start simple
                 if "waterstand" in validation_target.keys() and IntLocChoices.is_ow(row_int_loc):
                     filename = validation_target["waterstand"]
-                    validation_csv_constants[filename] += row_int_loc
+                    new_validation_csvs[filename] += [row_int_loc]
                     continue
                 # not so simple anymore. Determine sub_loc type (krooshek, debietmeter, etc)
-                int_loc_df = self.subloc.geo_df[self.subloc.geo_df["LOC_ID"] == row_int_loc]
-                if int_loc_df.empty:
-                    idmaps_not_in_loc_csv.append(row_int_loc)
-                    # skip for now as this is checked in other check? (that idmap row is not in (hoofdloc, subloc, etc)
+                row = self.__get_int_loc_row_from_hoofd_sub_ow_loc_set(int_loc=row_int_loc)
+                if not row:
+                    idmap_df["is_in_a_mpt_csv"][idx] = False
+                    # log this error in HelperValidationRules.check_idmapping_int_loc_in_a_validation()
                     continue
-                sub_type = int_loc_df["TYPE"].values[0]
+                sub_type = row["TYPE"].values[0]
+                assert (
+                    sub_type in validation_target.keys()
+                ), f"this should not happen: {sub_type} not in {validation_target.keys()}"
+                filename = validation_target[sub_type]
+                new_validation_csvs[filename] += [row_int_loc]
+                continue
 
-                if sub_type in validation_target.keys():
-                    print("hoi")
-                else:
-                    print("hoi")
-
-                # else:
-                #     raise AssertionError("please configure sub_loc type here and in INTPAR_2_VALIDATION_CSV_MAPPER")
-
-            # else:
-            #     assert isinstance(validation_target, str)
-
-            # int_loc = row["internalLocation"]
-            # for constant_int_par in constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys():
-            #     if not re.match(pattern=int_par, string=constant_int_par):
-            #         continue
-            # if not any([re.match(pattern=int_par, string=intpar) for intpar in constants.INTPAR_2_VALIDATION_CSV_MAPPER.keys()]):
-            #     continue
-            #
-            # int_par = row["internalParameter"]
-            # int_loc = row["internalLocation"]
-            # if "Q" in int_par:
-            #     print('hoi')
-            #     # alleen toevoegen (aan oppvlwater_kunstvalidatie_debiet) als het een debietmeter is
-            # if ("H" and "G") in int_par:
-            #     # alleen toevoegen als:
-            #     #   - aan oppvlwater_watervalidatie als het een OW locatie is
-            #     #   - aan oppvlwater_kunstvalidatie_kroos als het een krooshek is
-            #     if IntLocChoices.is_ow(int_loc=int_loc):
-            #         pass
-
-            # int_par = 'H.G.0'
-            # int_loc = 'OW760001'
-
+        self._validation_csvs_new = HelperValidationRules.create_new_validation_csv(
+            new_validation_csvs=new_validation_csvs, fews_config=self.fews_config
+        )
         errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)
 
         result_df = pd.DataFrame(data=errors).drop_duplicates(keep="first", inplace=False)
@@ -1884,6 +1860,7 @@ class MptConfigChecker:
         excel_writer.write()
 
         # write new csv files
-        self._create_opvlwater_hoofdloc_csv_new()
-        self._create_opvlwater_subloc_csv_new()
-        self._create_waterstandlocaties_csv_new()
+        self._write_new_opvlwater_hoofdloc_csv()
+        self._write_new_opvlwater_subloc_csv()
+        self._write_new_waterstandlocaties_csv()
+        self._write_new_validation_csv()

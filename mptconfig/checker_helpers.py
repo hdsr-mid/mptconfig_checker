@@ -1,5 +1,6 @@
 from mptconfig import constants
 from mptconfig.fews_utilities import FewsConfig
+from mptconfig.utils import equal_dataframes
 from pathlib import Path
 from typing import Dict
 from typing import List
@@ -13,6 +14,25 @@ logger = logging.getLogger(__name__)
 
 
 PandasDFGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")  # noqa
+
+
+class NewValidationCsv:
+    def __init__(self, orig_filepath: Path, df: pd.DataFrame):
+        self.orig_filepath = orig_filepath
+        self.df = df
+        self.validate_constructor()
+
+    def validate_constructor(self):
+        assert isinstance(self.orig_filepath, Path)
+        assert self.orig_filepath.is_file()
+        assert isinstance(self.df, pd.DataFrame)
+        orig_df = pd.read_csv(
+            filepath_or_buffer=self.orig_filepath,
+            sep=None,
+            engine="python",
+        )
+        assert not self.df.empty
+        assert not equal_dataframes(expected_df=self.df, test_df=orig_df)
 
 
 class HelperValidationRules:
@@ -37,21 +57,43 @@ class HelperValidationRules:
             int_loc_group = idmap_df_grouped_by_intloc.get_group(name=int_loc)
             int_pars = sorted(int_loc_group["internalParameter"].unique().tolist())
         except KeyError:
-
             int_pars = []
         return int_pars
+
+    @classmethod
+    def create_new_validation_csv(cls, new_validation_csvs: Dict, fews_config: FewsConfig) -> List[NewValidationCsv]:
+        collector = []
+        for filename, new_int_pars in new_validation_csvs.items():
+            if not new_int_pars:
+                continue
+            file_path = fews_config.MapLayerFiles[filename]
+            df = pd.read_csv(
+                filepath_or_buffer=file_path,
+                sep=None,
+                engine="python",
+            )
+            df = df.append(pd.DataFrame(data={"LOC_ID": new_int_pars}))
+            new_validation_csv = NewValidationCsv(orig_filepath=file_path, df=df)
+            collector.append(new_validation_csv)
+        return collector
 
     @classmethod
     def check_idmapping_int_loc_in_a_validation(cls, errors: Dict, idmap_df: pd.DataFrame) -> Dict:
         for idx, row in idmap_df.iterrows():
             if row["is_in_a_validation"]:
                 continue
+            if row["is_in_a_mpt_csv"]:
+                description = "added to new validation csvs"
+            else:
+                description = "not added to new validation csvs, as int_loc not in mpt csvs"
             errors["internalLocation"] += [row["internalLocation"]]
             errors["start"] += [""]
             errors["eind"] += [""]
             errors["internalParameters"] += [row["internalParameter"]]
             errors["error_type"] += ["not in any validation csv"]
-            errors["error_description"] += [f'exloc={row["externalLocation"]}, expar={row["externalParameter"]}']
+            errors["error_description"] += [
+                f'{description}: exloc={row["externalLocation"]}, expar={row["externalParameter"]}'
+            ]
         return errors
 
     @classmethod
