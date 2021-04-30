@@ -89,7 +89,6 @@ class NewValidationCsvCreator:
                 enddate = row["ENDDATE"]
             else:
                 if not IntLocChoices.is_ow(row_int_loc):
-                    self.idmap_df["added_to_new_validation"][idx] = False
                     logger.debug(f"no validation csv for int_loc={row_int_loc}, int_par={row_int_par}")
                     continue
                 loc_type = "waterstand"
@@ -97,8 +96,8 @@ class NewValidationCsvCreator:
                 enddate = constants.MAX_ENDDATE_MEASURED_LOC
             filename = constants.ValidationCsvChoices.get_validation_csv_name(int_par=row_int_par, loc_type=loc_type)
             if not filename:
-                self.idmap_df["added_to_new_validation"][idx] = False
                 continue
+            self.idmap_df["added_to_new_validation"][idx] = True
             row_collector.append(
                 {"filename": filename, "int_loc": row_int_loc, "startdate": startdate, "enddate": enddate}
             )
@@ -176,7 +175,7 @@ class HelperValidationRules:
             if row["added_to_new_validation"]:
                 description = "added to new validation csvs"
             else:
-                description = "not added to new validation csvs, as int_loc not in mpt csvs"
+                description = "not added to new validation csvs, please add manually"
             errors["internalLocation"] += [row["internalLocation"]]
             errors["start"] += [""]
             errors["eind"] += [""]
