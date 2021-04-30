@@ -173,14 +173,15 @@ class HelperValidationRules:
             if row["is_in_a_validation"]:
                 continue
             if row["added_to_new_validation"]:
-                description = "added to new validation csvs"
+                errors["error_type"] = "not in any validation csv. Added to new csv"
+                description = ""
             else:
-                description = "not added to new validation csvs, please add manually"
+                errors["error_type"] = "not in any validation csv. Not added to new csv"
+                description = "please add manually"
             errors["internalLocation"] += [row["internalLocation"]]
             errors["start"] += [""]
             errors["eind"] += [""]
             errors["internalParameters"] += [row["internalParameter"]]
-            errors["error_type"] += ["not in any validation csv"]
             errors["error_description"] += [
                 f'{description}: exloc={row["externalLocation"]}, expar={row["externalParameter"]}'
             ]
