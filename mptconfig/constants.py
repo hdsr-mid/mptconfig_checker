@@ -448,7 +448,7 @@ SECTION_TYPE_PREFIX_MAPPER = {
 
 EXTERNAL_PARAMETERS_ALLOWED = {
     "pompvijzel": ["FQ.$", "I.B$", "IB.$", "I.H$", "IH.$", "I.L$", "IL.$", "Q.$", "TT.$"],
-    "stuw": ["SW.$", "Q.$", "ES.$"],
+    "stuw": ["SW.$", "Q.$"],
     "schuif": ["ES.$", "SP.$", "SS.$", "Q.$", "SM.$"],
     "afsluiter": ["ES.$"],
     "debietmeter": ["Q.$"],

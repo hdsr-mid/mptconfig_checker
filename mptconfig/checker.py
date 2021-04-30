@@ -42,7 +42,7 @@ pd.options.mode.chained_assignment = None
 #  2) validatie perioden vandezelfde subloc mogen
 #       - niet overlappen
 #       - geen gaten
-#  3) zijn STARTDATE en ENDDATE logisch? (tussen 1990 en NU)
+#  3) zijn constants.MIN_DATE_ALLOWED en constants.MAX_DATE_ALLOWED
 
 
 class NewValidationCsv:
