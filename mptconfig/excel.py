@@ -71,8 +71,8 @@ class ExcelSheet:
     def validate_constructor(self) -> None:
         assert isinstance(self.name, str), f"sheet name {self.name} must be a str"
         assert (
-            2 < len(self.name) < 25
-        ), f"sheet name '{self.name}' with length {len(self.name)} must be between 2 and 25 chars"
+            2 < len(self.name) < 27
+        ), f"sheet name '{self.name}' with length {len(self.name)} must be between 2 and 27 chars"
         assert isinstance(self.description, str), f"sheet description {self.description} must be a str"
         assert (
             10 < len(self.description) < 200

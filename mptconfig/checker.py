@@ -1,5 +1,7 @@
 from mptconfig import constants
 from mptconfig.checker_helpers import HelperValidationRules
+from mptconfig.checker_helpers import NewValidationCsv
+from mptconfig.checker_helpers import NewValidationCsvCreator
 from mptconfig.constants import MAX_DIFF
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
@@ -7,6 +9,7 @@ from mptconfig.excel import ExcelSheetTypeChoices
 from mptconfig.excel import ExcelWriter
 from mptconfig.fews_utilities import FewsConfig
 from mptconfig.fews_utilities import xml_to_dict
+from mptconfig.idmapping_choices import IntLocChoices
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import is_unmeasured_location
@@ -32,16 +35,6 @@ logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None
 
 
-# TODO: validation_rule_check
-#  1) automatisch nieuwe validatie csvs opbouwen
-#   - mapping bouwen (bijv van H2.S.0 naar streef2)
-#   - nieuwe sorteren en dan lege regles onderaan zetten, want:
-#       1) FEWS vindt dat validatie csvs regels die >=1 waarde hebben gesorteerd moeten zijn
-#       2) voor Inke is het makkelijker als lege regels onderaan staan
-#  2) validatie perioden vandezelfde subloc mogen niet overlappen
-#  3) zijn STARTDATE en ENDDATE logisch? (tussen 1990 en NU)
-
-
 class MptConfigChecker:
     """Class to read, check and write a HDSR meetpuntconfiguratie.
     The main property of the class is 'self.results' which is:
@@ -61,6 +54,7 @@ class MptConfigChecker:
         self._psloc = None
         self._mpt_histtags = None
         self._mpt_histtags_new = None
+        self._validation_csvs_new = None
         self._fews_config = None
         self._ignored_ex_loc = None
         self._ignored_histtag = None
@@ -97,10 +91,10 @@ class MptConfigChecker:
         return self._histtags
 
     @property
-    def hoofdloc(self) -> constants.LocationSet:
+    def hoofdloc(self) -> constants.HoofdLocationSet:
         """Get HoofdLocationSet. The property .geo_df has eventually been updated."""
         if self._hoofdloc_new is not None:
-            assert self._hoofdloc and isinstance(self._hoofdloc, constants.LocationSet)
+            assert self._hoofdloc and isinstance(self._hoofdloc, constants.HoofdLocationSet)
             assert isinstance(self._hoofdloc_new, pd.DataFrame)
             self._hoofdloc._geo_df = self._hoofdloc_new
         if self._hoofdloc is not None:
@@ -109,28 +103,28 @@ class MptConfigChecker:
         return self._hoofdloc
 
     @property
-    def subloc(self) -> constants.LocationSet:
+    def subloc(self) -> constants.SubLocationSet:
         if self._subloc is not None:
             return self._subloc
         self._subloc = constants.SubLocationSet(fews_config=self.fews_config)
         return self._subloc
 
     @property
-    def waterstandloc(self) -> constants.LocationSet:
+    def waterstandloc(self) -> constants.WaterstandLocationSet:
         if self._waterstandloc is not None:
             return self._waterstandloc
         self._waterstandloc = constants.WaterstandLocationSet(fews_config=self.fews_config)
         return self._waterstandloc
 
     @property
-    def mswloc(self) -> constants.LocationSet:
+    def mswloc(self) -> constants.MswLocationSet:
         if self._mswloc is not None:
             return self._mswloc
         self._mswloc = constants.MswLocationSet(fews_config=self.fews_config)
         return self._mswloc
 
     @property
-    def psloc(self) -> constants.LocationSet:
+    def psloc(self) -> constants.PeilschaalLocationSet:
         if self._psloc is not None:
             return self._psloc
         self._psloc = constants.PeilschaalLocationSet(fews_config=self.fews_config)
@@ -200,6 +194,10 @@ class MptConfigChecker:
         self._mpt_histtags_new = mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=False)
         assert sorted(self._mpt_histtags_new.columns) == ["ENDDATE", "LOC_ID", "STARTDATE"]
         return self._mpt_histtags_new
+
+    @property
+    def validation_csvs_new(self) -> List[NewValidationCsv]:
+        return self._validation_csvs_new
 
     @property
     def ignored_ex_loc(self) -> pd.DataFrame:
@@ -314,18 +312,18 @@ class MptConfigChecker:
         df = gdf.drop("geometry", axis=1)
         return df
 
-    def _create_opvlwater_hoofdloc_csv_new(self) -> None:
+    def _write_new_opvlwater_hoofdloc_csv(self) -> None:
         """Write HoofdLocationSet.geo_df to csv. This .geo_df was eventually
         updated during check_s_loc_consistency() in _create_hoofdloc_new()."""
         if self._hoofdloc_new is None:
-            logger.warning(f"skipping {self.hoofdloc.name}.csv as hoofdloc was not updated")
+            logger.warning(f"skip creating {self.hoofdloc.name}.csv as hoofdloc was not updated")
             return
         logger.info(f"creating new csv {self.hoofdloc.name}")
         df = self._validate_geom(gdf=self.hoofdloc.geo_df)
         df = self._update_start_end_new_csv(df=df)
         self._df_to_csv(df=df, file_name=self.hoofdloc.name)
 
-    def _create_opvlwater_subloc_csv_new(self) -> None:
+    def _write_new_opvlwater_subloc_csv(self) -> None:
         """ Write SubLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.subloc.name}")
         df = self._validate_geom(gdf=self.subloc.geo_df)
@@ -338,7 +336,7 @@ class MptConfigChecker:
         # get existing fews config file name
         self._df_to_csv(df=df, file_name=self.subloc.name)
 
-    def _create_waterstandlocaties_csv_new(self) -> None:
+    def _write_new_waterstandlocaties_csv(self) -> None:
         """ Write WaterstandLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.waterstandloc.name}")
         df = self._validate_geom(gdf=self.waterstandloc.geo_df)
@@ -347,6 +345,12 @@ class MptConfigChecker:
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
         self._df_to_csv(df=df, file_name=self.waterstandloc.name)
+
+    def _write_new_validation_csvs(self) -> None:
+        for new_validation_csv in self.validation_csvs_new:
+            filename = new_validation_csv.orig_filepath.name
+            logger.info(f"creating new csv {filename}")
+            self._df_to_csv(df=new_validation_csv.df, file_name=filename)
 
     def _get_idmaps(self, idmap_files: List[str] = None) -> List[Dict]:
         """Get id mapping from 1 or more sources (xml files) and return them in a flatted list.
@@ -388,6 +392,81 @@ class MptConfigChecker:
             if not df.empty:
                 result[key] = df["PEILSCHAAL"].values[0]
         return result["HBOV"], result["HBEN"]
+
+    def check_idmap_int_loc_in_csv(self, sheet_name: str = "idmap int_loc in csv error") -> ExcelSheet:
+        """Check if IdOPVLWATER.xml int_locs are in correct (hoofdloc/subloc/ow) csv."""
+        description = (
+            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juist mpt csv (hoofd/sub/ow). "
+            "Int_low type wordt bepaald obv Int_low's OW/KW en laatste nummer."
+        )
+        logger.info(f"start {self.check_idmap_int_loc_in_csv.__name__} with sheet_name={sheet_name}")
+
+        idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
+        errors = {
+            "int_locs": [],
+            "error_type": [],
+        }
+        idmap_df = pd.DataFrame(data=idmaps)
+        idmap_df["is_ow"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_ow(x))
+        idmap_df["is_kw_hoofd"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_kw_hoofd(x))
+        idmap_df["is_kw_sub"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_kw_sub(x))
+        idmap_df["in_hoofd_csv"] = idmap_df["internalLocation"].isin(self.hoofdloc.geo_df["LOC_ID"])
+        idmap_df["in_sub_csv"] = idmap_df["internalLocation"].isin(self.subloc.geo_df["LOC_ID"])
+        idmap_df["in_ow_csv"] = idmap_df["internalLocation"].isin(self.waterstandloc.geo_df["LOC_ID"])
+        idmap_df["nr_in_a_csv"] = sum([idmap_df["in_hoofd_csv"], idmap_df["in_sub_csv"], idmap_df["in_ow_csv"]])
+
+        # check 1: not in csv at all
+        int_locs_not_in_csv = idmap_df[
+            (idmap_df["in_hoofd_csv"] == False)  # noqa
+            & (idmap_df["in_sub_csv"] == False)  # noqa
+            & (idmap_df["in_ow_csv"] == False)  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_not_in_csv:
+            errors["int_locs"] += int_locs_not_in_csv
+            errors["error_type"] += ["not in any csv"] * len(int_locs_not_in_csv)
+
+        # check 2: in multiple csvs
+        int_locs_in_multi_csv = idmap_df[idmap_df["nr_in_a_csv"] > 1]["internalLocation"].to_list()
+        if int_locs_in_multi_csv:
+            errors["int_locs"] += int_locs_in_multi_csv
+            errors["error_type"] += ["not in any csv"] * len(int_locs_in_multi_csv)
+
+        # check 3: ow in sub or hoofd csv
+        int_locs_ow_wrong = idmap_df[
+            (idmap_df["is_ow"] == True)  # noqa
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_sub_csv"] == True))  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_ow_wrong:
+            errors["int_locs"] += int_locs_ow_wrong
+            errors["error_type"] += ["ow in wrong csv"] * len(int_locs_ow_wrong)
+
+        # check 4: hoofd in sub or ow csv
+        int_locs_hoofd_wrong = idmap_df[
+            (idmap_df["is_kw_hoofd"] == True)  # noqa
+            & ((idmap_df["in_sub_csv"] == True) | (idmap_df["in_ow_csv"] == True))  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_hoofd_wrong:
+            errors["int_locs"] += int_locs_hoofd_wrong
+            errors["error_type"] += ["hoofd in wrong csv"] * len(int_locs_hoofd_wrong)
+
+        # check 5: sub in hoofd or ow csv
+        int_locs_sub_wrong = idmap_df[
+            (idmap_df["is_kw_sub"] == True)  # noqa
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_ow_csv"] == True))  # noqa
+        ]["internalLocation"].to_list()
+        if int_locs_sub_wrong:
+            errors["int_locs"] += int_locs_sub_wrong
+            errors["error_type"] += ["sub in wrong csv"] * len(int_locs_sub_wrong)
+
+        result_df = pd.DataFrame(data=errors)
+        if result_df.empty:
+            logger.info("all idmaps int_locs in correct csv")
+        else:
+            logger.warning(f"{len(result_df)} idmaps int_locs not in any/correct csv")
+        excel_sheet = ExcelSheet(
+            name=sheet_name, description=description, df=result_df, sheet_type=ExcelSheetTypeChoices.output_check
+        )
+        return excel_sheet
 
     def check_dates_loc_sets(self, sheet_name: str = "loc_set date errors") -> ExcelSheet:
         description = (
@@ -804,7 +883,8 @@ class MptConfigChecker:
         int_loc_description = "interne locaties in de idmap die niet zijn opgenomen in locatiesets"
 
         logger.info(
-            f"start {self.check_ex_par_errors_int_loc_missing.__name__} with 2 sheet_names={ex_par_sheet_name} and {int_loc_sheet_name}"
+            f"start {self.check_ex_par_errors_int_loc_missing.__name__} with 2 "
+            f"sheet_names={ex_par_sheet_name} and {int_loc_sheet_name}"
         )
 
         ex_par_errors = {
@@ -1046,8 +1126,7 @@ class MptConfigChecker:
                         int_loc for int_loc in int_locs if not bool(re.match(pattern=f"..{ex_loc}..$", string=int_loc))
                     ]
 
-            # TODO: @renier: what is backup if no self.ignored_ex_loc?
-            assert self.ignored_ex_loc is not None
+            assert self.ignored_ex_loc is not None, "this should not happen"
             if int(ex_loc) in self.ignored_ex_loc["externalLocation"].values:
                 int_loc_error = [
                     int_loc
@@ -1135,7 +1214,6 @@ class MptConfigChecker:
                 startdate_str = int_loc_df["START"].values[0]
                 enddate_str = int_loc_df["EIND"].values[0]
 
-                # TODO: verify with Roger: is it ok to skip check_timeseries_logic for unmeasured locations
                 if is_unmeasured_location(startdate=startdate_str, enddate=enddate_str):
                     continue
 
@@ -1241,7 +1319,12 @@ class MptConfigChecker:
         nog geen validatieregels voor Q.B
         """
 
-        # TODO: verify no overlapping validation periods for the same {in_loc, in_par} exists
+        # TODO: validation_rule_check
+        #  1) validatie perioden vandezelfde subloc mogen
+        #       - niet overlappen
+        #       - geen gaten
+        #  2) zijn constants.MIN_DATE_ALLOWED en constants.MAX_DATE_ALLOWED
+
         # Roger 'algemeen validatie csvs'
         # Inloc in validatie-CSV’s
         # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs
@@ -1348,7 +1431,19 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
+        new_csv_creator = NewValidationCsvCreator(
+            fews_config=self.fews_config,
+            hoofdloc=self.hoofdloc,
+            subloc=self.subloc,
+            waterstandloc=self.waterstandloc,
+            idmap_df=idmap_df,
+        )
+        self._validation_csvs_new = new_csv_creator.run()
+        # bad design.. but new_csv_creator.idmap_df is updated in the meantime..
+        idmap_df = new_csv_creator.idmap_df
+
         errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)
+
         result_df = pd.DataFrame(data=errors).drop_duplicates(keep="first", inplace=False)
         if len(result_df) == 0:
             logger.info("no missing incorrect validation rules")
@@ -1677,6 +1772,7 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
+        self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
         self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
         self.results.add_sheet(excelsheet=self.check_idmap_sections())
         self.results.add_sheet(excelsheet=self.check_ignored_histtags())
@@ -1708,6 +1804,7 @@ class MptConfigChecker:
         excel_writer.write()
 
         # write new csv files
-        self._create_opvlwater_hoofdloc_csv_new()
-        self._create_opvlwater_subloc_csv_new()
-        self._create_waterstandlocaties_csv_new()
+        self._write_new_opvlwater_hoofdloc_csv()
+        self._write_new_opvlwater_subloc_csv()
+        self._write_new_waterstandlocaties_csv()
+        self._write_new_validation_csvs()

@@ -28,16 +28,16 @@ S_WATERBALANS_WIS_CAW_DIR = S_DRIVE / "Waterbalans" / "_WIS_" / "caw"
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-
-# TODO: @ask roger: come up with better names
+# TODO: ask roger: veel locaties hebben start=19000101 en end=21000101 (bijv in validatie csv): dus
+#  start=STARTDATE_UNMEASURED_LOC, end=MAX_ENDDATE_MEASURED_LOC. Echter, dan klopt die naam van die
+#  dummy dates niet. Wat zijn betere namen?
 # sublocs without timeseries are unmeasered (in dutch 'onbemeten locaties') and have dummy dates
 STARTDATE_UNMEASURED_LOC = pd.Timestamp(year=1900, month=1, day=1)
 ENDDATE_UNMEASURED_LOC = pd.Timestamp(
-    year=2222, month=1, day=1
-)  # noqa 32101230 is not possible anymore as pd.Timestamp.max = '2262-04-11'
-ENDDATE_MEASURED_LOC = pd.Timestamp(year=2100, month=1, day=1)
-# TODO ask Roger: are MIN_DATE_ALLOWED and MAX_DATE_ALLOWED reasonable?
-MIN_DATE_ALLOWED = pd.Timestamp(year=1990, month=1, day=1)
+    year=2222, month=11, day=11
+)  # 32101230 is not possible anymore as pd.Timestamp.max = '2262-04-11'
+MAX_ENDDATE_MEASURED_LOC = pd.Timestamp(year=2100, month=1, day=1)
+MIN_DATE_ALLOWED = pd.Timestamp(year=1989, month=10, day=28)
 MAX_DATE_ALLOWED = pd.Timestamp.now()
 
 # TODO: come up with better name then 'MAX_DIFF' and move to constants
@@ -45,9 +45,14 @@ MAX_DIFF = pd.Timedelta(weeks=26)
 # 26 weken = 6 maanden
 # Bestaat dat meetpunt nog? Is het nog operationeel?
 # -	kijken naar alle gekoppelde tijdreeksen (startenddate) van dat punt
-# -	Roger geeft niet zomaar eindpunt aan een meetpunt (wellicht werkzaamheden aan meetpunt).
+# -	Roger geeft niet zomaar eindpunt aan een meetpunt (wellicht werkzaamheden aan meetpunt, nog steeds in renovatie?).
 #   Door schade en schande hanteert Roger nu 6 maanden geen tijdreeks?
 #   Na 6 maanden geen tijdreeks data meer ontvangen? Dan eindpunt toekennen.
+
+
+# als in idmapping tijdreeks voorkomt die niet in get_series_enddate voor komt
+# dat wat in S:\Waterbalans\_WIS_\caw\get_series_startenddate\CAW_mpt_startenddate\ too_much.csv staat
+# moet de checker ook ergens teruggeven
 
 
 class PathConstants(Enum):
@@ -107,6 +112,18 @@ class PathConstants(Enum):
         path=BASE_DIR / "data" / "input" / "ignored_xy.csv",
         description="CAW-locaties waarbij controle op consistente xy locatie in loc_set error wordt overgeslagen",
     )
+
+
+class SubLocTypeChoices(Enum):
+    pompvijzel = "pompvijzel"
+    krooshek = "krooshek"
+    stuw = "stuw"
+    totaal = "totaal"
+    vispassage = "vispassage"
+    schuif = "schuif"
+    debietmeter = "debietmeter"
+    overlaat = "overlaat"
+    afsluiter = "afsluiter"
 
 
 class LocationSet:
@@ -309,6 +326,7 @@ class SubLocationSet(LocationSet):
                 "parameter": "Q.G.",
                 "extreme_values": {"hmax": "Q_HMAX", "smax": "Q_SMAX", "smin": "Q_SMIN", "hmin": "Q_HMIN"},
             },
+            # TODO: add krooshek
         ]
 
 
@@ -432,7 +450,7 @@ SECTION_TYPE_PREFIX_MAPPER = {
 
 EXTERNAL_PARAMETERS_ALLOWED = {
     "pompvijzel": ["FQ.$", "I.B$", "IB.$", "I.H$", "IH.$", "I.L$", "IL.$", "Q.$", "TT.$"],
-    "stuw": ["SW.$", "Q.$", "ES.$"],
+    "stuw": ["SW.$", "Q.$"],
     "schuif": ["ES.$", "SP.$", "SS.$", "Q.$", "SM.$"],
     "afsluiter": ["ES.$"],
     "debietmeter": ["Q.$"],
@@ -441,42 +459,149 @@ EXTERNAL_PARAMETERS_ALLOWED = {
     "waterstand": ["HB.$", "HO.$", "H.$"],
 }
 
+
+class ValidationCsvChoices(Enum):
+    oppvlwater_kunstvalidatie_debiet = "oppvlwater_kunstvalidatie_debiet"
+    oppvlwater_watervalidatie = "oppvlwater_watervalidatie"
+    oppvlwater_kunstvalidatie_kroos = "oppvlwater_kunstvalidatie_kroos"
+    oppvlwater_kunstvalidatie_freq = "oppvlwater_kunstvalidatie_freq"
+    oppvlwater_kunstvalidatie_hefh = "oppvlwater_kunstvalidatie_hefh"
+    oppvlwater_kunstvalidatie_kruinh = "oppvlwater_kunstvalidatie_kruinh"
+    oppvlwater_kunstvalidatie_schuifp = "oppvlwater_kunstvalidatie_schuifp"
+    oppvlwater_kunstvalidatie_schuifp2 = "oppvlwater_kunstvalidatie_schuifp2"
+    oppvlwater_kunstvalidatie_streef1 = "oppvlwater_kunstvalidatie_streef1"
+    oppvlwater_kunstvalidatie_streef2 = "oppvlwater_kunstvalidatie_streef2"
+    oppvlwater_kunstvalidatie_streef3 = "oppvlwater_kunstvalidatie_streef3"
+    oppvlwater_kunstvalidatie_stuur1 = "oppvlwater_kunstvalidatie_stuur1"
+    oppvlwater_kunstvalidatie_stuur2 = "oppvlwater_kunstvalidatie_stuur2"
+    oppvlwater_kunstvalidatie_stuur3 = "oppvlwater_kunstvalidatie_stuur3"
+    oppvlwater_kunstvalidatie_toert = "oppvlwater_kunstvalidatie_toert"
+
+    @classmethod
+    def get_validation_csv_name(cls, int_par: str, loc_type: str) -> str:
+        match = [
+            int_par_regex
+            for int_par_regex in INTPAR_2_VALIDATION_CSV.keys()
+            if re.match(pattern=int_par_regex, string=int_par)
+        ]
+        if not match:
+            logger.debug(f"no validation csv found: int_par={int_par} not in INTPAR_2_VALIDATION_CSV.keys")
+            return ""
+        assert len(match) == 1
+        mapper = INTPAR_2_VALIDATION_CSV[match[0]]
+        filename = mapper.get(loc_type, None)
+        if not filename:
+            logger.debug(
+                f"no validation csv found: int_par={int_par} has only loc_types={mapper.keys()}, no {loc_type}"
+            )
+        return filename
+
+
+INTPAR_2_VALIDATION_CSV = {
+    "H.G.": {
+        "waterstand": ValidationCsvChoices.oppvlwater_watervalidatie.value,
+        "krooshek": ValidationCsvChoices.oppvlwater_kunstvalidatie_kroos.value,
+    },
+    "Hh.": {
+        "schuif": ValidationCsvChoices.oppvlwater_kunstvalidatie_hefh.value,
+        "vispassage": ValidationCsvChoices.oppvlwater_kunstvalidatie_hefh.value,
+    },
+    "Q.G.": {
+        # we only validate it for debietmeters (not schuif, vispassage, pompvijzel, stuw)
+        "debietmeter": ValidationCsvChoices.oppvlwater_kunstvalidatie_debiet.value
+    },
+    "F.": {"pompvijzel": ValidationCsvChoices.oppvlwater_kunstvalidatie_freq.value},
+    "Hk.": {"stuw": ValidationCsvChoices.oppvlwater_kunstvalidatie_kruinh.value},
+    "POS.": {"schuif": ValidationCsvChoices.oppvlwater_kunstvalidatie_schuifp.value},
+    "POS2.": {"schuif": ValidationCsvChoices.oppvlwater_kunstvalidatie_schuifp2.value},
+    "H.S.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_streef1.value},
+    "H2.S.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_streef2.value},
+    "H3.S.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_streef3.value},
+    "H.R.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_stuur1.value},
+    "H2.R.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_stuur2.value},
+    "H3.R.": {"waterstand": ValidationCsvChoices.oppvlwater_kunstvalidatie_stuur3.value},
+    "TT.": {"pompvijzel": ValidationCsvChoices.oppvlwater_kunstvalidatie_toert.value},
+}
+
+
+"""
+{"internal": "DD.", "external": "I.B"}, --> wordt niet gevalideerd
+{"internal": "DDH.", "external": "I.H"}, --> wordt niet gevalideerd
+{"internal": "DDL.", "external": "I.L"}, --> wordt niet gevalideerd
+{"internal": "ES.", "external": "ES."}, --> wordt niet gevalideerd, want 0/1
+{"internal": "ES2.", "external": "ES."}, --> wordt niet gevalideerd, want 0/1
+# {"internal": "F.", "external": "FQ."},
+{"internal": "H.G.", "external": "HG"}, --> moet bij krooshek
+{"internal": "H.G.", "external": "HB."},  --> moet bij krooshek
+{"internal": "H.G.", "external": "HO."}, --> moet bij krooshek
+# {"internal": "H.S.", "external": "HS."},
+# {"internal": "H.R.", "external": "HR."},
+# {"internal": "H2.R.", "external": "HR."},
+# {"internal": "H2.S.", "external": "HS."},
+# {"internal": "H3.R.", "external": "HR."},
+# {"internal": "H3.S.", "external": "HS."},
+{"internal": "Hastr.", "external": "HA"}, # noqa astronomisch peil (komt bij MSW 1x voor), msw reeks wordt niet gevalideerd, want externe reeks
+# {"internal": "Hh.", "external": "SM."},
+# {"internal": "Hh.", "external": "SS."},
+# {"internal": "Hk.", "external": "SW."},
+{"internal": "IB.", "external": "IB."}, --> wordt niet gevalideerd, want 0/1
+{"internal": "IBH.", "external": "IH."}, --> wordt niet gevalideerd, want 0/1
+{"internal": "IBL.", "external": "IL."}, --> wordt niet gevalideerd, want 0/1
+# {"internal": "POS.", "external": "SP."},
+# {"internal": "POS2.", "external": "SP."},
+{"internal": "Q.G.", "external": "Q."}, # noqa debiet CAW beschouwen we in wis als .. (in kunstvalidatie_debiet.csv staan alleen debietmeters!)
+{"internal": "Q.R.", "external": "QR1"},
+{"internal": "Q.S.", "external": "QS1"},
+{"internal": "Q2.R.", "external": "QR2"},
+{"internal": "Q2.S.", "external": "QS2"},
+{"internal": "Q3.R.", "external": "QR3"},
+{"internal": "Q3.S.", "external": "QS3"},
+{"internal": "Qipcl.G.", "external": "Q."},
+# {"internal": "TT.", "external": "TT."},
+{"internal": "WR.", "external": "WR"}, --> windrichting wordt niet gevalideerd
+{"internal": "WS.", "external": "WS"}, --> windsnelheid wordt niet gevalideerd
+"""
+
+
 PARAMETER_MAPPING = [
-    {"internal": "DD.", "external": "I.B"},
-    {"internal": "DDH.", "external": "I.H"},
-    {"internal": "DDL.", "external": "I.L"},
-    {"internal": "ES.", "external": "ES."},
+    {"internal": "DD.", "external": "I.B"},  # DD = draaiduur
+    {"internal": "DDH.", "external": "I.H"},  # DDH = draaiduur hoogtoeren
+    {"internal": "DDL.", "external": "I.L"},  # DDL = draaiduur laagtoeren
+    {"internal": "ES.", "external": "ES."},  # ES = eindstand neer (0/1)
     {"internal": "ES2.", "external": "ES."},
-    {"internal": "F.", "external": "FQ."},
-    {"internal": "H.G.", "external": "HG"},
-    {"internal": "H.G.", "external": "HB."},
-    {"internal": "H.G.", "external": "HO."},
-    {"internal": "H.S.", "external": "HS."},
-    {"internal": "H.R.", "external": "HR."},
+    {"internal": "F.", "external": "FQ."},  # Frequentie regelaar
+    {"internal": "H.G.", "external": "HG"},  # HG= gemeten peil
+    {"internal": "H.G.", "external": "HB."},  # HB = bovenpeil
+    {"internal": "H.G.", "external": "HO."},  # HO = benedenpeil
+    {"internal": "H.S.", "external": "HS."},  # HS = streef peil
+    {"internal": "H.R.", "external": "HR."},  # HR = stuur peil (regel peil)
     {"internal": "H2.R.", "external": "HR."},
     {"internal": "H2.S.", "external": "HS."},
     {"internal": "H3.R.", "external": "HR."},
     {"internal": "H3.S.", "external": "HS."},
     {"internal": "Hastr.", "external": "HA"},
-    {"internal": "Hh.", "external": "SM."},
-    {"internal": "Hh.", "external": "SS."},
-    {"internal": "Hk.", "external": "SW."},
-    {"internal": "IB.", "external": "IB."},
-    {"internal": "IBH.", "external": "IH."},
-    {"internal": "IBL.", "external": "IL."},
-    {"internal": "POS.", "external": "SP."},
+    {"internal": "Hh.", "external": "SM."},  # Hh=Hefhoogte, SM = schuifstand (m tov onderkant of bovenkant oid)
+    {"internal": "Hh.", "external": "SS."},  # Hh=Hefhoogte, SS = schuifstand (mNAP)
+    {"internal": "Hk.", "external": "SW."},  # Hk = hoogte kruin, SW = stuwstand (w van weir: ‘SS’ kan natuurlijk niet)
+    {"internal": "IB.", "external": "IB."},  # IB = in bedrijf
+    {"internal": "IBH.", "external": "IH."},  # IBH = in bedrijf hoogtoeren
+    {"internal": "IBL.", "external": "IL."},  # IBL = in bedrijf laagtoeren
+    {"internal": "POS.", "external": "SP."},  # POS = openingspercentage schuif, SP=Schuifstand
     {"internal": "POS2.", "external": "SP."},
-    {"internal": "Q.G.", "external": "Q."},
-    {"internal": "Q.R.", "external": "QR1"},
-    {"internal": "Q.S.", "external": "QS1"},
+    {"internal": "Q.G.", "external": "Q."},  # QG = gemeten debiet
+    {"internal": "Q.R.", "external": "QR1"},  # QR = stuur debiet
+    {"internal": "Q.S.", "external": "QS1"},  # QS = streef debiet
     {"internal": "Q2.R.", "external": "QR2"},
     {"internal": "Q2.S.", "external": "QS2"},
     {"internal": "Q3.R.", "external": "QR3"},
     {"internal": "Q3.S.", "external": "QS3"},
-    {"internal": "Qipcl.G.", "external": "Q."},
-    {"internal": "TT.", "external": "TT."},
-    {"internal": "WR.", "external": "WR"},
-    {"internal": "WS.", "external": "WS"},
+    {
+        "internal": "Qipcl.G.",
+        "external": "Q.",
+    },  # noqa Qipcl.G = gemeten Intern PLC debiet (vorige CAW systeem, debiet werd toen niet op onderstation berekend op een paar uitzondering na: en dat noemde men intern PLC
+    {"internal": "TT.", "external": "TT."},  # TT = toerental
+    {"internal": "WR.", "external": "WR"},  # Windrichting
+    {"internal": "WS.", "external": "WS"},  # Windsnelheid
 ]
 
 

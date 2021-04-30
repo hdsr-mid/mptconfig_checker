@@ -1,5 +1,7 @@
 from mptconfig import constants
 from mptconfig.fews_utilities import FewsConfig
+from mptconfig.idmapping_choices import IntLocChoices
+from mptconfig.utils import equal_dataframes
 from pathlib import Path
 from typing import Dict
 from typing import List
@@ -13,6 +15,131 @@ logger = logging.getLogger(__name__)
 
 
 PandasDFGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")  # noqa
+
+
+class NewValidationCsv:
+    def __init__(self, orig_filepath: Path, df: pd.DataFrame):
+        self.orig_filepath = orig_filepath
+        self.df = df
+        self.validate_constructor()
+
+    def validate_constructor(self):
+        assert isinstance(self.orig_filepath, Path)
+        assert self.orig_filepath.is_file()
+        assert isinstance(self.df, pd.DataFrame)
+        orig_df = pd.read_csv(
+            filepath_or_buffer=self.orig_filepath,
+            sep=None,
+            engine="python",
+        )
+        assert not self.df.empty
+        assert not equal_dataframes(expected_df=self.df, test_df=orig_df)
+
+
+class NewValidationCsvCreator:
+    def __init__(
+        self,
+        fews_config: FewsConfig,
+        hoofdloc: constants.HoofdLocationSet,
+        subloc: constants.SubLocationSet,
+        waterstandloc: constants.WaterstandLocationSet,
+        idmap_df: pd.DataFrame,
+    ):
+        self.fews_config = fews_config
+        self.hoofdloc = hoofdloc
+        self.subloc = subloc
+        self.waterstandloc = waterstandloc
+        self.idmap_df = idmap_df
+        assert "is_in_a_validation" in self.idmap_df.columns
+        self.ensure_config_matches_constants()
+
+    def ensure_config_matches_constants(self) -> None:
+        """Ensure that config has same validation csv names as define in constants. """
+        config_validation_csv_filenames = [x for x in self.fews_config.MapLayerFiles.keys() if "validatie" in x]
+        expected_validation_csv_filenames = [x.value for x in constants.ValidationCsvChoices]
+        too_few = set(expected_validation_csv_filenames).difference(set(config_validation_csv_filenames))
+        assert not too_few, f"too few validation csvs found in config {too_few}"
+
+    def __get_int_loc_row_from_hoofd_sub_ow_loc_set(self, int_loc: str) -> pd.Series:
+        row = None
+        for loc_set_df in (self.hoofdloc.geo_df, self.subloc.geo_df, self.waterstandloc.geo_df):
+            int_loc_df = loc_set_df[loc_set_df["LOC_ID"] == int_loc]
+            if int_loc_df.empty:
+                continue
+            if row:
+                logger.error(f"we expected only 1 row for int_loc {int_loc} in all mpt csvs. Returnng last found")
+            row = int_loc_df
+        return row
+
+    def get_new_csv_data(self) -> pd.DataFrame:
+        """Gather new validation csv data: filename, int_loc, startdate, enddate for location sets. """
+        self.idmap_df["added_to_new_validation"] = False
+        row_collector = []
+        df_new_validation_rows = None
+        for idx, row in self.idmap_df.iterrows():
+            if row["is_in_a_validation"]:
+                continue
+            row_int_loc = row["internalLocation"]
+            row_int_par = row["internalParameter"]
+            loc_set_row = self.__get_int_loc_row_from_hoofd_sub_ow_loc_set(int_loc=row_int_loc)
+            if loc_set_row:
+                self.idmap_df["is_in_a_mpt_csv"][idx] = True
+                loc_type = row["TYPE"]
+                startdate = row["STARTDATE"]
+                enddate = row["ENDDATE"]
+            else:
+                if not IntLocChoices.is_ow(row_int_loc):
+                    logger.debug(f"no validation csv for int_loc={row_int_loc}, int_par={row_int_par}")
+                    continue
+                loc_type = "waterstand"
+                startdate = constants.STARTDATE_UNMEASURED_LOC
+                enddate = constants.MAX_ENDDATE_MEASURED_LOC
+            filename = constants.ValidationCsvChoices.get_validation_csv_name(int_par=row_int_par, loc_type=loc_type)
+            if not filename:
+                continue
+            self.idmap_df["added_to_new_validation"][idx] = True
+            row_collector.append(
+                {"filename": filename, "int_loc": row_int_loc, "startdate": startdate, "enddate": enddate}
+            )
+            df_new_validation_rows = pd.DataFrame(data=row_collector)
+        df_new_validation_rows.drop_duplicates(keep="first", inplace=True)
+        return df_new_validation_rows
+
+    def run(self) -> List[NewValidationCsv]:
+        """Argument 'df_new_validation_rows' contains all new rows for ALL validation csvs. Here we concatenate
+        each row to the correct validation csv."""
+        LOC_ID = "LOC_ID"
+        STARTDATE = "STARTDATE"
+        ENDDATE = "ENDDATE"
+        collector = []
+        df_new_validation_rows = self.get_new_csv_data()
+        grouped_df = df_new_validation_rows.groupby("filename")
+        for filename, filename_group in grouped_df:
+            if filename_group.empty:
+                continue
+            file_path = self.fews_config.MapLayerFiles[filename]
+            logger.debug(f"adding {len(filename_group)} rows to {file_path.name}")
+            df = pd.read_csv(
+                filepath_or_buffer=file_path,
+                sep=None,
+                engine="python",
+            )
+            assert (LOC_ID and STARTDATE and STARTDATE) in df.columns
+            df.sort_values(by=list(df.columns), ascending=True, inplace=True)
+            # add empty new rows to csv bottom
+            for idx, row in filename_group.iterrows():
+                df = df.append(
+                    other={
+                        LOC_ID: row.int_loc,
+                        STARTDATE: row.startdate.strftime("%Y%m%d"),
+                        ENDDATE: row.enddate.strftime("%Y%m%d"),
+                    },
+                    ignore_index=True,
+                )
+
+            new_csv = NewValidationCsv(orig_filepath=file_path, df=df)
+            collector.append(new_csv)
+        return collector
 
 
 class HelperValidationRules:
@@ -37,7 +164,6 @@ class HelperValidationRules:
             int_loc_group = idmap_df_grouped_by_intloc.get_group(name=int_loc)
             int_pars = sorted(int_loc_group["internalParameter"].unique().tolist())
         except KeyError:
-
             int_pars = []
         return int_pars
 
@@ -46,12 +172,19 @@ class HelperValidationRules:
         for idx, row in idmap_df.iterrows():
             if row["is_in_a_validation"]:
                 continue
+            if row["added_to_new_validation"]:
+                errors["error_type"] = "not in any validation csv. Added to new csv"
+                description = ""
+            else:
+                errors["error_type"] = "not in any validation csv. Not added to new csv"
+                description = "please add manually"
             errors["internalLocation"] += [row["internalLocation"]]
             errors["start"] += [""]
             errors["eind"] += [""]
             errors["internalParameters"] += [row["internalParameter"]]
-            errors["error_type"] += ["not in any validation csv"]
-            errors["error_description"] += [f'exloc={row["externalLocation"]}, expar={row["externalParameter"]}']
+            errors["error_description"] += [
+                f'{description}: exloc={row["externalLocation"]}, expar={row["externalParameter"]}'
+            ]
         return errors
 
     @classmethod
@@ -206,12 +339,6 @@ class HelperValidationRules:
             join_id = attrib_file["id"].replace("%", "")
             attrib_df.rename(columns={join_id: "LOC_ID"}, inplace=True)
 
-            # TODO: ask roger which validation csvs must have unique LOC_ID? No csv at all right?
-            #  Moreover, unique_together is {LOC_ID, STARTDATE, ENDDATE} right?
-            # if not attrib_df["LOC_ID"].is_unique:
-            #     logger.warning(f"LOC_ID is not unique in {attrib_file_name}")
-            # TODO: check dates somewhere else (separate check?): validation_rules may eg not overlap (1 KW can have
-            #  >1 validation_rule with own period.
             assert "END" not in attrib_df.columns, f"expected EIND, not END... {csv_file_path}"
             if ("START" and "EIND") in attrib_df.columns:
                 not_okay = attrib_df[pd.to_datetime(attrib_df["EIND"]) <= pd.to_datetime(attrib_df["START"])]
