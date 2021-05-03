@@ -26,7 +26,7 @@ None
 All contributions, bug reports, bug fixes, documentation improvements, enhancements and ideas are
 welcome on https://github.com/hdsr-mid/mptconfig_checker/issues
 
-### Test Coverage (9-4-2021)
+### Test Coverage (May-4-2021)
 most of the tests are integration tests (since lack of time): 
 the checker is tested against two FEWS configs (see mptconfig/tests/fixtures.py)
 )
