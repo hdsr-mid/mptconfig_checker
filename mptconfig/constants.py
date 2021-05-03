@@ -20,23 +20,24 @@ BASE_DIR = Path(__file__).parent.parent
 assert BASE_DIR.name == "mptconfig_checker"
 
 # do not change these paths
-D_DRIVE = Path("D:")
-S_DRIVE = Path("S:")
+D_DRIVE = Path("D:/")
+S_DRIVE = Path("S:/")
 S_WATERBALANS_WIS_CAW_DIR = S_DRIVE / "Waterbalans" / "_WIS_" / "caw"
 
 
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# TODO: ask roger: veel locaties hebben start=19000101 en end=21000101 (bijv in validatie csv): dus
-#  start=STARTDATE_UNMEASURED_LOC, end=MAX_ENDDATE_MEASURED_LOC. Echter, dan klopt die naam van die
-#  dummy dates niet. Wat zijn betere namen?
 # sublocs without timeseries are unmeasered (in dutch 'onbemeten locaties') and have dummy dates
 STARTDATE_UNMEASURED_LOC = pd.Timestamp(year=1900, month=1, day=1)
 ENDDATE_UNMEASURED_LOC = pd.Timestamp(
     year=2222, month=11, day=11
 )  # 32101230 is not possible anymore as pd.Timestamp.max = '2262-04-11'
 MAX_ENDDATE_MEASURED_LOC = pd.Timestamp(year=2100, month=1, day=1)
+
+MIN_STARTDATE_VALIDATION = pd.Timestamp(year=1900, month=1, day=1)
+MAX_ENDDATE_VALIDATION = pd.Timestamp(year=2100, month=1, day=1)
+
 MIN_DATE_ALLOWED = pd.Timestamp(year=1989, month=10, day=28)
 MAX_DATE_ALLOWED = pd.Timestamp.now()
 
