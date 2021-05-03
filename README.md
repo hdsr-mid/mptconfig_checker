@@ -4,6 +4,7 @@ A python project that:
 * complements the configuration's locationsets attributes;
 * outputs 1 excel_file with multiple sheets, each sheet containing the results of 1 check;
 * outputs a new csvs: waterstandlocaties, sublocaties, and eventually hoofdlocaties (if sublocations holds no errors).
+* outputs eventually new validation csv (added missing internal locations)
 
 ### Usage
 1. define all paths in class PathConstants in mptconfig_checker/mptconfig/constants
