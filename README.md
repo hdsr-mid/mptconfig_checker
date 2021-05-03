@@ -30,20 +30,22 @@ most of the tests are integration tests (since lack of time):
 the checker is tested against two FEWS configs (see mptconfig/tests/fixtures.py)
 )
 ```
----------- coverage: platform win32, python 3.7.10-final-0
-Name                          Stmts   Miss  Cover
--------------------------------------------------
-main.py                          32     32     0%
-mptconfig\__init__.py             0      0   100%
-mptconfig\checker.py            839    153    82%
-mptconfig\constants.py          187     23    88%
-mptconfig\description.py          0      0   100%
-mptconfig\excel.py              183     96    48%
-mptconfig\fews_utilities.py     170     28    84%
-mptconfig\utils.py               55     22    60%
-setup.py                         10     10     0%
--------------------------------------------------
-TOTAL                          1476    364    75%
+---------- coverage: platform win32, python 3.7.10-final-0 ---
+Name                             Stmts   Miss  Cover
+----------------------------------------------------
+main.py                             32     32     0%
+mptconfig\__init__.py                0      0   100%
+mptconfig\checker.py               944    212    78%
+mptconfig\checker_helpers.py       204     39    81%
+mptconfig\constants.py             238     34    86%
+mptconfig\description.py             0      0   100%
+mptconfig\excel.py                 184     97    47%
+mptconfig\fews_utilities.py        170     28    84%
+mptconfig\idmapping_choices.py      45      8    82%
+mptconfig\utils.py                  92     35    62%
+setup.py                            10     10     0%
+----------------------------------------------------
+TOTAL                             1919    495    74%
 ```
 
 

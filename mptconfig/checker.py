@@ -396,7 +396,7 @@ class MptConfigChecker:
     def check_idmap_int_loc_in_csv(self, sheet_name: str = "idmap int_loc in csv error") -> ExcelSheet:
         """Check if IdOPVLWATER.xml int_locs are in correct (hoofdloc/subloc/ow) csv."""
         description = (
-            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juist mpt csv (hoofd/sub/ow). "
+            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juiste mpt csv (hoofd/sub/ow). "
             "Int_low type wordt bepaald obv Int_low's OW/KW en laatste nummer."
         )
         logger.info(f"start {self.check_idmap_int_loc_in_csv.__name__} with sheet_name={sheet_name}")
@@ -410,53 +410,72 @@ class MptConfigChecker:
         idmap_df["is_ow"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_ow(x))
         idmap_df["is_kw_hoofd"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_kw_hoofd(x))
         idmap_df["is_kw_sub"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_kw_sub(x))
+        idmap_df["is_msw"] = idmap_df["internalLocation"].apply(func=lambda x: IntLocChoices.is_msw(x))
+        # hoofd locations are in oppvlwater_hoofdloc.csv
         idmap_df["in_hoofd_csv"] = idmap_df["internalLocation"].isin(self.hoofdloc.geo_df["LOC_ID"])
+        # sub locations are in oppvlwater_subloc.csv
         idmap_df["in_sub_csv"] = idmap_df["internalLocation"].isin(self.subloc.geo_df["LOC_ID"])
+        # ow locations are in oppvlwater_waterstanden.csv
         idmap_df["in_ow_csv"] = idmap_df["internalLocation"].isin(self.waterstandloc.geo_df["LOC_ID"])
-        idmap_df["nr_in_a_csv"] = sum([idmap_df["in_hoofd_csv"], idmap_df["in_sub_csv"], idmap_df["in_ow_csv"]])
+        # msw locations are in msw_stations.csv
+        idmap_df["in_msw_csv"] = idmap_df["internalLocation"].isin(self.mswloc.geo_df["LOC_ID"])
+        idmap_df["nr_in_a_csv"] = sum(
+            [idmap_df["in_hoofd_csv"], idmap_df["in_sub_csv"], idmap_df["in_ow_csv"], idmap_df["in_msw_csv"]]
+        )
 
         # check 1: not in csv at all
-        int_locs_not_in_csv = idmap_df[
-            (idmap_df["in_hoofd_csv"] == False)  # noqa
-            & (idmap_df["in_sub_csv"] == False)  # noqa
-            & (idmap_df["in_ow_csv"] == False)  # noqa
-        ]["internalLocation"].to_list()
-        if int_locs_not_in_csv:
-            errors["int_locs"] += int_locs_not_in_csv
-            errors["error_type"] += ["not in any csv"] * len(int_locs_not_in_csv)
+        df1 = idmap_df[idmap_df["nr_in_a_csv"] == 0]
+        if not df1.empty:
+            int_locs_not_in_any_csv = df1["internalLocation"].to_list()
+            errors["int_locs"] += int_locs_not_in_any_csv
+            errors["error_type"] += ["not in any csv"] * len(int_locs_not_in_any_csv)
 
         # check 2: in multiple csvs
-        int_locs_in_multi_csv = idmap_df[idmap_df["nr_in_a_csv"] > 1]["internalLocation"].to_list()
-        if int_locs_in_multi_csv:
+        df2 = idmap_df[idmap_df["nr_in_a_csv"] > 1]
+        if not df2.empty:
+            int_locs_in_multi_csv = df2["internalLocation"].to_list()
             errors["int_locs"] += int_locs_in_multi_csv
-            errors["error_type"] += ["not in any csv"] * len(int_locs_in_multi_csv)
+            errors["error_type"] += ["in multiple csvs"] * len(int_locs_in_multi_csv)
 
-        # check 3: ow in sub or hoofd csv
-        int_locs_ow_wrong = idmap_df[
-            (idmap_df["is_ow"] == True)  # noqa
-            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_sub_csv"] == True))  # noqa
-        ]["internalLocation"].to_list()
-        if int_locs_ow_wrong:
-            errors["int_locs"] += int_locs_ow_wrong
-            errors["error_type"] += ["ow in wrong csv"] * len(int_locs_ow_wrong)
-
-        # check 4: hoofd in sub or ow csv
-        int_locs_hoofd_wrong = idmap_df[
+        # check 3: hoofd in sub/ow/msw csv
+        df3 = idmap_df[
             (idmap_df["is_kw_hoofd"] == True)  # noqa
-            & ((idmap_df["in_sub_csv"] == True) | (idmap_df["in_ow_csv"] == True))  # noqa
-        ]["internalLocation"].to_list()
-        if int_locs_hoofd_wrong:
+            & ((idmap_df["in_sub_csv"] == True) | (idmap_df["in_ow_csv"] == True) | (idmap_df["in_msw_csv"] == True))
+        ]
+        if not df3.empty:
+            int_locs_hoofd_wrong = df3["internalLocation"].to_list()
             errors["int_locs"] += int_locs_hoofd_wrong
             errors["error_type"] += ["hoofd in wrong csv"] * len(int_locs_hoofd_wrong)
 
-        # check 5: sub in hoofd or ow csv
-        int_locs_sub_wrong = idmap_df[
+        # check 4: sub in hoofd/ow/msw csv
+        df4 = idmap_df[
             (idmap_df["is_kw_sub"] == True)  # noqa
-            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_ow_csv"] == True))  # noqa
-        ]["internalLocation"].to_list()
-        if int_locs_sub_wrong:
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_ow_csv"] == True) | (idmap_df["in_msw_csv"] == True))
+        ]
+        if not df4.empty:
+            int_locs_sub_wrong = df4["internalLocation"].to_list()
             errors["int_locs"] += int_locs_sub_wrong
             errors["error_type"] += ["sub in wrong csv"] * len(int_locs_sub_wrong)
+
+        # check 5: ow in hoofd/sub/msw csv
+        df5 = idmap_df[
+            (idmap_df["is_ow"] == True)  # noqa
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_sub_csv"] == True) | (idmap_df["in_msw_csv"] == True))
+        ]
+        if not df5.empty:
+            int_locs_ow_wrong = df5["internalLoctation"].to_list()
+            errors["int_locs"] += int_locs_ow_wrong
+            errors["error_type"] += ["ow in wrong csv"] * len(int_locs_ow_wrong)
+
+        # check 6: msw in hoofd/sub/ow csv
+        df6 = idmap_df[
+            (idmap_df["is_msw"] == True)  # noqa
+            & ((idmap_df["in_hoofd_csv"] == True) | (idmap_df["in_sub_csv"] == True) | (idmap_df["in_ow_csv"] == True))
+        ]
+        if not df6.empty:
+            int_locs_msw_wrong = df6["internalLocation"].to_list()
+            errors["int_locs"] += int_locs_msw_wrong
+            errors["error_type"] += ["msw in wrong csv"] * len(int_locs_msw_wrong)
 
         result_df = pd.DataFrame(data=errors)
         if result_df.empty:
@@ -1431,6 +1450,7 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
+        # TODO: start end nieuwe validatie regel moet altijd 1900, end altijd 2100
         new_csv_creator = NewValidationCsvCreator(
             fews_config=self.fews_config,
             hoofdloc=self.hoofdloc,

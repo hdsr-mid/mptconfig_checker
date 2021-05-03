@@ -75,7 +75,6 @@ class NewValidationCsvCreator:
         """Gather new validation csv data: filename, int_loc, startdate, enddate for location sets. """
         self.idmap_df["added_to_new_validation"] = False
         row_collector = []
-        df_new_validation_rows = None
         for idx, row in self.idmap_df.iterrows():
             if row["is_in_a_validation"]:
                 continue
@@ -85,23 +84,24 @@ class NewValidationCsvCreator:
             if loc_set_row:
                 self.idmap_df["is_in_a_mpt_csv"][idx] = True
                 loc_type = row["TYPE"]
-                startdate = row["STARTDATE"]
-                enddate = row["ENDDATE"]
             else:
                 if not IntLocChoices.is_ow(row_int_loc):
                     logger.debug(f"no validation csv for int_loc={row_int_loc}, int_par={row_int_par}")
                     continue
                 loc_type = "waterstand"
-                startdate = constants.STARTDATE_UNMEASURED_LOC
-                enddate = constants.MAX_ENDDATE_MEASURED_LOC
             filename = constants.ValidationCsvChoices.get_validation_csv_name(int_par=row_int_par, loc_type=loc_type)
             if not filename:
                 continue
             self.idmap_df["added_to_new_validation"][idx] = True
             row_collector.append(
-                {"filename": filename, "int_loc": row_int_loc, "startdate": startdate, "enddate": enddate}
+                {
+                    "filename": filename,
+                    "int_loc": row_int_loc,
+                    "startdate": constants.MIN_STARTDATE_VALIDATION,
+                    "enddate": constants.MAX_ENDDATE_VALIDATION,
+                }
             )
-            df_new_validation_rows = pd.DataFrame(data=row_collector)
+        df_new_validation_rows = pd.DataFrame(data=row_collector)
         df_new_validation_rows.drop_duplicates(keep="first", inplace=True)
         return df_new_validation_rows
 
@@ -113,6 +113,9 @@ class NewValidationCsvCreator:
         ENDDATE = "ENDDATE"
         collector = []
         df_new_validation_rows = self.get_new_csv_data()
+        if df_new_validation_rows.empty:
+            logger.debug("no new validation files to create")
+            return []
         grouped_df = df_new_validation_rows.groupby("filename")
         for filename, filename_group in grouped_df:
             if filename_group.empty:
