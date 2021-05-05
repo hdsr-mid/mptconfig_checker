@@ -665,7 +665,7 @@ class MptConfigChecker:
         idmap_files: List[str] = None,
     ) -> ExcelSheet:
         """Check if ignored histTags do match with idmap."""
-        description = "hisTags uit de histTag_ignore die wél in de idmaps zijn opgenomen"
+        description = "hisTags uit de ignored_histtag moeten niet in de idmaps zijn opgenomen"
         logger.info(f"start {self.check_ignored_histtags.__name__} with sheet_name={sheet_name}")
         assert isinstance(idmap_files, List) if idmap_files else True, "idmap_files must be a List"
         if not idmap_files:
@@ -691,8 +691,6 @@ class MptConfigChecker:
         #     f"unexpected: nr_rows_gte_one_loc_id={nr_wrong}, "
         #     f"example: serie={example.serie}, fews_locid={example.fews_locid}"
         # )
-        # T
-
         histtags_opvlwater_df = histtags_opvlwater_df[histtags_opvlwater_df["fews_locid"].notna()]
         result_df = self.ignored_histtag[
             self.ignored_histtag["UNKNOWN_SERIE"].isin(values=histtags_opvlwater_df["serie"])
