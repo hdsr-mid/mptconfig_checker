@@ -71,7 +71,6 @@ class PathConstants(Enum):
         path=BASE_DIR / "data" / "input" / "get_series_startenddate_CAW_summary_total_sorted_20201013.csv",
         description="",
     )
-
     fews_config = PathNamedTuple(
         is_file=False,
         should_exist=True,

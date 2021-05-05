@@ -2,6 +2,7 @@ from mptconfig import constants
 from mptconfig.checker_helpers import HelperValidationRules
 from mptconfig.checker_helpers import NewValidationCsv
 from mptconfig.checker_helpers import NewValidationCsvCreator
+from mptconfig.checker_helpers import is_in_a_validation
 from mptconfig.constants import MAX_DIFF
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
@@ -396,8 +397,8 @@ class MptConfigChecker:
     def check_idmap_int_loc_in_csv(self, sheet_name: str = "idmap int_loc in csv error") -> ExcelSheet:
         """Check if IdOPVLWATER.xml int_locs are in correct (hoofdloc/subloc/ow) csv."""
         description = (
-            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juiste mpt csv (hoofd/sub/ow). "
-            "Int_low type wordt bepaald obv Int_low's OW/KW en laatste nummer."
+            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juiste mpt csv (hoofd/sub/ow/msw). "
+            "Int_loc type wordt bepaald obv int_loc string eg 'KW761234'"
         )
         logger.info(f"start {self.check_idmap_int_loc_in_csv.__name__} with sheet_name={sheet_name}")
 
@@ -1342,7 +1343,7 @@ class MptConfigChecker:
         #  1) validatie perioden vandezelfde subloc mogen
         #       - niet overlappen
         #       - geen gaten
-        #  2) zijn constants.MIN_DATE_ALLOWED en constants.MAX_DATE_ALLOWED
+        #  2) constants.MIN_DATE_ALLOWED <= start < eind <= constants.MAX_DATE_ALLOWED
 
         # Roger 'algemeen validatie csvs'
         # Inloc in validatie-CSV’s
@@ -1403,7 +1404,7 @@ class MptConfigChecker:
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
         idmap_df_grouped_by_intloc = idmap_df.groupby("internalLocation")
-        idmap_df["is_in_a_validation"] = False
+        idmap_df[is_in_a_validation] = False
 
         for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.mswloc, self.psloc):
             if not loc_set.validation_rules:
@@ -1416,8 +1417,8 @@ class MptConfigChecker:
             # keep track of idmapping int_locs that are in df_merged_validation_csvs
             mask = idmap_df["internalLocation"].isin(df_merged_validation_csvs["LOC_ID"])
             assert len(mask) == len(idmap_df)
-            # update idmap_df['is_in_a_validation'] to True when mask is True (never True to False!)
-            idmap_df.loc[mask, "is_in_a_validation"] = True
+            # update idmap_df[is_in_a_validation] to True when mask is True (never True to False!)
+            idmap_df.loc[mask, is_in_a_validation] = True
 
             for idx, row in df_merged_validation_csvs.iterrows():
                 # drop all empty columns current row so we can use row.keys() to check if value is missing
@@ -1450,7 +1451,9 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
-        # TODO: start end nieuwe validatie regel moet altijd 1900, end altijd 2100
+        # TODO: remove this
+        assert len(idmap_df[idmap_df[is_in_a_validation]==False])
+
         new_csv_creator = NewValidationCsvCreator(
             fews_config=self.fews_config,
             hoofdloc=self.hoofdloc,
@@ -1459,7 +1462,7 @@ class MptConfigChecker:
             idmap_df=idmap_df,
         )
         self._validation_csvs_new = new_csv_creator.run()
-        # bad design.. but new_csv_creator.idmap_df is updated in the meantime..
+        # bad design.. but new_csv_creator.idmap_df is updated in the meantime with two new columns
         idmap_df = new_csv_creator.idmap_df
 
         errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)
@@ -1792,26 +1795,26 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
-        self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
-        self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
-        self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        self.results.add_sheet(excelsheet=self.check_missing_pars())
-        self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
-
-        # check returns two results
-        sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
-        self.results.add_sheet(excelsheet=sheet1)
-        self.results.add_sheet(excelsheet=sheet2)
-
-        self.results.add_sheet(excelsheet=self.check_ex_par_missing())
-        self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
-        self.results.add_sheet(excelsheet=self.check_timeseries_logic())
+        # self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
+        # self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
+        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
+        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        # self.results.add_sheet(excelsheet=self.check_missing_pars())
+        # self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
+        #
+        # # check returns two results
+        # sheet1, sheet2 = self.check_ex_par_errors_int_loc_missing()
+        # self.results.add_sheet(excelsheet=sheet1)
+        # self.results.add_sheet(excelsheet=sheet2)
+        #
+        # self.results.add_sheet(excelsheet=self.check_ex_par_missing())
+        # self.results.add_sheet(excelsheet=self.check_ex_loc_int_loc_mismatch())
+        # self.results.add_sheet(excelsheet=self.check_timeseries_logic())
         self.results.add_sheet(excelsheet=self.check_validation_rules())
-        self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
-        self.results.add_sheet(excelsheet=self.check_location_set_errors())
+        # self.results.add_sheet(excelsheet=self.check_int_par_ex_par_mismatch())
+        # self.results.add_sheet(excelsheet=self.check_location_set_errors())
 
         # add output_no_check sheets
         self._add_tab_color_description_to_results()
@@ -1824,7 +1827,7 @@ class MptConfigChecker:
         excel_writer.write()
 
         # write new csv files
-        self._write_new_opvlwater_hoofdloc_csv()
-        self._write_new_opvlwater_subloc_csv()
-        self._write_new_waterstandlocaties_csv()
+        # self._write_new_opvlwater_hoofdloc_csv()
+        # self._write_new_opvlwater_subloc_csv()
+        # self._write_new_waterstandlocaties_csv()
         self._write_new_validation_csvs()
