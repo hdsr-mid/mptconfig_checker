@@ -178,6 +178,9 @@ class HelperValidationRules:
         for idx, row in idmap_df.iterrows():
             if row[is_in_a_validation]:
                 continue
+            if IntLocChoices.is_msw(row["internalLocation"]):
+                # msw locations have validation rules (as they are from Rijkswaterstaat)
+                continue
             if row[added_to_new_validation]:
                 errors["error_type"] += ["not in any validation csv. Added to new csv"]
                 default_description = ""
@@ -234,15 +237,25 @@ class HelperValidationRules:
             logger.debug(f"{default_msg} has no field {_lower} and/or {_upper}")
             return errors
         except (ValueError, TypeError):
-            logger.debug(f"{default_msg} fiels {_lower} and/or {_upper} are empty")
+            logger.debug(f"{default_msg} fields {_lower} and/or {_upper} are empty")
             # the absence is already reported in cls.check_attributes_too_few_or_many()
             return errors
-        assert operator in ("<", "<=", ">", ">="), f"unexpected: unknown operator {operator}"
+        assert operator in (
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "==",
+        ), f"unexpected: unknown operator {operator}"
         if eval(f"{value1} {operator} {value2}"):
             logger.debug("skipping as two values meet condition")
             return errors
         errors = cls.__add_one_error(
-            row=row, int_pars=int_pars, error_type="value", description=f"{_lower} {operator} {_upper}", errors=errors
+            row=row,
+            int_pars=int_pars,
+            error_type="value",
+            description=f"{_lower}({value1}) {operator} {_upper}({value2})",
+            errors=errors,
         )
         return errors
 
@@ -262,7 +275,7 @@ class HelperValidationRules:
 
         Compare values separately and only report error if both values are defined (not nan).
         """
-        for statement in constants.HLOC_SLOC_VALIDATION_LOGIC:
+        for statement in constants.ValidationLogic.get_hloc_sloc_validation_logic():
             _lower, operator, _upper = statement
             _lower_rule = rule.get(_lower, "")  # e.g. from smin to 'HS1_HMIN'
             _upper_rule = rule.get(_upper, "")
@@ -274,7 +287,7 @@ class HelperValidationRules:
     @classmethod
     def check_waterstandstand_loc(cls, errors: Dict, rule: Dict, row: pd.Series, int_pars: List[str]) -> Dict:
         """
-        waterstandlocations have 1 value for hmax, hmin and 3 values for smax and smin
+        waterstandlocations have 1 value for hmax and hmin, 3 values for smax and smin
         Examples:
             waterstandloc "H.G." has {
                     "hmax": "HARDMAX",
@@ -299,7 +312,7 @@ class HelperValidationRules:
 
         Compare values separately and only report error if both values are defined (not nan).
         """
-        for statement in constants.WLOC_VALIDATION_LOGIC:
+        for statement in constants.ValidationLogic.get_wloc_validation_logic():
             _lower, operator, _upper = statement
             _lower_rule = rule.get(_lower, "")  # e.g. from smin to 'HS1_HMIN'
             _upper_rule = rule.get(_upper, "")
