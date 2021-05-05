@@ -23,9 +23,8 @@ assert BASE_DIR.name == "mptconfig_checker"
 
 # do not change these paths
 D_DRIVE = Path("D:/")
+H_DRIVE = Path("H:/")
 S_DRIVE = Path("S:/")
-S_WATERBALANS_WIS_CAW_DIR = S_DRIVE / "Waterbalans" / "_WIS_" / "caw"
-
 
 PathNamedTuple = namedtuple("Paths", ["is_file", "should_exist", "path", "description"])
 YYYYMMDD_TODAY = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -89,12 +88,8 @@ class PathConstants(Enum):
     ignored_histtag = PathNamedTuple(
         is_file=True,
         should_exist=True,
-        # path=BASE_DIR / "data" / "input" / "ignored_histtag.csv",
-        path=S_WATERBALANS_WIS_CAW_DIR
-        / "get_series_startenddate"
-        / "CAW_mpt_startenddate"
-        / "mpt_startenddate_total_pixml_transferdb_ignore.csv",
-        description="histTags die worden genegeerd bij het wegschrijven van de sheet mpt",
+        path=H_DRIVE / "DATA" / "FEWS-WIS" / "Github_repos" / "histtag_ignore" / "histtag_ignore.csv",
+        description="histtags gebruikt voor checks: check_histtags_nomatch() en check_ignored_histtags()",
     )
     ignored_time_series_error = PathNamedTuple(
         is_file=True,
