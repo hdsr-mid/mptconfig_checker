@@ -1,5 +1,6 @@
 from mptconfig import constants
 from mptconfig.checker_helpers import HelperValidationRules
+from mptconfig.checker_helpers import is_in_a_validation
 from mptconfig.checker_helpers import NewValidationCsv
 from mptconfig.checker_helpers import NewValidationCsvCreator
 from mptconfig.constants import MAX_DIFF
@@ -425,10 +426,10 @@ class MptConfigChecker:
         return result["HBOV"], result["HBEN"]
 
     def check_idmap_int_loc_in_csv(self, sheet_name: str = "idmap int_loc in csv error") -> ExcelSheet:
-        """Check if IdOPVLWATER.xml int_locs are in correct (hoofdloc/subloc/ow) csv."""
+        """Check if IdOPVLWATER.xml int_locs are in correct (hoofdloc/subloc/ow/msw) csv."""
         description = (
-            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juiste mpt csv (hoofd/sub/ow). "
-            "Int_low type wordt bepaald obv Int_low's OW/KW en laatste nummer."
+            "Elke IdOPVLWATER.xml int_loc moet 1x voorkomen in juiste mpt csv (hoofd/sub/ow/msw). "
+            "Int_loc type wordt bepaald o.b.v. int_loc id 'KW761234'"
         )
         logger.info(f"start {self.check_idmap_int_loc_in_csv.__name__} with sheet_name={sheet_name}")
 
@@ -1374,9 +1375,9 @@ class MptConfigChecker:
         #  1) validatie perioden vandezelfde subloc mogen
         #       - niet overlappen
         #       - geen gaten
-        #  2) zijn constants.MIN_DATE_ALLOWED en constants.MAX_DATE_ALLOWED
+        #  2) constants.MIN_DATE_ALLOWED <= start < eind <= constants.MAX_DATE_ALLOWED
 
-        # Roger 'algemeen validatie csvs'
+        # in het algemeen mbt validatie-csvs:
         # Inloc in validatie-CSV’s
         # - Voor streefhoogte, hefhoogte, opening percentage hebben we aparte validatie csvs
         # - In Validatie csv staan validatie criteria per type tijdreeks
@@ -1392,7 +1393,7 @@ class MptConfigChecker:
         #     - Per definitie zijn deze validatie periode aansluitend (nooit een gat of overlappend!)
         #     - We hoeven deze Oppvlwater_watervalidatie.csv niet te relateren aan sublocaties (die hebben we nu ontkoppelt)  # noqa
 
-        # Roger 'hoe validatie error regel oplossen?'
+        # 'hoe validatie error regel oplossen?'
         # voorbeeld
         # internalLocation  start       eind        internalParameters  error_type  description
         # KW100412	        19960401    21000101    H.R.0,Hk.0,Q.G.0	too_few	    HR1_HMAX,HR1_HMIN
@@ -1435,7 +1436,7 @@ class MptConfigChecker:
         idmaps = self._get_idmaps(idmap_files=["IdOPVLWATER"])
         idmap_df = pd.DataFrame(data=idmaps)
         idmap_df_grouped_by_intloc = idmap_df.groupby("internalLocation")
-        idmap_df["is_in_a_validation"] = False
+        idmap_df[is_in_a_validation] = False
 
         for loc_set in (self.hoofdloc, self.subloc, self.waterstandloc, self.mswloc, self.psloc):
             if not loc_set.validation_rules:
@@ -1448,8 +1449,8 @@ class MptConfigChecker:
             # keep track of idmapping int_locs that are in df_merged_validation_csvs
             mask = idmap_df["internalLocation"].isin(df_merged_validation_csvs["LOC_ID"])
             assert len(mask) == len(idmap_df)
-            # update idmap_df['is_in_a_validation'] to True when mask is True (never True to False!)
-            idmap_df.loc[mask, "is_in_a_validation"] = True
+            # update idmap_df[is_in_a_validation] to True when mask is True (never True to False!)
+            idmap_df.loc[mask, is_in_a_validation] = True
 
             for idx, row in df_merged_validation_csvs.iterrows():
                 # drop all empty columns current row so we can use row.keys() to check if value is missing
@@ -1482,7 +1483,6 @@ class MptConfigChecker:
                             errors=errors, rule=rule, row=row, int_pars=int_pars
                         )
 
-        # TODO: start end nieuwe validatie regel moet altijd 1900, end altijd 2100
         new_csv_creator = NewValidationCsvCreator(
             fews_config=self.fews_config,
             hoofdloc=self.hoofdloc,
@@ -1491,7 +1491,7 @@ class MptConfigChecker:
             idmap_df=idmap_df,
         )
         self._validation_csvs_new = new_csv_creator.run()
-        # bad design.. but new_csv_creator.idmap_df is updated in the meantime..
+        # bad design.. but new_csv_creator.idmap_df is updated in the meantime with two new columns
         idmap_df = new_csv_creator.idmap_df
 
         errors = HelperValidationRules.check_idmapping_int_loc_in_a_validation(errors=errors, idmap_df=idmap_df)

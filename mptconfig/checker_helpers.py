@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 PandasDFGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")  # noqa
 
+added_to_new_validation = "added_to_new_validation"
+is_in_a_validation = "is_in_a_validation"
+
 
 class NewValidationCsv:
     def __init__(self, orig_filepath: Path, df: pd.DataFrame):
@@ -50,7 +53,7 @@ class NewValidationCsvCreator:
         self.subloc = subloc
         self.waterstandloc = waterstandloc
         self.idmap_df = idmap_df
-        assert "is_in_a_validation" in self.idmap_df.columns
+        assert is_in_a_validation in self.idmap_df.columns
         self.ensure_config_matches_constants()
 
     def ensure_config_matches_constants(self) -> None:
@@ -73,10 +76,10 @@ class NewValidationCsvCreator:
 
     def get_new_csv_data(self) -> pd.DataFrame:
         """Gather new validation csv data: filename, int_loc, startdate, enddate for location sets. """
-        self.idmap_df["added_to_new_validation"] = False
+        self.idmap_df[added_to_new_validation] = False
         row_collector = []
         for idx, row in self.idmap_df.iterrows():
-            if row["is_in_a_validation"]:
+            if row[is_in_a_validation]:
                 continue
             row_int_loc = row["internalLocation"]
             row_int_par = row["internalParameter"]
@@ -92,7 +95,7 @@ class NewValidationCsvCreator:
             filename = constants.ValidationCsvChoices.get_validation_csv_name(int_par=row_int_par, loc_type=loc_type)
             if not filename:
                 continue
-            self.idmap_df["added_to_new_validation"][idx] = True
+            self.idmap_df[added_to_new_validation][idx] = True
             row_collector.append(
                 {
                     "filename": filename,
@@ -173,20 +176,23 @@ class HelperValidationRules:
     @classmethod
     def check_idmapping_int_loc_in_a_validation(cls, errors: Dict, idmap_df: pd.DataFrame) -> Dict:
         for idx, row in idmap_df.iterrows():
-            if row["is_in_a_validation"]:
+            if row[is_in_a_validation]:
                 continue
-            if row["added_to_new_validation"]:
-                errors["error_type"] = "not in any validation csv. Added to new csv"
-                description = ""
+            if IntLocChoices.is_msw(row["internalLocation"]):
+                # msw locations have validation rules (as they are from Rijkswaterstaat)
+                continue
+            if row[added_to_new_validation]:
+                errors["error_type"] += ["not in any validation csv. Added to new csv"]
+                default_description = ""
             else:
-                errors["error_type"] = "not in any validation csv. Not added to new csv"
-                description = "please add manually"
+                errors["error_type"] += ["not in any validation csv. Not added to new csv"]
+                default_description = "please add manually"
             errors["internalLocation"] += [row["internalLocation"]]
             errors["start"] += [""]
             errors["eind"] += [""]
             errors["internalParameters"] += [row["internalParameter"]]
             errors["error_description"] += [
-                f'{description}: exloc={row["externalLocation"]}, expar={row["externalParameter"]}'
+                f'{default_description}: exloc={row["externalLocation"]}, expar={row["externalParameter"]}'
             ]
         return errors
 
@@ -231,15 +237,25 @@ class HelperValidationRules:
             logger.debug(f"{default_msg} has no field {_lower} and/or {_upper}")
             return errors
         except (ValueError, TypeError):
-            logger.debug(f"{default_msg} fiels {_lower} and/or {_upper} are empty")
+            logger.debug(f"{default_msg} fields {_lower} and/or {_upper} are empty")
             # the absence is already reported in cls.check_attributes_too_few_or_many()
             return errors
-        assert operator in ("<", "<=", ">", ">="), f"unexpected: unknown operator {operator}"
+        assert operator in (
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "==",
+        ), f"unexpected: unknown operator {operator}"
         if eval(f"{value1} {operator} {value2}"):
             logger.debug("skipping as two values meet condition")
             return errors
         errors = cls.__add_one_error(
-            row=row, int_pars=int_pars, error_type="value", description=f"{_lower} {operator} {_upper}", errors=errors
+            row=row,
+            int_pars=int_pars,
+            error_type="value",
+            description=f"{_lower}({value1}) {operator} {_upper}({value2})",
+            errors=errors,
         )
         return errors
 
@@ -259,7 +275,7 @@ class HelperValidationRules:
 
         Compare values separately and only report error if both values are defined (not nan).
         """
-        for statement in constants.HLOC_SLOC_VALIDATION_LOGIC:
+        for statement in constants.ValidationLogic.get_hloc_sloc_validation_logic():
             _lower, operator, _upper = statement
             _lower_rule = rule.get(_lower, "")  # e.g. from smin to 'HS1_HMIN'
             _upper_rule = rule.get(_upper, "")
@@ -271,7 +287,7 @@ class HelperValidationRules:
     @classmethod
     def check_waterstandstand_loc(cls, errors: Dict, rule: Dict, row: pd.Series, int_pars: List[str]) -> Dict:
         """
-        waterstandlocations have 1 value for hmax, hmin and 3 values for smax and smin
+        waterstandlocations have 1 value for hmax and hmin, 3 values for smax and smin
         Examples:
             waterstandloc "H.G." has {
                     "hmax": "HARDMAX",
@@ -296,7 +312,7 @@ class HelperValidationRules:
 
         Compare values separately and only report error if both values are defined (not nan).
         """
-        for statement in constants.WLOC_VALIDATION_LOGIC:
+        for statement in constants.ValidationLogic.get_wloc_validation_logic():
             _lower, operator, _upper = statement
             _lower_rule = rule.get(_lower, "")  # e.g. from smin to 'HS1_HMIN'
             _upper_rule = rule.get(_upper, "")

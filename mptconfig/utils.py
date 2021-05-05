@@ -1,6 +1,4 @@
-from mptconfig.constants import ENDDATE_UNMEASURED_LOC
-from mptconfig.constants import MAX_ENDDATE_MEASURED_LOC
-from mptconfig.constants import STARTDATE_UNMEASURED_LOC
+from mptconfig import constants
 from pathlib import Path
 from typing import Dict
 from typing import List
@@ -38,12 +36,12 @@ def is_unmeasured_location(
     """
     # TODO: remove work-around (3 lines below): 32101230 should be replaced with 22220101 in mpt config csvs
     if str(enddate) in ("32101230", "3210-12-30"):
-        assert pd.to_datetime(startdate) == STARTDATE_UNMEASURED_LOC
+        assert pd.to_datetime(startdate) == constants.STARTDATE_UNMEASURED_LOC
         return True
     pd_startdate = pd.to_datetime(startdate)
     pd_enddate = pd.to_datetime(enddate)
-    start_is_unmeasured = pd_startdate == STARTDATE_UNMEASURED_LOC
-    end_is_unmeasured = pd_enddate == ENDDATE_UNMEASURED_LOC
+    start_is_unmeasured = pd_startdate == constants.STARTDATE_UNMEASURED_LOC
+    end_is_unmeasured = pd_enddate == constants.ENDDATE_UNMEASURED_LOC
     if start_is_unmeasured != end_is_unmeasured:
         # this is reported in check_dates_loc_sets()
         logger.warning(f"found start={pd_startdate}, end={end_is_unmeasured}")
