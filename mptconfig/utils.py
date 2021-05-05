@@ -86,35 +86,6 @@ def update_h_locs_start_end(
     return earliest_start_date, latest_end_date
 
 
-def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timestamp) -> Tuple[str, str]:
-    """Return start and end-date, e.g. ('19970101', '21000101'), in df.apply() method."""
-    int_loc = row["LOC_ID"]
-    # check if int_loc is in pd.Series mpt_df['LOC_ID']
-    # watch out! avoid this: "if int_loc in mpt_df['LOC_ID']"
-    int_loc_df = mpt_df[mpt_df["LOC_ID"] == int_loc]
-    if len(int_loc_df) == 0:
-        start_date_str = row["START"]
-        end_date_str = row["EIND"]
-        return start_date_str, end_date_str
-
-    # from series to list
-    assert len(int_loc_df) == 1
-    start_date_list = int_loc_df["STARTDATE"].to_list()
-    assert len(start_date_list) == 1
-    start_date = start_date_list[0]
-    end_date_list = int_loc_df["ENDDATE"].to_list()
-    assert len(end_date_list) == 1
-    end_date = end_date_list[0]
-
-    # eventual update end_date
-    if end_date > date_threshold:
-        end_date = MAX_ENDDATE_MEASURED_LOC
-
-    # return strings
-    assert start_date < end_date
-    return start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d")
-
-
 def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
     """Assign last histTag to waterstandsloc in df.apply method.
     row['LOC_ID'] is e.g. 'OW100101'
