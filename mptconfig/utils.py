@@ -19,6 +19,12 @@ PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy"
 logger = logging.getLogger(__name__)
 
 
+def pd_drop_columns(df: pd.DataFrame, drop_columns: List[str]) -> pd.DataFrame:
+    df_drop_columns = [x for x in drop_columns if x in df.columns]
+    df.drop(columns=df_drop_columns, axis=1, inplace=True)
+    return df
+
+
 def flatten_nested_list(_list: List[List]) -> List:
     return [item for sublist in _list for item in sublist]
 
@@ -87,24 +93,26 @@ def update_date(row: pd.Series, mpt_df: pd.DataFrame, date_threshold: pd.Timesta
     # watch out! avoid this: "if int_loc in mpt_df['LOC_ID']"
     int_loc_df = mpt_df[mpt_df["LOC_ID"] == int_loc]
     if len(int_loc_df) == 0:
-        start_date = row["START"]
-        end_date = row["EIND"]
-        return start_date, end_date
-    assert len(int_loc_df) == 1
+        start_date_str = row["START"]
+        end_date_str = row["EIND"]
+        return start_date_str, end_date_str
 
     # from series to list
+    assert len(int_loc_df) == 1
     start_date_list = int_loc_df["STARTDATE"].to_list()
     assert len(start_date_list) == 1
-    start_date = start_date_list[0].strftime("%Y%m%d")
-
+    start_date = start_date_list[0]
     end_date_list = int_loc_df["ENDDATE"].to_list()
     assert len(end_date_list) == 1
-    end_date = start_date_list[0]
+    end_date = end_date_list[0]
 
+    # eventual update end_date
     if end_date > date_threshold:
         end_date = MAX_ENDDATE_MEASURED_LOC
-    end_date = end_date.strftime("%Y%m%d")
-    return start_date, end_date
+
+    # return strings
+    assert start_date < end_date
+    return start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d")
 
 
 def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
@@ -112,6 +120,7 @@ def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
     row['LOC_ID'] is e.g. 'OW100101'
     updated_histtag_str is e.g. '1001_HO1'
     """
+    # TODO: this takes forever, use masks!
     updated_histtag = [
         df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
         for loc_id, df in grouper

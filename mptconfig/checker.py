@@ -13,8 +13,8 @@ from mptconfig.idmapping_choices import IntLocChoices
 from mptconfig.utils import flatten_nested_list
 from mptconfig.utils import idmap2tags
 from mptconfig.utils import is_unmeasured_location
+from mptconfig.utils import pd_drop_columns
 from mptconfig.utils import pd_read_csv_expect_columns
-from mptconfig.utils import update_date
 from mptconfig.utils import update_h_locs_start_end
 from mptconfig.utils import update_histtag
 from pathlib import Path
@@ -150,6 +150,11 @@ class MptConfigChecker:
         mpt_histtags_new is used to create new csvs (hoofdloc, subloc, and waterstandloc) to determine
         start- and enddate.
         """
+        loc_id_col = "LOC_ID"
+        start_col = "STARTDATE"
+        end_col = "ENDDATE"
+        pd_start_col = "pd_start"
+        pd_end_col = "pd_end"
         if self._mpt_histtags_new is not None:
             return self._mpt_histtags_new
         logger.debug("creating mpt_histtags_new")
@@ -169,35 +174,38 @@ class MptConfigChecker:
             "total_min_start_dt",
         ], "unexpected columns in mpt_df"
         mpt_df.rename(
-            columns={"fews_locid": "LOC_ID", "total_min_start_dt": "STARTDATE", "total_max_end_dt": "ENDDATE"},
+            columns={"fews_locid": loc_id_col, "total_min_start_dt": start_col, "total_max_end_dt": end_col},
             inplace=True,
         )
-        kw_locs = list(mpt_df[mpt_df["LOC_ID"].str.startswith("KW")]["LOC_ID"])
+        kw_locs = list(mpt_df[mpt_df[loc_id_col].str.startswith("KW")][loc_id_col])
         # H_LOC ends with a 0 (e.g if subloc = KW106013, then h_loc becomes KW106010)
         h_locs = np.unique([f"{kw_loc[0:-1]}0" for kw_loc in kw_locs])
-        missing_h_locs = [loc for loc in h_locs if loc not in mpt_df["LOC_ID"].to_list()]
+        missing_h_locs = [loc for loc in h_locs if loc not in mpt_df[loc_id_col].to_list()]
         missing_h_locs_df = pd.DataFrame(
             data={
-                "LOC_ID": missing_h_locs,
-                "STARTDATE": [pd.NaT] * len(missing_h_locs),
-                "ENDDATE": [pd.NaT] * len(missing_h_locs),
+                loc_id_col: missing_h_locs,
+                start_col: [pd.NaT] * len(missing_h_locs),
+                end_col: [pd.NaT] * len(missing_h_locs),
             }
         )
         mpt_df = pd.concat([mpt_df, missing_h_locs_df], axis=0)
-        assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after pd.concat"
-        mpt_df[["STARTDATE", "ENDDATE"]] = mpt_df.apply(
+        assert mpt_df[loc_id_col].is_unique, f"{loc_id_col} must be unique after pd.concat"
+        mpt_df[[start_col, end_col]] = mpt_df.apply(
             func=update_h_locs_start_end, args=[h_locs, mpt_df], axis=1, result_type="expand"
         )
-        assert mpt_df["LOC_ID"].is_unique, "LOC_ID must be unique after update_h_locs"
-        assert not mpt_df["STARTDATE"].hasnans, "mpt_df column STARTDATE should not have nans"
-        assert not mpt_df["ENDDATE"].hasnans, "mpt_df column ENDDATE should not have nans"
-        self._mpt_histtags_new = mpt_df.sort_values(by="LOC_ID", ascending=True, ignore_index=True, inplace=False)
-        assert sorted(self._mpt_histtags_new.columns) == ["ENDDATE", "LOC_ID", "STARTDATE"]
+        assert mpt_df[loc_id_col].is_unique, f"{loc_id_col} must be unique after update_h_locs"
+        assert not mpt_df[start_col].hasnans, f"mpt_df column {start_col} should not have nans"
+        assert not mpt_df[end_col].hasnans, f"mpt_df column {end_col} should not have nans"
+        mpt_df[pd_start_col] = pd.to_datetime(mpt_df[start_col], format="%Y%m%d", errors="raise")
+        mpt_df[pd_end_col] = pd.to_datetime(mpt_df[end_col], format="%Y%m%d", errors="raise")
+        mpt_df.drop(columns=[start_col, end_col], axis=1, inplace=True)
+        self._mpt_histtags_new = mpt_df.sort_values(by=loc_id_col, ascending=True, ignore_index=True, inplace=False)
+        assert sorted(self._mpt_histtags_new.columns) == [loc_id_col, pd_end_col, pd_start_col]
         return self._mpt_histtags_new
 
     @property
     def validation_csvs_new(self) -> List[NewValidationCsv]:
-        return self._validation_csvs_new
+        return self._validation_csvs_new if self._validation_csvs_new else []
 
     @property
     def ignored_ex_loc(self) -> pd.DataFrame:
@@ -259,10 +267,33 @@ class MptConfigChecker:
         )
         return self._ignored_xy
 
-    def _update_start_end_new_csv(self, df: pd.DataFrame) -> pd.DataFrame:
-        date_threshold = self.mpt_histtags_new["ENDDATE"].max() - MAX_DIFF
-        df[["START", "EIND"]] = df.apply(
-            func=update_date, args=(self.mpt_histtags_new, date_threshold), axis=1, result_type="expand"
+    def _update_enddate_new_csv(self, df: pd.DataFrame, file_name: str) -> pd.DataFrame:
+        """Eventually update ENDDATE in new csv when it exceeds date_threshold """
+        # TODO: waarom ook alweer in 1 korte zin
+        date_threshold = self.mpt_histtags_new["pd_end"].max() - MAX_DIFF
+        assert isinstance(date_threshold, pd.Timestamp), f"date_threshold {date_threshold} should be a pd.Timestamp"
+
+        start_col = "START"
+        end_col = "EIND"
+        pd_start_col = "pd_start"
+        pd_end_col = "pd_end"
+
+        if (pd_start_col and pd_end_col) not in df.columns:
+            df[pd_start_col] = pd.to_datetime(df[start_col], format="%Y%m%d", errors="coerce")
+            df[pd_end_col] = pd.to_datetime(df[end_col], format="%Y%m%d", errors="coerce")
+
+        # check which df int_locs are in self.mpt_histtags_new
+        df["in_mpt_new"] = df["LOC_ID"].isin(self.mpt_histtags_new["LOC_ID"])
+        df["update_this_end"] = (df["in_mpt_new"] == False) & (df[pd_end_col] > date_threshold)  # noqa
+        logger.info(
+            f"update {df['update_this_end'].sum()} ENDDATE in new {file_name} that "
+            f"exceed date_threshold={date_threshold.strftime('%Y%m%d')}"
+        )
+        df.loc[df["update_this_end"] == True, pd_end_col] = constants.MAX_ENDDATE_MEASURED_LOC  # noqa
+        df[start_col] = df.pd_start.dt.strftime("%Y%m%d")
+        df[end_col] = df.pd_end.dt.strftime("%Y%m%d")
+        df = pd_drop_columns(
+            df=df, drop_columns=["in_mpt_new", pd_start_col, pd_end_col, "update_this_end", "STARTDATE", "ENDATE"]
         )
         return df
 
@@ -308,7 +339,7 @@ class MptConfigChecker:
 
         # ensure no decimal in column X, Y (go from 137319.0 to 137319)
         gdf["X"] = gdf["X"].astype(np.int32)
-        gdf["Y"] = gdf["X"].astype(np.int32)
+        gdf["Y"] = gdf["Y"].astype(np.int32)
         df = gdf.drop("geometry", axis=1)
         return df
 
@@ -320,14 +351,14 @@ class MptConfigChecker:
             return
         logger.info(f"creating new csv {self.hoofdloc.name}")
         df = self._validate_geom(gdf=self.hoofdloc.geo_df)
-        df = self._update_start_end_new_csv(df=df)
+        df = self._update_enddate_new_csv(df=df, file_name=self.hoofdloc.name)
         self._df_to_csv(df=df, file_name=self.hoofdloc.name)
 
     def _write_new_opvlwater_subloc_csv(self) -> None:
         """ Write SubLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.subloc.name}")
         df = self._validate_geom(gdf=self.subloc.geo_df)
-        df = self._update_start_end_new_csv(df=df)
+        df = self._update_enddate_new_csv(df=df, file_name=self.subloc.name)
         grouper = df.groupby(["PAR_ID"])
         par_types_df = grouper["TYPE"].unique().apply(func=lambda x: sorted(x)).transform(lambda x: "/".join(x))
         df["PAR_ID"] = df["LOC_ID"].str[0:-1] + "0"
@@ -340,7 +371,7 @@ class MptConfigChecker:
         """ Write WaterstandLocationSet.geo_df to csv."""
         logger.info(f"creating new csv {self.waterstandloc.name}")
         df = self._validate_geom(gdf=self.waterstandloc.geo_df)
-        df = self._update_start_end_new_csv(df=df)
+        df = self._update_enddate_new_csv(df=df, file_name=self.waterstandloc.name)
         grouper = self.mpt_histtags.groupby(["fews_locid"])
         # leave it HIST_TAG (instead of HISTTAG), as that is what OPVLWATER_WATERSTANDEN_AUTO.csv expects
         df["HIST_TAG"] = df.apply(func=update_histtag, args=[grouper], axis=1, result_type="expand")
@@ -570,6 +601,7 @@ class MptConfigChecker:
                     date_errors["internalLocation"] += [row["LOC_ID"]]
                     date_errors["error_type"] += ["end out of range date"]
                     date_errors["error"] += [f"start={row[start_col]}, end={row[end_col]}"]
+            df = pd_drop_columns(df=df, drop_columns=["start_is_unmeasured", "end_is_unmeasured", "wrong_order"])
 
         result_df = pd.DataFrame(data=date_errors)
         if result_df.empty:
@@ -1792,13 +1824,13 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
-        self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
-        self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
-        self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        self.results.add_sheet(excelsheet=self.check_missing_pars())
+        # self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
+        # self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
+        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
+        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        # self.results.add_sheet(excelsheet=self.check_missing_pars())
         self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
 
         # check returns two results
