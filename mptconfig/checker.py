@@ -293,7 +293,7 @@ class MptConfigChecker:
         df[start_col] = df.pd_start.dt.strftime("%Y%m%d")
         df[end_col] = df.pd_end.dt.strftime("%Y%m%d")
         df = pd_drop_columns(
-            df=df, drop_columns=["in_mpt_new", pd_start_col, pd_end_col, "update_this_end", "STARTDATE", "ENDATE"]
+            df=df, drop_coluemns=["in_mpt_new", pd_start_col, pd_end_col, "update_this_end", "STARTDATE", "ENDATE"]
         )
         return df
 
@@ -1824,13 +1824,13 @@ class MptConfigChecker:
         self.results.add_sheet(excelsheet=excelsheet)
 
     def run(self):
-        # self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
-        # self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
-        # self.results.add_sheet(excelsheet=self.check_idmap_sections())
-        # self.results.add_sheet(excelsheet=self.check_ignored_histtags())
-        # self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
-        # self.results.add_sheet(excelsheet=self.check_double_idmaps())
-        # self.results.add_sheet(excelsheet=self.check_missing_pars())
+        self.results.add_sheet(excelsheet=self.check_idmap_int_loc_in_csv())
+        self.results.add_sheet(excelsheet=self.check_dates_loc_sets())
+        self.results.add_sheet(excelsheet=self.check_idmap_sections())
+        self.results.add_sheet(excelsheet=self.check_ignored_histtags())
+        self.results.add_sheet(excelsheet=self.check_histtags_nomatch())
+        self.results.add_sheet(excelsheet=self.check_double_idmaps())
+        self.results.add_sheet(excelsheet=self.check_missing_pars())
         self.results.add_sheet(excelsheet=self.check_s_loc_consistency())
 
         # check returns two results
