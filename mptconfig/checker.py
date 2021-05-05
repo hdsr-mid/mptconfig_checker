@@ -1,8 +1,8 @@
 from mptconfig import constants
 from mptconfig.checker_helpers import HelperValidationRules
+from mptconfig.checker_helpers import is_in_a_validation
 from mptconfig.checker_helpers import NewValidationCsv
 from mptconfig.checker_helpers import NewValidationCsvCreator
-from mptconfig.checker_helpers import is_in_a_validation
 from mptconfig.constants import MAX_DIFF
 from mptconfig.excel import ExcelSheet
 from mptconfig.excel import ExcelSheetCollector
@@ -1452,7 +1452,7 @@ class MptConfigChecker:
                         )
 
         # TODO: remove this
-        assert len(idmap_df[idmap_df[is_in_a_validation]==False])
+        assert len(idmap_df[idmap_df[is_in_a_validation] == False])
 
         new_csv_creator = NewValidationCsvCreator(
             fews_config=self.fews_config,

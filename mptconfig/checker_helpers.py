@@ -40,7 +40,6 @@ class NewValidationCsv:
 
 
 class NewValidationCsvCreator:
-
     def __init__(
         self,
         fews_config: FewsConfig,
