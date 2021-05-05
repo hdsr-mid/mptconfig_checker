@@ -293,7 +293,7 @@ class MptConfigChecker:
         df[start_col] = df.pd_start.dt.strftime("%Y%m%d")
         df[end_col] = df.pd_end.dt.strftime("%Y%m%d")
         df = pd_drop_columns(
-            df=df, drop_coluemns=["in_mpt_new", pd_start_col, pd_end_col, "update_this_end", "STARTDATE", "ENDATE"]
+            df=df, drop_columns=["in_mpt_new", pd_start_col, pd_end_col, "update_this_end", "STARTDATE", "ENDATE"]
         )
         return df
 
