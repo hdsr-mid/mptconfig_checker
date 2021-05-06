@@ -1,8 +1,8 @@
 from datetime import date
 from mptconfig.constants import ENDDATE_UNMEASURED_LOC
 from mptconfig.constants import STARTDATE_UNMEASURED_LOC
+from mptconfig.new_config_csv_writer import NewConfigCsvWriter
 from mptconfig.utils import is_unmeasured_location
-from mptconfig.utils import update_h_locs_start_end
 
 import numpy as np
 import pandas as pd  # noqa pandas comes with geopandas
@@ -33,7 +33,7 @@ def test_update_h_locs_start_end_all_measured_sub_loc():
             },
         }
     )
-    start_date, end_date = update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
+    start_date, end_date = NewConfigCsvWriter.update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
     assert start_date == pd.Timestamp(year=1997, month=1, day=1)
     assert end_date == pd.Timestamp(year=2020, month=9, day=30, hour=23, minute=45)
 
@@ -63,7 +63,7 @@ def test_update_h_locs_start_end_1_unmeasured_sub_locs():
             },
         }
     )
-    start_date, end_date = update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
+    start_date, end_date = NewConfigCsvWriter.update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
     assert start_date == pd.Timestamp(year=1999, month=12, day=1)
     assert end_date == pd.Timestamp(year=2020, month=9, day=30, hour=23, minute=45)
 
@@ -93,7 +93,7 @@ def test_update_h_locs_start_end_only_unmeasured_sub_locs():
             },
         }
     )
-    start_date, end_date = update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
+    start_date, end_date = NewConfigCsvWriter.update_h_locs_start_end(row=row, h_locs=h_locs, mpt_df=mpt_df)
     assert start_date == STARTDATE_UNMEASURED_LOC
     assert end_date == ENDDATE_UNMEASURED_LOC
 

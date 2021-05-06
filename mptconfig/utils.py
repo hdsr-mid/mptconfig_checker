@@ -2,8 +2,6 @@ from mptconfig import constants
 from pathlib import Path
 from typing import Dict
 from typing import List
-from typing import Tuple
-from typing import TypeVar
 from typing import Union
 
 import datetime
@@ -11,8 +9,6 @@ import logging
 import numpy as np  # noqa numpy comes with geopandas
 import pandas as pd  # noqa pandas comes with geopandas
 
-
-PandasDataFrameGroupBy = TypeVar(name="pd.core.groupby.generic.DataFrameGroupBy")
 
 logger = logging.getLogger(__name__)
 
@@ -59,49 +55,6 @@ def idmap2tags(row: pd.Series, idmap: List[Dict]) -> Union[float, List[str]]:
     ]
     # !! avoid <return fews_locs if fews_locs else [""]> !!
     return fews_locs if fews_locs else np.NaN
-
-
-def update_h_locs_start_end(
-    row: pd.Series, h_locs: np.ndarray, mpt_df: pd.DataFrame
-) -> Tuple[pd.Timestamp, pd.Timestamp]:
-    """Get the earliest startdate and last enddate from all grouped sublocs (per hoofdloc).
-    We exclude startdate and enddate from unmeasured sublocs if not all sublocs are unmeasured."""
-    int_loc = row["LOC_ID"]
-    if not bool(np.isin(int_loc, h_locs)):
-        logger.debug(f"skip update start end as {int_loc} is not a h_loc")
-        return row["STARTDATE"], row["ENDDATE"]
-    # get all locs at this location:
-    brothers_df = mpt_df[mpt_df["LOC_ID"].str.startswith(int_loc[0:-1])]
-    brothers_df["is_unmeasured"] = brothers_df.apply(
-        func=lambda x: is_unmeasured_location(startdate=x["STARTDATE"], enddate=x["ENDDATE"]), axis=1
-    )
-    if any(brothers_df["is_unmeasured"]) and not all(brothers_df["is_unmeasured"]):
-        logger.debug(f"some - but not all - sub_locs are unmeasured for hoofdloc {int_loc}")
-        # continue only with measured locations (rows where is_unmeasured is False)
-        brothers_df = brothers_df[brothers_df["is_unmeasured"] == False]  # noqa
-    earliest_start_date = brothers_df["STARTDATE"].dropna().min()
-    latest_end_date = brothers_df["ENDDATE"].dropna().max()
-    return earliest_start_date, latest_end_date
-
-
-def update_histtag(row: pd.Series, grouper: PandasDataFrameGroupBy) -> str:
-    """Assign last histTag to waterstandsloc in df.apply method.
-    row['LOC_ID'] is e.g. 'OW100101'
-    updated_histtag_str is e.g. '1001_HO1'
-    """
-    # TODO: this takes forever, use masks!
-    updated_histtag = [
-        df.sort_values("total_max_end_dt", ascending=False)["serie"].values[0]
-        for loc_id, df in grouper
-        if loc_id == row["LOC_ID"]
-    ]
-    if len(updated_histtag) == 0:
-        return ""
-    elif len(updated_histtag) == 1:
-        return updated_histtag[0]
-    raise AssertionError(
-        f"this should not happen, length of updated_histtag should be 0 or 1. updated_histtag={updated_histtag}"
-    )
 
 
 def sort_validation_attribs(rule: Dict) -> Dict[str, list]:
