@@ -131,6 +131,7 @@ class LocationSet:
         self.fews_config_path = fews_config_path
         self._fews_config = fews_config
         self._geo_df = None
+        self._geo_df_original = None
         self._general_location_sets_dict = None
         self._csvfile_meta = None
         self._attrib_files = None
@@ -161,6 +162,14 @@ class LocationSet:
             return self._fews_config
         self._fews_config = FewsConfig(path=self.fews_config_path)
         return self._fews_config
+
+    @property
+    def geo_df_original(self) -> gpd.GeoDataFrame:
+        if self._geo_df_original is not None:
+            return self._geo_df_original
+        self._geo_df_original = self.fews_config.get_locations(location_set_key=self.fews_name)
+        assert isinstance(self._geo_df_original, gpd.GeoDataFrame)
+        return self._geo_df_original
 
     @property
     def geo_df(self) -> gpd.GeoDataFrame:
